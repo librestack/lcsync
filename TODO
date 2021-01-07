@@ -1,0 +1,7 @@
+* multicast sync
+* MTU path discovery for block size
+* MLD triggering - don't send when noone listening
+* flow control
+* FEC
+* resizing of merkle tree for changing data
+* file sharding

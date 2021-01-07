@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net>
+
+SHELL = /bin/sh
+.SUFFIXES:
+.SUFFIXES: .c .o
+PROGRAM ?= lcsync
+INSTALL := install
+INSTALL_PROGRAM := $(INSTALL)
+prefix ?= /usr/local
+exec_prefix := $(prefix)
+bindir := $(exec_prefix)/bin
+CFLAGS +=
+LDFLAGS += -lsodium -lm -pthread
+OBJS = $(PROGRAM).o file.o mtree.o misc.o
+
+all:		$(PROGRAM)
+
+$(PROGRAM):	$(OBJS)
+		$(CC) $(OBJS) -o $@ $(LDFLAGS)
+
+misc.o:		misc.h
+
+$(PROGRAM).o:
+
+install:        all
+		$(INSTALL) -d $(DESTDIR)$(bindir)
+		$(INSTALL_PROGRAM) $(PROGRAM) $(DESTDIR)$(bindir)/$(PROGRAM)
+
+.PHONY: clean realclean
+
+clean:
+	rm -f *.o
+
+realclean: clean
+	rm -f $(PROGRAM)
