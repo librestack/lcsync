@@ -9,7 +9,14 @@ Compare data with merkle trees, sync via multicast.
 ## Usage
 
 Syncing local files:
+
 `lcsync source destination`
+
+Hexdump merkle tree:
+
+`lcsync -hex file`
+
+Outputs the hashes from base to root in hexadecimal.
 
 ## License
 
