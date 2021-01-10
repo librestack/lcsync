@@ -12,7 +12,7 @@ exec_prefix := $(prefix)
 bindir := $(exec_prefix)/bin
 CFLAGS +=
 LDFLAGS += -lsodium -lm -pthread
-OBJS = $(PROGRAM).o file.o mtree.o misc.o
+OBJS = $(PROGRAM).o arg.o file.o help.o mtree.o misc.o opt.o
 
 all:		$(PROGRAM)
 

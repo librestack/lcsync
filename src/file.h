@@ -9,9 +9,9 @@
  * otherwise, we use the kernel page size */
 long file_chunksize(void);
 
-void file_dump(char *src);
+int file_dump(int *argc, char *argv[]);
 
 /* sync file src to dst, return number of chunks synced */
-int file_sync(char *src, char *dst);
+int file_sync(int *argc, char *argv[]);
 
 #endif /* _FILE_H */

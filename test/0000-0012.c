@@ -32,7 +32,9 @@ int main()
 	fclose(fds);
 
 	/* sync the files */
-	file_sync(src, dst);
+	char *argv[] = { src, dst, NULL };
+	int argc = sizeof argv / sizeof argv[0];
+	file_sync(&argc, argv);
 
 	/* verify data matches */
 	fdd = fopen(dst, "r");
@@ -60,7 +62,7 @@ int main()
 		fclose(fdd);
 
 		/* re-sync, checking it took one round per chunk */
-		test_assert(file_sync(src, dst) == 3, "file_sync() - resync");
+		test_assert(file_sync(&argc, argv) == 3, "file_sync() - resync");
 
 		/* check matched */
 		fdd = fopen(dst, "r");

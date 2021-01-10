@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
+#include <err.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
@@ -57,25 +58,32 @@ static void file_unmap(char *map, size_t st_size, int fd)
 	close(fd);
 }
 
-void file_dump(char *src)
+int file_dump(int *argc, char *argv[])
 {
+	(void) argc; /* unused */
 	int fds;
+	char *src = argv[0];
 	char *smap = NULL;
 	size_t chunksz;
 	ssize_t sz_s;
 	struct stat sbs;
 	mtree_tree *stree;
-	sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs);
+	if ((sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs)) == -1)
+		return -1;
 	chunksz = (size_t)file_chunksize();
 	stree = mtree_create(sz_s, chunksz);
 	mtree_build(stree, smap);
 	mtree_hexdump(stree, stderr);
 	mtree_free(stree);
 	file_unmap(smap, sz_s, fds);
+	return 0;
 }
 
-int file_sync(char *src, char *dst)
+int file_sync(int *argc, char *argv[])
 {
+	(void) argc; /* unused */
+	char *src = argv[0];
+	char *dst = argv[1];
 	int c = 0;
 	int fds, fdd;
 	char *smap = NULL, *dmap = NULL;
@@ -84,10 +92,12 @@ int file_sync(char *src, char *dst)
 	struct stat sbs, sbd;
 	mtree_tree *stree, *dtree;
 	fprintf(stderr, "mapping src: %s\n", src);
-	sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs);
+	if ((sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs)) == -1)
+		return -1;
 	fprintf(stderr, "mapping dst: %s\n", dst);
 	sbd.st_mode = sbs.st_mode;
-	sz_d = file_map(dst, &fdd, &dmap, sz_s, PROT_READ|PROT_WRITE, &sbd);
+	if ((sz_d = file_map(dst, &fdd, &dmap, sz_s, PROT_READ|PROT_WRITE, &sbd)) == -1)
+		return -1;
 	fchmod(fdd, sbs.st_mode);
 	chunksz = (size_t)file_chunksize();
 	if (sbs.st_size > sbd.st_size) {
