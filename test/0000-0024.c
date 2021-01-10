@@ -25,8 +25,8 @@ void *runtest(void *arg)
 	argv = arg1;
 	test_assert(net_send(&argc, argv) == 0, "net_send() - valid source file");
 
+	/* we're done here, wake parent thread */
 	pthread_kill(*((pthread_t *)arg), SIGINT);
-
 	return NULL;
 }
 
