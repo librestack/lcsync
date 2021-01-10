@@ -3,8 +3,8 @@
 
 #include <libgen.h>
 #include <stdio.h>
+#include "globals.h"
 #include "help.h"
-#include "lcsync.h"
 
 void help_usage(void)
 {

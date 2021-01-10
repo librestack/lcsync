@@ -2,8 +2,8 @@
 /* Copyright (c) 2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "test.h"
-#include "../src/lcsync.h"
 #include "../src/file.h"
+#include "../src/globals.h"
 #include "../src/arg.h"
 #include <errno.h>
 

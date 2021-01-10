@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include "arg.h"
 #include "file.h"
-#include "lcsync.h"
+#include "globals.h"
 
 int main(int argc, char *argv[])
 {

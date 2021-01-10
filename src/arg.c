@@ -4,8 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "arg.h"
+#include "file.h"
+#include "globals.h"
 #include "help.h"
-#include "lcsync.h"
 #include "net.h"
 
 int arg_islocal(char *filename)

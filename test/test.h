@@ -10,6 +10,8 @@
 #include <time.h>
 #include "../src/misc.h"
 
+#define _TESTING 1
+
 extern int fails;
 
 void fail_msg(char *msg, ...);
