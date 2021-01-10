@@ -5,3 +5,6 @@
 * FEC
 * resizing of merkle tree for changing data
 * file sharding
+* man page - output from help
+* handle -- in options
+* handle - to input from stdin
