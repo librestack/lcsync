@@ -7,9 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include "file.h"
 #include "mtree.h"
@@ -19,7 +16,7 @@ long file_chunksize(void)
 	return sysconf(_SC_PAGESIZE);
 }
 
-static ssize_t file_map(char *filename, int *fd, char **map, off_t sz, int prot, struct stat *sb)
+ssize_t file_map(char *filename, int *fd, char **map, off_t sz, int prot, struct stat *sb)
 {
 	size_t st_size;
 	int oflag = O_RDONLY;
@@ -52,7 +49,7 @@ static ssize_t file_map(char *filename, int *fd, char **map, off_t sz, int prot,
 	return st_size;
 }
 
-static void file_unmap(char *map, size_t st_size, int fd)
+void file_unmap(char *map, size_t st_size, int fd)
 {
 	munmap(map, st_size);
 	close(fd);
