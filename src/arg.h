@@ -6,6 +6,10 @@
 
 #include "opt.h"
 
+/* return 1 if file is local, 0 if not */
+int arg_islocal(char *filename);
+
+/* parse commandline args, return 0 on success, nonzero on error */
 int arg_parse(int *argc, char **argv[]);
 
 #endif /* _ARG_H */

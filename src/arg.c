@@ -2,9 +2,15 @@
 /* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
 #include <stdlib.h>
+#include <string.h>
 #include "arg.h"
 #include "help.h"
 #include "lcsync.h"
+
+int arg_islocal(char *filename)
+{
+	return !!strchr(filename, '/');
+}
 
 int arg_parse(int *argc, char **argv[])
 {
@@ -20,16 +26,14 @@ int arg_parse(int *argc, char **argv[])
 			help_usage_hex();
 			rc = EXIT_FAILURE;
 		}
-		else
-			action = &file_dump;
+		else action = &file_dump;
+	}
+	else if (*argc == 2 && arg_islocal((*argv)[0]) && arg_islocal((*argv)[1])) {
+		action = &file_sync;
 	}
 	else {
-		if (*argc != 2) {
-			help_usage();
-			rc = EXIT_FAILURE;
-		}
-		else
-			action = &file_sync;
+		help_usage();
+		rc = EXIT_FAILURE;
 	}
 	return rc;
 }
