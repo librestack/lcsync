@@ -4,8 +4,13 @@
 #include "test.h"
 #include "../src/net.h"
 #include <errno.h>
+#include <pthread.h>
+#include <signal.h>
+#include <time.h>
 
-int main()
+void net_stop(int signo);
+
+void *runtest(void *arg)
 {
 	char invalid[] = "./src_does_not_exist";
 	char valid[] = "./0000-0024.c";
@@ -20,5 +25,33 @@ int main()
 	argv = arg1;
 	test_assert(net_send(&argc, argv) == 0, "net_send() - valid source file");
 
+	pthread_kill(*((pthread_t *)arg), SIGINT);
+
+	return NULL;
+}
+
+void sigcaught(int signo)
+{
+	test_log("signal %i caught, test done", signo);
+}
+
+int main(void)
+{
+	void *ret = NULL;
+	const int test_timeout = 1;
+	struct timespec ts = { test_timeout, 0 };
+	struct sigaction sa = { .sa_handler = sigcaught };
+	pthread_attr_t attr;
+	pthread_t thread;
+	pthread_t self = pthread_self();
+	pthread_attr_init(&attr);
+	sigaction(SIGINT, &sa, NULL);
+	pthread_create(&thread, &attr, &runtest, &self);
+	net_stop(SIGINT);
+	nanosleep(&ts, NULL);
+	pthread_cancel(thread);
+	pthread_join(thread, &ret);
+	test_assert(ret != PTHREAD_CANCELED, "test timeout after %is", test_timeout);
+	pthread_attr_destroy(&attr);
 	return fails;
 }
