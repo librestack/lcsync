@@ -6,6 +6,7 @@
 #include "arg.h"
 #include "help.h"
 #include "lcsync.h"
+#include "net.h"
 
 int arg_islocal(char *filename)
 {
@@ -27,6 +28,9 @@ int arg_parse(int *argc, char **argv[])
 			rc = EXIT_FAILURE;
 		}
 		else action = &file_dump;
+	}
+	else if (*argc == 2 && !arg_islocal((*argv)[0]) && arg_islocal((*argv)[1])) {
+		action = &net_sync;
 	}
 	else if (*argc == 2 && arg_islocal((*argv)[0]) && arg_islocal((*argv)[1])) {
 		action = &file_sync;
