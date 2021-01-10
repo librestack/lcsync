@@ -29,6 +29,12 @@ int arg_parse(int *argc, char **argv[])
 		}
 		else action = &file_dump;
 	}
+	else if (*argc == 1 && arg_islocal((*argv)[0])) {
+		action = &net_send;
+	}
+	else if (*argc == 1 && !arg_islocal((*argv)[0])) {
+		action = &net_recv;
+	}
 	else if (*argc == 2 && !arg_islocal((*argv)[0]) && arg_islocal((*argv)[1])) {
 		action = &net_sync;
 	}
