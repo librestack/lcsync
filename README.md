@@ -12,11 +12,25 @@ Syncing local files:
 
 `lcsync source destination`
 
-Hexdump merkle tree:
+lcsync assumes source and destination are network addresses unless told
+otherwise.  To refer to a local destination, you must specify the path.  For files in the
+local directory, prefix them with ./
 
-`lcsync -hex file`
+Fetch remote file, save as localfile in current directory:
 
-Outputs the hashes from base to root in hexadecimal.
+`lcsync remote ./localfile`
+
+Serve local file:
+
+`lcsync /path/to/localfile`
+
+Serve local file "./somefile" as alias "easy2type":
+
+`lcsync ./somefile easy2type`
+
+and fetch that file:
+
+`lcsync easy2type`
 
 ## License
 
