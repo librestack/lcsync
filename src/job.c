@@ -64,7 +64,7 @@ job_t *job_push_new(job_queue_t *q, void *(*f)(void *), void *arg, void (*callba
 	return job_push(q, job);
 }
 
-void *job_seek(void *arg)
+static void *job_seek(void *arg)
 {
 	job_thread_t *jt = (job_thread_t *)arg;
 	job_t *job;
