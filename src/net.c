@@ -55,8 +55,13 @@ int net_send(int *argc, char *argv[])
 		mtree_nodes(stree), mtree_base(stree), mtree_lvl(stree));
 	mtree_build(stree, smap);
 
-	// TODO: set up librecast channel for sending
 	// TODO: mldspy?
+	//
+	// TODO: spin up a thread for each channel
+	//
+	// TODO: set up librecast channel for sending
+	//
+	// TODO: send blocks on a loop
 
 	while (running) {
 		// TODO: blast the file into cyberspace
