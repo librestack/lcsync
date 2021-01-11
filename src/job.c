@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
-#include <stdio.h>
 #include <stdlib.h>
 #include "job.h"
 
@@ -69,9 +68,7 @@ void *job_seek(void *arg)
 	job_thread_t *jt = (job_thread_t *)arg;
 	job_t *job;
 	void(*callback)(void *);
-	fprintf(stderr, "thread %zu started\n", jt->id);
 	while((job = job_wait(jt->q))) {
-		fprintf(stderr, "thread %zu has a job\n", jt->id);
 		job->f(job->arg);
 		callback = job->callback; /* avoid race */
 		sem_post(&job->done);

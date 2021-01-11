@@ -9,6 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "hash.h"
+#include "job.h"
 #include "mtree.h"
 #include "misc.h"
 
@@ -205,8 +206,7 @@ static void *mtree_hash_data(void *arg)
 
 int mtree_build(mtree_tree *tree, char *data)
 {
-	pthread_t *thread;
-	pthread_attr_t attr;
+	job_queue_t *jobq;
 	struct mtree_queue q = {0};
 	struct mtree_thread *mt = NULL;
 	q.tree = tree;
@@ -214,11 +214,10 @@ int mtree_build(mtree_tree *tree, char *data)
 	q.done = calloc(tree->nodes, sizeof(sem_t));
 	if (!q.done) return -1;
 	for (size_t z = 0; z < tree->nodes; z++) sem_init(&q.done[z], 0, 0);
-	pthread_attr_init(&attr);
 	nthreads = (tree->base < THREAD_MAX) ? tree->base : THREAD_MAX;
+	jobq = job_queue_create(nthreads);
+	if (!jobq) goto err_nomem_0;
 	fprintf(stderr, "starting %zu threads\n", nthreads);
-	thread = calloc(nthreads, sizeof(pthread_t));
-	if (!thread) goto err_nomem_0;
 	if (nthreads) {
 		mt = calloc(nthreads, sizeof(struct mtree_thread));
 		if (!mt) goto err_nomem_1;
@@ -226,26 +225,24 @@ int mtree_build(mtree_tree *tree, char *data)
 	for (size_t z = 0; z < nthreads; z++) {
 		mt[z].id = z;
 		mt[z].q = &q;
-		pthread_create(&thread[z], &attr, mtree_hash_data, &mt[z]);
+		job_push_new(jobq, &mtree_hash_data, &mt[z], &free);
 	}
-	pthread_attr_destroy(&attr);
 #if THREAD_MAX == 0
 	mt = calloc(1, sizeof(struct mtree_thread));
 	if (!mt) goto err_nomem_1;
 	mt[0].q = &q;
 	mtree_hash_data(mt);
+#else
+	sem_wait(&q.done[0]); /* wait for root node */
 #endif
-	for (size_t z = 0; z < nthreads; z++) {
-		pthread_join(thread[z], NULL);
-	}
-	free(thread);
+	job_queue_destroy(jobq);
 	free(mt);
 	for (size_t z = 0; z < tree->nodes; z++) sem_destroy(&q.done[z]);
 	free(q.done);
 	fprintf(stderr, "%zu threads destroyed\n", nthreads);
 	return 0;
 err_nomem_1:
-	free(thread);
+	job_queue_destroy(jobq);
 err_nomem_0:
 	free(q.done);
 	errno = ENOMEM;
