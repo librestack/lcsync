@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 #include "hash.h"
+#include "job.h"
 
 typedef struct mtree_tree mtree_tree;
 
@@ -58,7 +59,7 @@ unsigned char *mtree_root(mtree_tree *tree);
 unsigned char *mtree_data(mtree_tree *tree, size_t n);
 
 /* build/update tree */
-int mtree_build(mtree_tree *tree, char *data);
+int mtree_build(mtree_tree *tree, char *data, job_queue_t *jobq);
 
 /* create merkle tree from data, hashing chunks of size chunksz
  * free tree when done */

@@ -30,7 +30,7 @@ int main()
 	test_assert(mtree_base(tree) == 1, "mtree_base()");
 	test_assert(mtree_lvl(tree) == 1, "mtree_levels()");
 	test_assert(mtree_nodes(tree) == 1, "mtree_nodes()");
-	mtree_build(tree, data);
+	mtree_build(tree, data, NULL);
 
 	/* check hashes */
 	crypto_generichash(hash, HASHSIZE, (unsigned char *)data, len, NULL, 0);

@@ -4,6 +4,10 @@
 #ifndef _GLOBALS_H
 #define _GLOBALS_H 1
 
+#include "job.h"
+
+#define THREAD_MAX 128
+
 extern int (*action)(int *argc, char *argv[]);
 extern int hex;
 extern char *progname;

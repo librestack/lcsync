@@ -1,6 +1,7 @@
 /* global defaults */
 
 #include <stddef.h>
+#include "globals.h"
 
 int (*action)(int *argc, char *argv[]);
 int hex;

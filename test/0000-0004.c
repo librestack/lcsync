@@ -30,7 +30,7 @@ int main()
 		test_assert(mtree_base(tree) == next_pow2(i), "mtree_base()");
 		test_assert(mtree_lvl(tree) == mtree_levels(i), "mtree_levels()");
 		test_assert(mtree_nodes(tree) == mtree_size(i), "mtree_nodes()");
-		mtree_build(tree, data);
+		mtree_build(tree, data, NULL);
 
 		/* check root address */
 		test_assert(mtree_root(tree) == mtree_node(tree, mtree_lvl(tree) - 1, 0),

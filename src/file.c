@@ -8,7 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "globals.h"
 #include "file.h"
+#include "job.h"
 #include "mtree.h"
 
 long file_chunksize(void)
@@ -69,7 +71,7 @@ int file_dump(int *argc, char *argv[])
 		return -1;
 	chunksz = (size_t)file_chunksize();
 	stree = mtree_create(sz_s, chunksz);
-	mtree_build(stree, smap);
+	mtree_build(stree, smap, NULL);
 	mtree_hexdump(stree, stderr);
 	mtree_free(stree);
 	file_unmap(smap, sz_s, fds);
@@ -84,9 +86,10 @@ int file_sync(int *argc, char *argv[])
 	int c = 0;
 	int fds, fdd;
 	char *smap = NULL, *dmap = NULL;
-	size_t chunksz, n, off, sz;
+	size_t base, chunksz, n, nthreads, off, sz;
 	ssize_t sz_s, sz_d;
 	struct stat sbs, sbd;
+	job_queue_t *jobq;
 	mtree_tree *stree, *dtree;
 	fprintf(stderr, "mapping src: %s\n", src);
 	if ((sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs)) == -1)
@@ -104,10 +107,13 @@ int file_sync(int *argc, char *argv[])
 	if (sbd.st_size) {
 		stree = mtree_create(sz_s, chunksz);
 		dtree = mtree_create(sz_s, chunksz);
+		base = mtree_base(stree);
 		fprintf(stderr, "source tree with %zu nodes (base = %zu, levels = %zu)\n",
-				mtree_nodes(stree), mtree_base(stree), mtree_lvl(stree));
-		mtree_build(stree, smap);
-		mtree_build(dtree, dmap);
+				mtree_nodes(stree), base, mtree_lvl(stree));
+		nthreads = (base < THREAD_MAX) ? base : THREAD_MAX;
+		jobq = job_queue_create(nthreads);
+		mtree_build(stree, smap, jobq);
+		mtree_build(dtree, dmap, jobq);
 		while ((n = mtree_diff(stree, dtree))) {
 			n--;
 			sz = ((n + 1) * chunksz > (size_t)sz_s) ? sz_s % chunksz : chunksz;
@@ -119,6 +125,7 @@ int file_sync(int *argc, char *argv[])
 		}
 		mtree_free(stree);
 		mtree_free(dtree);
+		job_queue_destroy(jobq);
 	}
 	file_unmap(smap, sz_s, fds);
 	file_unmap(smap, sz_d, fdd);

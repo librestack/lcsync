@@ -53,7 +53,7 @@ int net_send(int *argc, char *argv[])
 	stree = mtree_create(sz_s, chunksz);
 	fprintf(stderr, "source tree with %zu nodes (base = %zu, levels = %zu)\n",
 		mtree_nodes(stree), mtree_base(stree), mtree_lvl(stree));
-	mtree_build(stree, smap);
+	mtree_build(stree, smap, NULL);
 
 	// TODO: mldspy?
 	//

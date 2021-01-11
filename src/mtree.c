@@ -8,12 +8,11 @@
 #include <semaphore.h>
 #include <string.h>
 #include <unistd.h>
+#include "globals.h"
 #include "hash.h"
 #include "job.h"
 #include "mtree.h"
 #include "misc.h"
-
-#define THREAD_MAX 128
 
 static size_t nthreads;
 
@@ -204,9 +203,9 @@ static void *mtree_hash_data(void *arg)
 	return NULL;
 }
 
-int mtree_build(mtree_tree *tree, char *data)
+int mtree_build(mtree_tree *tree, char *data, job_queue_t *jq)
 {
-	job_queue_t *jobq;
+	job_queue_t *jobq = jq;
 	struct mtree_queue q = {0};
 	struct mtree_thread *mt = NULL;
 	q.tree = tree;
@@ -215,12 +214,10 @@ int mtree_build(mtree_tree *tree, char *data)
 	if (!q.done) return -1;
 	for (size_t z = 0; z < tree->nodes; z++) sem_init(&q.done[z], 0, 0);
 	nthreads = (tree->base < THREAD_MAX) ? tree->base : THREAD_MAX;
-	jobq = job_queue_create(nthreads);
-	if (!jobq) goto err_nomem_0;
-	fprintf(stderr, "starting %zu threads\n", nthreads);
+	if (!jq) jobq = job_queue_create(nthreads);
 	if (nthreads) {
 		mt = calloc(nthreads, sizeof(struct mtree_thread));
-		if (!mt) goto err_nomem_1;
+		if (!mt) goto err_nomem_0;
 	}
 	for (size_t z = 0; z < nthreads; z++) {
 		mt[z].id = z;
@@ -229,20 +226,17 @@ int mtree_build(mtree_tree *tree, char *data)
 	}
 #if THREAD_MAX == 0
 	mt = calloc(1, sizeof(struct mtree_thread));
-	if (!mt) goto err_nomem_1;
+	if (!mt) goto err_nomem_0;
 	mt[0].q = &q;
 	mtree_hash_data(mt);
 #else
 	sem_wait(&q.done[0]); /* wait for root node */
 #endif
-	job_queue_destroy(jobq);
+	if (!jq) job_queue_destroy(jobq);
 	free(mt);
 	for (size_t z = 0; z < tree->nodes; z++) sem_destroy(&q.done[z]);
 	free(q.done);
-	fprintf(stderr, "%zu threads destroyed\n", nthreads);
 	return 0;
-err_nomem_1:
-	job_queue_destroy(jobq);
 err_nomem_0:
 	free(q.done);
 	errno = ENOMEM;
