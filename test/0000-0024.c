@@ -2,6 +2,7 @@
 /* Copyright (c) 2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "test.h"
+#include "../src/job.h"
 #include "../src/net.h"
 #include <errno.h>
 #include <pthread.h>
@@ -19,7 +20,7 @@ void *runtest(void *arg)
 	char **argv = arg0;
 	int argc = (int) sizeof arg0 / sizeof arg0[0] - 1;
 
-	test_name("net_send()");
+	test_name("net_stop()");
 
 	test_assert(net_send(&argc, argv) == -1, "net_send() - invalid source file");
 	argv = arg1;
