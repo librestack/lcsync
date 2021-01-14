@@ -96,6 +96,12 @@ size_t mtree_diff_data(mtree_tree *tree1, mtree_tree *tree2);
 /* same as mtree_data_diff, but using the tree */
 size_t mtree_diff(mtree_tree *tree1, mtree_tree *tree2);
 
+/* return 1 if bit corresponding to block is set in bitmap, 0 if not */
+int mtree_bitcmp(unsigned char *map, size_t block);
+
+/* return bitmap of block differences, NULL if no difference */
+unsigned char *mtree_diff_map(mtree_tree *t1, mtree_tree *t2);
+
 /* update tree after data node n changed */
 void mtree_update(mtree_tree *tree, char *data, size_t n);
 

@@ -355,6 +355,28 @@ size_t mtree_diff(mtree_tree *t1, mtree_tree *t2)
 	return off + 1;
 }
 
+int mtree_bitcmp(unsigned char *map, size_t block)
+{
+	return !!(map[block >> CHAR_BIT] & 1UL << block);
+}
+
+unsigned char *mtree_diff_map(mtree_tree *t1, mtree_tree *t2)
+{
+	unsigned char *map = NULL;
+	size_t sz = 0;
+	if (!memcmp(mtree_root(t1), mtree_root(t2), HASHSIZE)) return NULL;
+	sz = mtree_base(t1) / CHAR_BIT + 1;
+	map = calloc(1, sz);
+	/* the easy (slow) way to do this is compare all the data hashes */
+	/* FIXME: use tree to do this */
+	for (size_t z = 0; z < mtree_base(t1); z++) {
+		if (memcmp(mtree_data(t1, z), mtree_data(t2, z), HASHSIZE)) {
+			map[z >> CHAR_BIT] |= 1UL << (z % (CHAR_BIT - 1));
+		}
+	}
+	return map;
+}
+
 void mtree_update(mtree_tree *tree, char *data, size_t n)
 {
 	unsigned char *parent, *child1, *child2;
