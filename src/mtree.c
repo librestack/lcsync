@@ -52,6 +52,14 @@ size_t mtree_node_level(size_t node)
 	return (size_t)log2(node + 1);
 }
 
+/* node numbered from 0=root, levels numbered from 0=base */
+size_t mtree_node_level_base(size_t base, size_t node)
+{
+	size_t rootlvl = mtree_node_level(node);
+	size_t treelvl = mtree_levels(base);
+	return treelvl - rootlvl - 1;
+}
+
 size_t mtree_node_parent(size_t node)
 {
 	return node / 2;
