@@ -57,6 +57,18 @@ size_t mtree_node_parent(size_t node)
 	return node / 2;
 }
 
+size_t mtree_child_base(size_t base, size_t node)
+{
+	node = (node + 1) * 2 - 1;
+	return (node >= mtree_size(base)) ? 0 : node;
+}
+
+size_t mtree_child(mtree_tree *tree, size_t node)
+{
+	node = (node + 1) * 2 - 1;
+	return (node >= mtree_nodes(tree)) ? 0 : node;
+}
+
 size_t mtree_node_sibling(size_t node)
 {
 	return (node % 2) ? node - 1 : node + 1;

@@ -8,6 +8,9 @@
 #include "hash.h"
 #include "job.h"
 
+/* NB: except where stated otherwise, nodes are numbered from 0=root
+ * levels are in reverse from 0=base=data to mtree_levels() - 1 */
+
 typedef struct mtree_tree mtree_tree;
 
 /* hexdump tree to fd */
@@ -18,6 +21,10 @@ size_t mtree_node_level(size_t node);
 
 /* return number of parent node, or 0 if none */
 size_t mtree_node_parent(size_t node);
+
+/* return number of first child node, or 0 if none */
+size_t mtree_child_base(size_t base, size_t node);
+size_t mtree_child(mtree_tree *tree, size_t node);
 
 /* return number of sibling node, or 0 if none */
 size_t mtree_node_sibling(size_t node);
