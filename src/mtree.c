@@ -60,6 +60,14 @@ size_t mtree_node_level_base(size_t base, size_t node)
 	return treelvl - rootlvl - 1;
 }
 
+size_t mtree_node_offset(size_t node)
+{
+	size_t npow = 1;
+	size_t lvl = mtree_node_level(node);
+	while (lvl--) npow *= 2;
+	return node - npow + 1;
+}
+
 size_t mtree_node_parent(size_t node)
 {
 	return node / 2;
