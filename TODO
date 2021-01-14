@@ -1,3 +1,7 @@
+* concatenate block bitmaps into channel bitmaps
+* send / receive + verify tree
+* do the actual sending / receiving of blocks
+* check hashes
 * multicast sync
 * MTU path discovery for block size
 * MLD triggering - don't send when noone listening
@@ -8,3 +12,4 @@
 * man page - output from help
 * handle -- in options
 * handle - to input from stdin
+* improve / extend librecast API with supporting functions
