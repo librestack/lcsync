@@ -46,10 +46,10 @@ void mtree_hexdump(mtree_tree *tree, FILE *fd)
 	}
 }
 
-/* return level of node n */
+/* node numbered from 0=root, levels numbered from 0=root */
 size_t mtree_node_level(size_t node)
 {
-	return (size_t)log2(node) + 1;
+	return (size_t)log2(node + 1);
 }
 
 size_t mtree_node_parent(size_t node)

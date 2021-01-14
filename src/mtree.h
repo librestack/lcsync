@@ -16,7 +16,7 @@ typedef struct mtree_tree mtree_tree;
 /* hexdump tree to fd */
 void mtree_hexdump(mtree_tree *tree, FILE *fd);
 
-/* return tree level of node, numbered from 1 */
+/* return tree level of node, numbered from 0=root, levels from 0=root */
 size_t mtree_node_level(size_t node);
 
 /* return number of parent node, or 0 if none */
