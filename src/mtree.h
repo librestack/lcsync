@@ -65,6 +65,9 @@ size_t mtree_level_nodes(mtree_tree *tree, size_t level);
  * level */
 unsigned char *mtree_node(mtree_tree *tree, size_t level, size_t offset);
 
+/* return pointer to numbered node (0=root) */
+unsigned char *mtree_nnode(mtree_tree *tree, size_t node);
+
 /* return pointer to root hash of tree */
 unsigned char *mtree_root(mtree_tree *tree);
 

@@ -138,6 +138,14 @@ unsigned char *mtree_node(mtree_tree *tree, size_t level, size_t offset)
 	return ptr;
 }
 
+unsigned char *mtree_nnode(mtree_tree *tree, size_t node)
+{
+	size_t base = mtree_base(tree);
+	size_t lvl = mtree_node_level_base(base, node);
+	size_t off = mtree_node_offset(node);
+	return mtree_node(tree, lvl, off);
+}
+
 size_t mtree_base(mtree_tree *tree)
 {
 	return tree->base;
