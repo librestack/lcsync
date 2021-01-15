@@ -17,13 +17,13 @@
 static size_t nthreads;
 
 struct mtree_tree {
-	size_t base;
-	size_t chunksz;
-	size_t nchunks;
-	size_t len;
-	size_t lvls;
-	size_t nodes;
-	unsigned char *tree;
+	size_t base;		/* size of base of tree (pow of 2) */
+	size_t chunksz;		/* size of block */
+	size_t nchunks;		/* number of blocks (<= base)) */
+	size_t len;		/* total size of base (file) data */
+	size_t lvls;		/* count of levels in tree */
+	size_t nodes;		/* count of total nodes in tree */
+	unsigned char *tree;	/* ptr to tree data == data(0) */
 };
 
 struct mtree_queue {
