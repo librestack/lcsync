@@ -1,3 +1,17 @@
+* set up new test for net_send() / net_recv()
+- build source data
+- generate tree
+- send tree (what header information do we send?)
+- send blocks
+
+- recv source tree
+- verify tree
+- build channel maps
+- join required channels
+- receive blocks
+- verify blocks / check hashes
+- part channels / cleanup
+
 * concatenate block bitmaps into channel bitmaps
 * send / receive + verify tree
 * do the actual sending / receiving of blocks

@@ -47,9 +47,8 @@ ssize_t net_recv_data(int sock, net_data_t *data)
 	unsigned char hash[HASHSIZE];
 	while (byt < (ssize_t)data->len) {
 		byt += readv(sock, data->iov, 2);
-
 		// TODO: ensure we read correct number of bytes
-		// TODO: check idx against our bitmap to see if we need this block
+		// TODO: check idx against our bitmap to see if we need this block -  mtree_bitcmp()
 		// TODO: check the hash
 		// TODO: write the block
 		fprintf(stderr, "got %zu bytes\n", byt);
@@ -84,6 +83,13 @@ int net_recv(int *argc, char *argv[])
 {
 	(void) argc;
 	fprintf(stderr, "%s('%s', '%s')\n", __func__, argv[0], argv[1]);
+	// TODO: fetch tree
+	// TODO: verify tree
+	// TODO: build channel maps
+	// TODO: join required channels
+	// TODO: receive blocks
+	// TODO: verify blocks / check hashes
+	// TODO: part / cleanup
 	return 0;
 }
 

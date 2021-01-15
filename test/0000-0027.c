@@ -62,7 +62,7 @@ int main(void)
 	size_t sz = strlen(question);
 	unsigned char hash[HASHSIZE];
 
-	test_name("net_send_data() net_recv_data()");
+	test_name("net_send_data() / net_recv_data()");
 
 	// TODO: write librecast function to use supplied hash
 	crypto_generichash(hash, HASHSIZE, (unsigned char *)question, sz, NULL, 0);
