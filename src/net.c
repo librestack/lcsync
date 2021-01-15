@@ -45,6 +45,7 @@ ssize_t net_recv_data(int sock, net_data_t *data)
 {
 	ssize_t byt = 0;
 	unsigned char hash[HASHSIZE];
+	fprintf(stderr, "%s() waiting for %zu bytes\n", __func__, data->len);
 	while (byt < (ssize_t)data->len) {
 		byt += readv(sock, data->iov, 2);
 		// TODO: ensure we read correct number of bytes
@@ -65,17 +66,31 @@ ssize_t net_recv_data(int sock, net_data_t *data)
 
 ssize_t net_send_data(int sock, struct addrinfo *addr, net_data_t *data)
 {
+	size_t sz, off = 0;
 	ssize_t byt = 0;
 	struct msghdr msgh = {0};
-	msgh.msg_name = addr->ai_addr;
-	msgh.msg_namelen = addr->ai_addrlen;
-	msgh.msg_iov = data->iov;
-	msgh.msg_iovlen = 2;
-	fprintf(stderr, "sendmsg wants to write %zu bytes\n", data->iov[0].iov_len + data->iov[1].iov_len);
-	if ((byt = sendmsg(sock, &msgh, 0) == -1))
-		perror("sendmsg()");
-	else
-		fprintf(stderr, "sendmsg wrote %zi bytes\n", byt);
+	size_t len = data->iov[1].iov_len;
+	fprintf(stderr, "sending data of %zu bytes\n", len);
+	while (len) {
+		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
+		fprintf(stderr, "queuing msg of %zu bytes\n", sz);
+		msgh.msg_name = addr->ai_addr;
+		msgh.msg_namelen = addr->ai_addrlen;
+		msgh.msg_iov = data->iov;
+		msgh.msg_iovlen = 2;
+		data->iov[1].iov_len = sz;
+		data->iov[1].iov_base += off;
+		off = sz;
+		len -= sz;
+		// TODO: consider sendmmsg()
+		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
+			perror("sendmsg()");
+			break;
+		}
+		else
+			fprintf(stderr, "sendmsg wrote %zi bytes\n", byt);
+		fprintf(stderr, "%zu bytes remaining\n", len);
+	}
 	return byt;
 }
 
