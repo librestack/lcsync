@@ -102,6 +102,11 @@ size_t mtree_size(size_t base)
 	return (size_t)(next_pow2((uint32_t)base) << 1UL) - 1;
 }
 
+size_t mtree_treelen(mtree_tree *tree)
+{
+	return tree->nodes * HASHSIZE;
+}
+
 size_t mtree_base_level_nodes(size_t base, size_t level)
 {
 	while (level--) base /= 2;
