@@ -30,7 +30,7 @@ static size_t net_chunksize(void)
 
 net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
 {
-	memset(hdr, 0, sizeof hdr);
+	memset(hdr, 0, sizeof *hdr);
 	hdr->pkts = mtree_len(tree) / DATA_FIXED;
 	if (mtree_len(tree) % DATA_FIXED) hdr->pkts++;
 	hdr->chan = net_send_channels;
@@ -38,6 +38,7 @@ net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
 	return hdr;
 }
 
+#if 0
 ssize_t net_recv_data(int sock, net_data_t *data)
 {
 	ssize_t byt = 0;
@@ -54,11 +55,17 @@ ssize_t net_recv_data(int sock, net_data_t *data)
 	uint64_t idx = be64toh(*(uint64_t *)data->iov[0].iov_base);
 	fprintf(stderr, "idx = %zu\n", idx);
 	crypto_generichash(hash, HASHSIZE, data->iov[1].iov_base, data->iov[1].iov_len, NULL, 0);
-	if (!memcmp(hash, data->hash, HASHSIZE))
-		fprintf(stderr, "hash matches\n");
-	else
-		fprintf(stderr, "hash wrong\n");
 	return byt;
+}
+#endif
+ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
+{
+	return 0;
+}
+
+ssize_t net_send_data(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
+{
+	return 0;
 }
 
 /* FIXME: send header struct with updatable index + data chunks
@@ -66,6 +73,7 @@ ssize_t net_recv_data(int sock, net_data_t *data)
  * separate datagrams with an idx at the start of the header + other header info
  * first struct iovec is header (idx at start of this struct), data is in second
  * and subsequent iovecs */
+#if 0
 ssize_t net_send_data(int sock, struct addrinfo *addr, net_data_t *data)
 {
 	size_t sz, off = 0;
@@ -95,6 +103,7 @@ ssize_t net_send_data(int sock, struct addrinfo *addr, net_data_t *data)
 	}
 	return byt;
 }
+#endif
 
 int net_recv(int *argc, char *argv[])
 {

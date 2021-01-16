@@ -22,8 +22,13 @@ void *do_recv(void *arg)
 	lc_channel_bind(sock, chan);
 	lc_channel_join(chan);
 	int s = lc_socket_raw(sock);
+#if 0
 	net_recv_data(s, data);
-	// TODO: check data
+	unsigned char *roothash = data->iov[1].iov_base + data->iov[1].iov_len - HASHSIZE;
+	test_assert(!memcmp(roothash, data->hash, HASHSIZE),
+			"root hash at end of tree matches");
+	// TODO: validate tree
+#endif
 	lc_channel_free(chan);
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
@@ -34,8 +39,6 @@ void *do_send(void *arg)
 {
 	const int on = 1;
 	net_data_t *data = (net_data_t *)arg;
-	size_t len = data->iov[1].iov_len;
-	void *base = data->iov[1].iov_base;
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
 	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
@@ -43,13 +46,10 @@ void *do_send(void *arg)
 	lc_channel_bind(sock, chan);
 	int s = lc_channel_socket_raw(chan);
 	struct addrinfo *addr = lc_channel_addrinfo(chan);
-	// TODO send tree (what header information do we send?)
 	while (keep_sending) {
-		data->iov[1].iov_len = len;
-		data->iov[1].iov_base = base;
-		net_send_data(s, addr, data);
+		//net_send_data(s, addr, data);
+		usleep(100);
 	}
-
 	lc_channel_free(chan);
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
@@ -63,11 +63,12 @@ int main(void)
 	struct timespec timeout;
 	job_queue_t *jobq;
 	job_t *job_send, *job_recv;
-	net_data_t *odat, *idat;
 	const size_t blocks = 42;
 	const size_t blocksz = 4096;
 	const size_t sz = blocks * blocksz;
 	unsigned char hash[HASHSIZE];
+	net_data_t *odata = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
+	net_data_t *idata = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
 	char *srcdata = calloc(blocks, blocksz);
 	char *dstdata = calloc(blocks, blocksz);
 
@@ -88,11 +89,24 @@ int main(void)
 
 	/* queue up send / recv jobs */
 	fprintf(stderr, "node= %zu, treelen=%zu\n", mtree_nodes(stree), mtree_treelen(stree));
-	odat = net_chunk(hash, mtree_treelen(stree), (char *)mtree_data(stree, 0), 0);
-	idat = net_chunk(hash, mtree_treelen(stree), dstdata, 0);
+
+	//net_treehead_t hdr_tree = {0};
+	//net_hdr_tree(hdr_tree, stree);
+
+	// FIXME: working here
+	
+	/* we are sending the source tree */
+	memcpy(odata->hash, hash, HASHSIZE);
+	odata->iov[0].iov_len = mtree_treelen(stree);
+	odata->iov[0].iov_base = mtree_data(stree, 0);
+
+	/* receiver is recving source tree of unknown size
+	 * all receiver knows is hash of data to join channel */
+	memcpy(idata->hash, hash, HASHSIZE);
+
 	jobq = job_queue_create(2);
-	job_send = job_push_new(jobq, &do_send, odat, NULL);
-	job_recv = job_push_new(jobq, &do_recv, idat, NULL);
+	job_send = job_push_new(jobq, &do_send, &odata, NULL);
+	job_recv = job_push_new(jobq, &do_recv, &idata, NULL);
 
 	/* wait for recv job to finish, check for timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
@@ -110,8 +124,8 @@ int main(void)
 	job_queue_destroy(jobq);
 	free(srcdata);
 	free(dstdata);
-	free(odat);
-	free(idat);
+	free(odata);
+	free(idata);
 	mtree_free(stree);
 
 	return fails;

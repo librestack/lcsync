@@ -40,11 +40,26 @@ typedef union {
 	net_blockhead_t hdr_block;
 } net_head_t;
 
-/* struct containing everything we need to send either a tree or data block
- * to be passed to net_send_data() */
+#if 0
+typedef struct net_rdata_s net_rdata_t;
+struct net_rdata_s {
+	/* total length of data expected - work this out from iovec */
+
+	/* do we need to knwo what kind of data this is? */
+
+	/* just blindly receive data - caller can check if it is what was
+	 * expected */
+
+	/* scatter array to store recv'd data */
+	size_t		len;		/* len of scatter-gather array */
+	struct iovec	iov[];		/* scatter-gather array */
+};
+#endif
+
+/* struct for send/recving tree/data block */
 typedef struct net_data_s net_data_t;
 struct net_data_s {
-	net_head_t	hdr;		/* tree/block header */
+	unsigned char hash[HASHSIZE];	/* hash of file/data */
 	size_t		len;		/* len of scatter-gather array */
 	struct iovec	iov[];		/* scatter-gather array */
 };
@@ -52,13 +67,22 @@ struct net_data_s {
 /* pack tree header */
 net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree);
 
-/* blocking receive of data chunk from a librecast socket 
- * return bytes received or -1 on error */
-ssize_t net_recv_data(int sock, net_data_t *data);
+/* blocking receive of chunk from a librecast socket 
+ * return bytes received or -1 on error
+	size_t		len;		len of scatter-gather array
+	struct iovec	iov[];		scatter-gather array
+*/
+ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov);
 
-/* send a data chunk to a librecast channel
- * return bytes sent or -1 on error */
-ssize_t net_send_data(int sock, struct addrinfo *addr, net_data_t *data);
+/* send a data block or tree to a librecast channel
+ * return bytes sent or -1 on error
+	int		sock		datagram socket
+	struct addrinfo *addr		addr to send to
+	size_t		len;		len of scatter-gather array
+	struct iovec	iov[];		scatter-gather array
+First iovec is assumed to be the header and will be sent with every packet.
+*/
+ssize_t net_send_data(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov);
 
 int net_recv(int *argc, char *argv[]);
 int net_send(int *argc, char *argv[]);
