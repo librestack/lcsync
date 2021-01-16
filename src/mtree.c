@@ -319,9 +319,11 @@ int mtree_verify(mtree_tree *tree, size_t len)
 	unsigned char *parent;
 	crypto_generichash_state state;
 	if (tree == NULL || !len) return -1;
+	if (tree->tree == NULL || !len) return -1;
 	if (len % HASHSIZE) return -1;
 	parent = mtree_node(tree, 1, 0);
 	for (size_t i = 0; i < tree->nodes - 1; i += 2) {
+		if (mtree_data(tree, i+1) + HASHSIZE > tree->tree + len) return -1;
 		crypto_generichash_init(&state, NULL, 0, HASHSIZE);
 		crypto_generichash_update(&state, mtree_data(tree, i+0), HASHSIZE);
 		crypto_generichash_update(&state, mtree_data(tree, i+1), HASHSIZE);
