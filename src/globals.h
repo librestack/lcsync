@@ -4,6 +4,7 @@
 #ifndef _GLOBALS_H
 #define _GLOBALS_H 1
 
+#include <stdint.h>
 #include "job.h"
 
 #define THREAD_MAX 128
@@ -16,6 +17,6 @@ extern size_t blocksize;
 
 /* maximum number of channels to use when sending - expressed as a power of 2
  * eg. 8 = 256 channels */
-extern size_t net_send_channels;
+extern uint8_t net_send_channels;
 
 #endif /* _GLOBALS_h */
