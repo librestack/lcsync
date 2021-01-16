@@ -289,6 +289,11 @@ err_nomem_0:
 	return -1;
 }
 
+void mtree_setdata(mtree_tree *tree, unsigned char *data)
+{
+	tree->tree = data;
+}
+
 mtree_tree *mtree_create(size_t len, size_t chunksz)
 {
 	mtree_tree *tree;

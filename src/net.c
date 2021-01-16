@@ -69,7 +69,8 @@ ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 	if (!buf) return -1;
 	do {
 		/* peek at msg header */
-		if ((msglen = recv(sock, buf, MTU_FIXED, MSG_PEEK)) == -1) {
+		//if ((msglen = recv(sock, buf, MTU_FIXED, MSG_PEEK)) == -1) {
+		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");
 			free(buf);
 			return -1;
@@ -100,11 +101,11 @@ ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 		len = (size_t)be32toh(hdr->len);
 		fprintf(stderr, "offset = %zu\n", off);
 		fprintf(stderr, "idx=%zu/%zu\n", (size_t)be32toh(hdr->idx), (size_t)be32toh(hdr->pkts));
-		if ((msglen = read(sock, (char *)iov->iov_base + off, len)) == -1) {
-			perror("readv()");
-			return -1;
+		fprintf(stderr, "%zu == %zu\n", msglen - sizeof (net_treehead_t), len);
+		if (!!(bitmap[idx >> CHAR_BIT] & 1UL << idx)) {
+			memcpy((char *)iov->iov_base + off, buf + sizeof (net_treehead_t), len);
+			bitmap[idx >> CHAR_BIT] &= ~(1UL << (idx % (CHAR_BIT - 1)));
 		}
-		bitmap[idx >> CHAR_BIT] &= ~(1UL << (idx % (CHAR_BIT - 1)));
 		fprintf(stderr, "got %zu bytes\n", msglen);
 		byt += be32toh(hdr->len);
 		fprintf(stderr, "len=%zu\n", (size_t)(be32toh(hdr->len)));

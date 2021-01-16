@@ -13,10 +13,14 @@
 #include <unistd.h>
 
 static int keep_sending = 1;
+mtree_tree *stree;
+const size_t blocks = 42;
+const size_t blocksz = 4096;
 
 void *do_recv(void *arg)
 {
 	int s;
+	ssize_t byt;
 	net_data_t *data = (net_data_t *)arg;
 	struct iovec iov = {0};
 	lc_ctx_t *lctx = lc_ctx_new();
@@ -25,23 +29,16 @@ void *do_recv(void *arg)
 	lc_channel_bind(sock, chan);
 	lc_channel_join(chan);
 	s = lc_socket_raw(sock);
-
-	// We know the hash of the data we want and have joined the
-	// channel to receive the tree. We know we have it when the tree
-	// validates and the root hash matches.
-
-	ssize_t byt = net_recv_data(s, 0, &iov);
-	test_assert(byt == 4064, "%zu bytes received", byt);
-	test_assert(iov.iov_len == 4064, "iov_len=%zu", iov.iov_len);
+	byt = net_recv_data(s, 0, &iov);
+	mtree_tree *dtree = mtree_create(blocks, blocksz);
+	mtree_setdata(dtree, iov.iov_base);
+	test_assert((size_t)byt == mtree_treelen(stree), "%zu bytes received", byt);
+	test_assert(iov.iov_len == mtree_treelen(stree), "iov_len=%zu", iov.iov_len);
 	test_assert(iov.iov_base != NULL, "recv buffer allocated");
-
-	// verify root hash (last 32 bytes)
-	test_assert(!memcmp(data->hash, (char *)iov.iov_base + iov.iov_len - HASHSIZE, HASHSIZE),
-			"check hash");
-
-	// TODO: validate tree
-	//test_assert(!mtree_verify(iov.iov_base, iov.iov_len), "validate tree");
-
+	test_assert(!mtree_verify(dtree, iov.iov_len), "validate tree");
+	for (size_t z = 0; z < mtree_nodes(stree); z++) {
+		test_assert(!memcmp(mtree_data(stree, z), mtree_data(dtree, z), HASHSIZE), "check hash %zu", z);
+	}
 	lc_channel_free(chan);
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
@@ -79,7 +76,6 @@ void *do_send(void *arg)
 	lc_channel_free(chan);
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
-
 	return NULL;
 }
 
@@ -89,10 +85,8 @@ int main(void)
 	struct timespec timeout;
 	job_queue_t *jobq;
 	job_t *job_send, *job_recv;
-	const size_t blocks = 42;
-	const size_t blocksz = 4096;
 	const size_t sz = blocks * blocksz;
-	unsigned char hash[HASHSIZE];
+	unsigned char *hash = malloc(HASHSIZE);
 	net_data_t *odata = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
 	net_data_t *idata = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
 	char *srcdata = calloc(blocks, blocksz);
@@ -106,7 +100,6 @@ int main(void)
 	}
 
 	/* build source tree */
-	mtree_tree *stree;
 	stree = mtree_create(sz, blocksz);
 	mtree_build(stree, srcdata, NULL);
 
@@ -115,9 +108,6 @@ int main(void)
 
 	/* queue up send / recv jobs */
 	fprintf(stderr, "node= %zu, treelen=%zu\n", mtree_nodes(stree), mtree_treelen(stree));
-
-	//net_treehead_t hdr_tree = {0};
-	//net_hdr_tree(hdr_tree, stree);
 
 	/* we are sending the source tree */
 	odata->hash = hash;
@@ -150,6 +140,7 @@ int main(void)
 	free(dstdata);
 	free(odata);
 	free(idata);
+	free(hash);
 	mtree_free(stree);
 
 	return fails;

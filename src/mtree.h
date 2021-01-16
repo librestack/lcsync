@@ -83,6 +83,9 @@ unsigned char *mtree_data(mtree_tree *tree, size_t n);
 /* build/update tree */
 int mtree_build(mtree_tree *tree, char *data, job_queue_t *jobq);
 
+/* set tree data pointer */
+void mtree_setdata(mtree_tree *tree, unsigned char *data);
+
 /* create merkle tree from data, hashing chunks of size chunksz
  * free tree when done */
 mtree_tree *mtree_create(size_t len, size_t chunksz);
