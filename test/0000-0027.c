@@ -10,8 +10,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#if 0
 static int keep_sending = 1;
-
 void *do_recv(void *arg)
 {
 	net_data_t *data = (net_data_t *)arg;
@@ -48,9 +48,11 @@ void *do_send(void *arg)
 	lc_ctx_free(lctx);
 	return NULL;
 }
+#endif
 
 int main(void)
 {
+#if 0
 	struct timespec timeout;
 	job_queue_t *jobq;
 	job_t *job_send, *job_recv;
@@ -61,9 +63,9 @@ int main(void)
 	char *ptr = answer;
 	size_t sz = strlen(question);
 	unsigned char hash[HASHSIZE];
-
-	test_name("net_send_data() / net_recv_data()");
-
+#endif
+	return test_skip("net_send_data() / net_recv_data()");
+#if 0
 	// TODO: write librecast function to use supplied hash
 	crypto_generichash(hash, HASHSIZE, (unsigned char *)question, sz, NULL, 0);
 
@@ -98,6 +100,6 @@ int main(void)
 	job_queue_destroy(jobq);
 	free(odat);
 	free(idat);
-
+#endif
 	return fails;
 }
