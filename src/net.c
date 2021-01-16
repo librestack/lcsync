@@ -28,17 +28,14 @@ static size_t net_chunksize(void)
 	return DATA_FIXED;
 }
 
-net_data_t *net_chunk(unsigned char *hash, size_t len, char *base, uint64_t block)
+net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
 {
-	net_data_t *data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec) * 2);
-	data->idx = htobe64(block);
-	data->hash = hash;
-	data->len = len + sizeof data->idx;
-	data->iov[0].iov_len = sizeof data->idx;
-	data->iov[0].iov_base = &data->idx;
-	data->iov[1].iov_len = len;
-	data->iov[1].iov_base = base;
-	return data;
+	memset(hdr, 0, sizeof hdr);
+	hdr->pkts = mtree_len(tree) / DATA_FIXED;
+	if (mtree_len(tree) % DATA_FIXED) hdr->pkts++;
+	hdr->chan = net_send_channels;
+	memcpy(hdr->hash, mtree_root(tree), HASHSIZE);
+	return hdr;
 }
 
 ssize_t net_recv_data(int sock, net_data_t *data)
@@ -51,7 +48,7 @@ ssize_t net_recv_data(int sock, net_data_t *data)
 		// TODO: ensure we read correct number of bytes
 		// TODO: check idx against our bitmap to see if we need this block -  mtree_bitcmp()
 		// TODO: check the hash
-		// TODO: write the block
+		// TODO: write the block in the correct place
 		fprintf(stderr, "got %zu bytes\n", byt);
 	}
 	uint64_t idx = be64toh(*(uint64_t *)data->iov[0].iov_base);
@@ -64,12 +61,17 @@ ssize_t net_recv_data(int sock, net_data_t *data)
 	return byt;
 }
 
+/* FIXME: send header struct with updatable index + data chunks
+ * we're either sending a block or a tree, each of which will be broken into
+ * separate datagrams with an idx at the start of the header + other header info
+ * first struct iovec is header (idx at start of this struct), data is in second
+ * and subsequent iovecs */
 ssize_t net_send_data(int sock, struct addrinfo *addr, net_data_t *data)
 {
 	size_t sz, off = 0;
 	ssize_t byt = 0;
 	struct msghdr msgh = {0};
-	size_t len = data->iov[1].iov_len;
+	size_t len = data->len;
 	fprintf(stderr, "sending data of %zu bytes\n", len);
 	while (len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
