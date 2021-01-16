@@ -318,7 +318,7 @@ int mtree_verify(mtree_tree *tree, size_t len)
 	unsigned char hash[HASHSIZE];
 	unsigned char *parent;
 	crypto_generichash_state state;
-	if (tree == NULL) return -1;
+	if (tree == NULL || !len) return -1;
 	if (len % HASHSIZE) return -1;
 	parent = mtree_node(tree, 1, 0);
 	for (size_t i = 0; i < tree->nodes - 1; i += 2) {
