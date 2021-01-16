@@ -6,6 +6,7 @@
 
 #include <librecast/net.h>
 #include "hash.h"
+#include "mtree.h"
 
 /* IPv6 path discovery isn't much use for multicast and
  * we don't want to receive a bunch of Packet Too Big messages
@@ -14,23 +15,42 @@
 #define MTU_FIXED 1194
 #define DATA_FIXED 1024
 
-#if 0
-typedef struct net_head_s {
-	/* packet index, 0 to packets for this channel - 1 */
-	u_int64_t       idx;
-} __attribute__((__packed__)) net_head_t;
-#endif
+typedef struct net_treehead_s {
+	/* packet index 0 to n-1 of tree */
+	uint32_t	idx;
+	/* no. of packets in tree */
+	uint32_t	pkts;
+	/* length in bytes of data in this packet */
+	uint32_t	len;
+	/* channels used to send file (as power of 2) */
+	uint8_t		chan;
+	/* root hash of file */
+	unsigned char hash[HASHSIZE];
+} __attribute__((__packed__)) net_treehead_t;
 
+typedef struct net_blockhead_s net_blockhead_t;
+struct net_blockhead_s {
+	/* packet index 0 to n-1 of block */
+	uint32_t	idx;
+	/* receiver knows the hash, block len etc. already from tree */
+} __attribute__((__packed__));
+
+typedef union {
+	net_treehead_t hdr_tree;
+	net_blockhead_t hdr_block;
+} net_head_t;
+
+/* struct containing everything we need to send either a tree or data block
+ * to be passed to net_send_data() */
 typedef struct net_data_s net_data_t;
 struct net_data_s {
-	uint64_t idx;
-	unsigned char *hash;		/* hash of data chunk */
-	size_t len;			/* total length of chunk */
-	struct iovec iov[];		/* scatter-gather array */
+	net_head_t	hdr;		/* tree/block header */
+	size_t		len;		/* len of scatter-gather array */
+	struct iovec	iov[];		/* scatter-gather array */
 };
 
-/* convenience function to pack a single data chunk into net_data_t */
-net_data_t *net_chunk(unsigned char *hash, size_t len, char *base, uint64_t block);
+/* pack tree header */
+net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree);
 
 /* blocking receive of data chunk from a librecast socket 
  * return bytes received or -1 on error */
