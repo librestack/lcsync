@@ -60,43 +60,58 @@ ssize_t net_recv_data(int sock, net_data_t *data)
 #endif
 ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 {
-	char *buf;
-	ssize_t msglen, byt=0;
+	size_t idx, off, len, pkts;
+	ssize_t byt = 0, msglen;
 	uint64_t sz = iov->iov_len;
 	net_treehead_t *hdr;
-	if (!iov->iov_base) {
-		fprintf(stderr, "%s has no buffer, peeking to find size\n", __func__);
-		// TODO: we can have a fixed buffer for recv first time around
-		// using MSG_PEEK to inspect the packet header and allocate an
-		// appropriate receive buffer for the whole tree
-		buf = malloc(MTU_FIXED);
-		if (!buf) return -1;
-		msglen = recv(sock, buf, MTU_FIXED, MSG_PEEK);
-		// TODO: peek at first packet, allocate receive buffer
-		hdr = (net_treehead_t *)buf;
-		sz = be64toh(hdr->size);
-		free(buf);
-		fprintf(stderr, "expecting tree of sz %zu\n", (size_t)sz);
-		iov->iov_base = calloc(1, sz);
-		if (!iov->iov_base) {
-			perror("calloc()");
+	char *buf = malloc(MTU_FIXED);
+	char *bitmap = NULL;
+	if (!buf) return -1;
+	do {
+		/* peek at msg header */
+		if ((msglen = recv(sock, buf, MTU_FIXED, MSG_PEEK)) == -1) {
+			perror("recv()");
+			free(buf);
 			return -1;
 		}
-		iov->iov_len = sz;
-		vlen = 1;
-	}
-	/* TODO: we have a buffer now, continue as normal with recving data */
-	while (byt < (ssize_t)sz) {
-		if ((msglen = readv(sock, iov, vlen)) == -1) {
+		hdr = (net_treehead_t *)buf;
+		sz = be64toh(hdr->size);
+		if (!bitmap) {
+			pkts = be32toh(hdr->pkts);
+			bitmap = calloc(1, pkts / CHAR_BIT + !!(pkts / CHAR_BIT));
+			for (size_t z = 0; z < pkts; z++) {
+				bitmap[z >> CHAR_BIT] |= 1UL << (z % (CHAR_BIT - 1));
+			}
+		}
+		if (!iov->iov_base) {
+			/* peek at first packet, allocate receive buffer */
+			fprintf(stderr, "expecting tree of sz %zu\n", (size_t)sz);
+			iov->iov_base = calloc(1, sz);
+			if (!iov->iov_base) {
+				perror("calloc()");
+				return -1;
+			}
+			iov->iov_len = sz;
+			vlen = 1;
+		}
+		/* now read the packet */
+		idx = (size_t)be32toh(hdr->idx);
+		off = be32toh(hdr->idx) * DATA_FIXED;
+		len = (size_t)be32toh(hdr->len);
+		fprintf(stderr, "offset = %zu\n", off);
+		fprintf(stderr, "idx=%zu/%zu\n", (size_t)be32toh(hdr->idx), (size_t)be32toh(hdr->pkts));
+		if ((msglen = read(sock, (char *)iov->iov_base + off, len)) == -1) {
 			perror("readv()");
 			return -1;
 		}
+		bitmap[idx >> CHAR_BIT] &= ~(1UL << (idx % (CHAR_BIT - 1)));
 		fprintf(stderr, "got %zu bytes\n", msglen);
-		hdr = (net_treehead_t *)iov->iov_base;
-		fprintf(stderr, "idx=%zu/%zu\n", (size_t)be32toh(hdr->idx), (size_t)be32toh(hdr->pkts));
 		byt += be32toh(hdr->len);
 		fprintf(stderr, "len=%zu\n", (size_t)(be32toh(hdr->len)));
 	}
+	while (*bitmap);
+	free(buf);
+	free(bitmap);
 	return byt;
 }
 
@@ -122,7 +137,7 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 		msgh.msg_iov = iov;
 		msgh.msg_iovlen = vlen;
 		iov[1].iov_len = sz;
-		iov[1].iov_base += off;
+		iov[1].iov_base = (char *)iov[1].iov_base + off;
 		hdr->idx = htobe32(idx++);
 		hdr->len = htobe32(sz);
 		off = sz;

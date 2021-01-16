@@ -35,7 +35,10 @@ void *do_recv(void *arg)
 	test_assert(iov.iov_len == 4064, "iov_len=%zu", iov.iov_len);
 	test_assert(iov.iov_base != NULL, "recv buffer allocated");
 
-	// TODO: verify root hash (last 32 bytes)
+	// verify root hash (last 32 bytes)
+	test_assert(!memcmp(data->hash, (char *)iov.iov_base + iov.iov_len - HASHSIZE, HASHSIZE),
+			"check hash");
+
 	// TODO: validate tree
 	//test_assert(!mtree_verify(iov.iov_base, iov.iov_len), "validate tree");
 
