@@ -18,10 +18,12 @@
 typedef struct net_treehead_s {
 	/* packet index 0 to n-1 of tree */
 	uint32_t	idx;
-	/* no. of packets in tree */
-	uint32_t	pkts;
 	/* length in bytes of data in this packet */
 	uint32_t	len;
+	/* size of whole tree in bytes */
+	uint64_t	size;
+	/* no. of packets in tree */
+	uint32_t	pkts;
 	/* channels used to send file (as power of 2) */
 	uint8_t		chan;
 	/* root hash of file */
@@ -32,7 +34,8 @@ typedef struct net_blockhead_s net_blockhead_t;
 struct net_blockhead_s {
 	/* packet index 0 to n-1 of block */
 	uint32_t	idx;
-	/* receiver knows the hash, block len etc. already from tree */
+	/* length in bytes of data in this packet */
+	uint32_t	len;
 } __attribute__((__packed__));
 
 typedef union {
@@ -40,26 +43,10 @@ typedef union {
 	net_blockhead_t hdr_block;
 } net_head_t;
 
-#if 0
-typedef struct net_rdata_s net_rdata_t;
-struct net_rdata_s {
-	/* total length of data expected - work this out from iovec */
-
-	/* do we need to knwo what kind of data this is? */
-
-	/* just blindly receive data - caller can check if it is what was
-	 * expected */
-
-	/* scatter array to store recv'd data */
-	size_t		len;		/* len of scatter-gather array */
-	struct iovec	iov[];		/* scatter-gather array */
-};
-#endif
-
 /* struct for send/recving tree/data block */
 typedef struct net_data_s net_data_t;
 struct net_data_s {
-	unsigned char hash[HASHSIZE];	/* hash of file/data */
+	unsigned char *hash;		/* hash of file/data */
 	size_t		len;		/* len of scatter-gather array */
 	struct iovec	iov[];		/* scatter-gather array */
 };
@@ -71,6 +58,7 @@ net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree);
  * return bytes received or -1 on error
 	size_t		len;		len of scatter-gather array
 	struct iovec	iov[];		scatter-gather array
+If iov is NULL, allocate the receive buffer.
 */
 ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov);
 
@@ -82,7 +70,8 @@ ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov);
 	struct iovec	iov[];		scatter-gather array
 First iovec is assumed to be the header and will be sent with every packet.
 */
-ssize_t net_send_data(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov);
+//ssize_t net_send_data(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov);
+ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov);
 
 int net_recv(int *argc, char *argv[]);
 int net_send(int *argc, char *argv[]);

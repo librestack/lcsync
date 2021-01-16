@@ -60,12 +60,82 @@ ssize_t net_recv_data(int sock, net_data_t *data)
 #endif
 ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 {
-	return 0;
+	char *buf;
+	ssize_t msglen, byt=0;
+	uint64_t sz = iov->iov_len;
+	net_treehead_t *hdr;
+	if (!iov->iov_base) {
+		fprintf(stderr, "%s has no buffer, peeking to find size\n", __func__);
+		// TODO: we can have a fixed buffer for recv first time around
+		// using MSG_PEEK to inspect the packet header and allocate an
+		// appropriate receive buffer for the whole tree
+		buf = malloc(MTU_FIXED);
+		if (!buf) return -1;
+		msglen = recv(sock, buf, MTU_FIXED, MSG_PEEK);
+		// TODO: peek at first packet, allocate receive buffer
+		hdr = (net_treehead_t *)buf;
+		sz = be64toh(hdr->size);
+		free(buf);
+		fprintf(stderr, "expecting tree of sz %zu\n", (size_t)sz);
+		iov->iov_base = calloc(1, sz);
+		if (!iov->iov_base) {
+			perror("calloc()");
+			return -1;
+		}
+		iov->iov_len = sz;
+		vlen = 1;
+	}
+	/* TODO: we have a buffer now, continue as normal with recving data */
+	while (byt < (ssize_t)sz) {
+		if ((msglen = readv(sock, iov, vlen)) == -1) {
+			perror("readv()");
+			return -1;
+		}
+		fprintf(stderr, "got %zu bytes\n", msglen);
+		hdr = (net_treehead_t *)iov->iov_base;
+		fprintf(stderr, "idx=%zu/%zu\n", (size_t)be32toh(hdr->idx), (size_t)be32toh(hdr->pkts));
+		byt += be32toh(hdr->len);
+		fprintf(stderr, "len=%zu\n", (size_t)(be32toh(hdr->len)));
+	}
+	return byt;
 }
 
-ssize_t net_send_data(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
+//ssize_t net_send_data(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
+ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
 {
-	return 0;
+	ssize_t byt = 0;
+	size_t sz, off = 0;
+	size_t len = iov[1].iov_len;
+	size_t idx = 0;
+	net_treehead_t *hdr = iov[0].iov_base;
+	struct msghdr msgh = {0};
+	fprintf(stderr, "%s about to send %zu bytes\n", __func__, len);
+
+	//hdr->size = htobe64(iov[1].iov_len);
+	hdr->pkts = htobe32(iov[1].iov_len / DATA_FIXED + !!(iov[1].iov_len % DATA_FIXED));
+
+	while (len) {
+		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
+		fprintf(stderr, "sending msg idx=%zu of %zu bytes\n", idx, sz);
+		msgh.msg_name = addr->ai_addr;
+		msgh.msg_namelen = addr->ai_addrlen;
+		msgh.msg_iov = iov;
+		msgh.msg_iovlen = vlen;
+		iov[1].iov_len = sz;
+		iov[1].iov_base += off;
+		hdr->idx = htobe32(idx++);
+		hdr->len = htobe32(sz);
+		off = sz;
+		len -= sz;
+		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
+			perror("sendmsg()");
+			break;
+		}
+		else
+			fprintf(stderr, "sendmsg wrote %zi bytes\n", byt);
+		fprintf(stderr, "%zu bytes remaining\n", len);
+	}
+	return byt;
 }
 
 /* FIXME: send header struct with updatable index + data chunks
