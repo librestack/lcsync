@@ -89,8 +89,8 @@ mtree_tree *mtree_create(size_t len, size_t chunksz);
 
 void mtree_free(mtree_tree *tree);
 
-/* return 0 if tree is a valid tree, -1 if not */
-int mtree_verify(mtree_tree *tree);
+/* return 0 if tree is a valid tree, -1 if not, len = size of tree in bytes */
+int mtree_verify(mtree_tree *tree, size_t len);
 
 /* compare whole trees */
 int mtree_cmp(mtree_tree *tree1, mtree_tree *tree2);
