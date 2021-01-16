@@ -378,7 +378,7 @@ unsigned char *mtree_diff_map(mtree_tree *t1, mtree_tree *t2)
 	unsigned char *map = NULL;
 	size_t sz = 0;
 	if (!memcmp(mtree_root(t1), mtree_root(t2), HASHSIZE)) return NULL;
-	sz = mtree_base(t1) / CHAR_BIT + 1;
+	sz = mtree_base(t1) / CHAR_BIT + !!(mtree_base(t1) % CHAR_BIT);
 	map = calloc(1, sz);
 	/* the easy (slow) way to do this is compare all the data hashes */
 	/* FIXME: use tree to do this */
