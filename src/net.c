@@ -81,7 +81,7 @@ ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 			pkts = be32toh(hdr->pkts);
 			bitmap = calloc(1, pkts / CHAR_BIT + !!(pkts / CHAR_BIT));
 			for (size_t z = 0; z < pkts; z++) {
-				bitmap[z >> CHAR_BIT] |= 1UL << (z % (CHAR_BIT - 1));
+				bitmap[z >> CHAR_BIT] |= 1UL << (z % (CHAR_BIT));
 			}
 		}
 		if (!iov->iov_base) {
@@ -104,7 +104,7 @@ ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 		fprintf(stderr, "%zu == %zu\n", msglen - sizeof (net_treehead_t), len);
 		if (!!(bitmap[idx >> CHAR_BIT] & 1UL << idx)) {
 			memcpy((char *)iov->iov_base + off, buf + sizeof (net_treehead_t), len);
-			bitmap[idx >> CHAR_BIT] &= ~(1UL << (idx % (CHAR_BIT - 1)));
+			bitmap[idx >> CHAR_BIT] &= ~(1UL << (idx % (CHAR_BIT)));
 		}
 		fprintf(stderr, "got %zu bytes\n", msglen);
 		byt += be32toh(hdr->len);
@@ -116,7 +116,6 @@ ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 	return byt;
 }
 
-//ssize_t net_send_data(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
 ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
 {
 	ssize_t byt = 0;
@@ -126,10 +125,7 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 	net_treehead_t *hdr = iov[0].iov_base;
 	struct msghdr msgh = {0};
 	fprintf(stderr, "%s about to send %zu bytes\n", __func__, len);
-
-	//hdr->size = htobe64(iov[1].iov_len);
 	hdr->pkts = htobe32(iov[1].iov_len / DATA_FIXED + !!(iov[1].iov_len % DATA_FIXED));
-
 	while (len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		fprintf(stderr, "sending msg idx=%zu of %zu bytes\n", idx, sz);
@@ -147,49 +143,11 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 			perror("sendmsg()");
 			break;
 		}
-		else
-			fprintf(stderr, "sendmsg wrote %zi bytes\n", byt);
+		else fprintf(stderr, "sendmsg wrote %zi bytes\n", byt);
 		fprintf(stderr, "%zu bytes remaining\n", len);
 	}
 	return byt;
 }
-
-/* FIXME: send header struct with updatable index + data chunks
- * we're either sending a block or a tree, each of which will be broken into
- * separate datagrams with an idx at the start of the header + other header info
- * first struct iovec is header (idx at start of this struct), data is in second
- * and subsequent iovecs */
-#if 0
-ssize_t net_send_data(int sock, struct addrinfo *addr, net_data_t *data)
-{
-	size_t sz, off = 0;
-	ssize_t byt = 0;
-	struct msghdr msgh = {0};
-	size_t len = data->len;
-	fprintf(stderr, "sending data of %zu bytes\n", len);
-	while (len) {
-		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
-		fprintf(stderr, "queuing msg of %zu bytes\n", sz);
-		msgh.msg_name = addr->ai_addr;
-		msgh.msg_namelen = addr->ai_addrlen;
-		msgh.msg_iov = data->iov;
-		msgh.msg_iovlen = 2;
-		data->iov[1].iov_len = sz;
-		data->iov[1].iov_base += off;
-		off = sz;
-		len -= sz;
-		// TODO: consider sendmmsg()
-		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
-			perror("sendmsg()");
-			break;
-		}
-		else
-			fprintf(stderr, "sendmsg wrote %zi bytes\n", byt);
-		fprintf(stderr, "%zu bytes remaining\n", len);
-	}
-	return byt;
-}
-#endif
 
 int net_recv(int *argc, char *argv[])
 {
