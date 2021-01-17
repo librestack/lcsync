@@ -390,7 +390,7 @@ unsigned char *mtree_diff_map(mtree_tree *t1, mtree_tree *t2)
 	/* FIXME: use tree to do this */
 	for (size_t z = 0; z < mtree_base(t1); z++) {
 		if (memcmp(mtree_data(t1, z), mtree_data(t2, z), HASHSIZE)) {
-			map[z >> CHAR_BIT] |= 1UL << (z % CHAR_BIT);
+			map [z / CHAR_BIT] |= 1UL << (z % CHAR_BIT);
 		}
 	}
 	return map;
