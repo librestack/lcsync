@@ -49,23 +49,26 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 	do {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");
-			return -1;
+			byt = -1;
+			break;
 		}
 		hdr = (net_treehead_t *)buf;
 		if (!bitmap) {
 			pkts = be32toh(hdr->pkts);
 			sz = pkts / CHAR_BIT + !!(pkts % CHAR_BIT);
-			bitmap = malloc(sz);
-			if (!bitmap) return -1;
+			if (!(bitmap = malloc(sz))) {
+				perror("malloc()");
+				return -1;
+			}
 			memset(bitmap, ~0, sz - 1);
 			bitmap[sz - 1] = (1UL << (pkts % CHAR_BIT)) - 1;
 		}
 		sz = be64toh(hdr->size);
 		if (!iov->iov_base) {
-			iov->iov_base = malloc(sz);
-			if (!iov->iov_base) {
-				perror("calloc()");
-				return -1;
+			if (!(iov->iov_base = malloc(sz))) {
+				perror("malloc()");
+				byt = -1;
+				break;
 			}
 			iov->iov_len = sz;
 		}
