@@ -90,7 +90,6 @@ int main(void)
 	net_data_t *odata = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
 	net_data_t *idata = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
 	char *srcdata = calloc(blocks, blocksz);
-	char *dstdata = calloc(blocks, blocksz);
 
 	test_name("net_send_tree() / net_recv_tree()");
 	
@@ -133,7 +132,6 @@ int main(void)
 
 	job_queue_destroy(jobq);
 	free(srcdata);
-	free(dstdata);
 	free(odata);
 	free(idata);
 	free(hash);
