@@ -48,7 +48,6 @@ ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 	char *bitmap = NULL;
 	if (!buf) return -1;
 	do {
-		/* peek at msg header */
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");
 			free(buf);
@@ -64,8 +63,6 @@ ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 			}
 		}
 		if (!iov->iov_base) {
-			/* peek at first packet, allocate receive buffer */
-			fprintf(stderr, "expecting tree of sz %zu\n", (size_t)sz);
 			iov->iov_base = calloc(1, sz);
 			if (!iov->iov_base) {
 				perror("calloc()");
@@ -74,20 +71,14 @@ ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 			iov->iov_len = sz;
 			vlen = 1;
 		}
-		/* now read the packet */
 		idx = (size_t)be32toh(hdr->idx);
 		off = be32toh(hdr->idx) * DATA_FIXED;
 		len = (size_t)be32toh(hdr->len);
-		fprintf(stderr, "offset = %zu\n", off);
-		fprintf(stderr, "idx=%zu/%zu\n", (size_t)be32toh(hdr->idx), (size_t)be32toh(hdr->pkts));
-		fprintf(stderr, "%zu == %zu\n", msglen - sizeof (net_treehead_t), len);
 		if (!!(bitmap[idx >> CHAR_BIT] & 1UL << idx)) {
 			memcpy((char *)iov->iov_base + off, buf + sizeof (net_treehead_t), len);
 			bitmap[idx >> CHAR_BIT] &= ~(1UL << (idx % CHAR_BIT));
 		}
-		fprintf(stderr, "got %zu bytes\n", msglen);
 		byt += be32toh(hdr->len);
-		fprintf(stderr, "len=%zu\n", (size_t)(be32toh(hdr->len)));
 	}
 	while (*bitmap);
 	free(buf);
@@ -103,11 +94,9 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 	size_t idx = 0;
 	net_treehead_t *hdr = iov[0].iov_base;
 	struct msghdr msgh = {0};
-	fprintf(stderr, "%s about to send %zu bytes\n", __func__, len);
 	hdr->pkts = htobe32(iov[1].iov_len / DATA_FIXED + !!(iov[1].iov_len % DATA_FIXED));
 	while (len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
-		fprintf(stderr, "sending msg idx=%zu of %zu bytes\n", idx, sz);
 		msgh.msg_name = addr->ai_addr;
 		msgh.msg_namelen = addr->ai_addrlen;
 		msgh.msg_iov = iov;
@@ -122,8 +111,6 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 			perror("sendmsg()");
 			break;
 		}
-		else fprintf(stderr, "sendmsg wrote %zi bytes\n", byt);
-		fprintf(stderr, "%zu bytes remaining\n", len);
 	}
 	return byt;
 }
