@@ -291,6 +291,7 @@ err_nomem_0:
 
 void mtree_setdata(mtree_tree *tree, unsigned char *data)
 {
+	free(tree->tree);
 	tree->tree = data;
 }
 

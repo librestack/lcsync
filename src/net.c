@@ -56,6 +56,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 			pkts = be32toh(hdr->pkts);
 			sz = pkts / CHAR_BIT + !!(pkts % CHAR_BIT);
 			bitmap = malloc(sz);
+			if (!bitmap) return -1;
 			memset(bitmap, ~0, sz - 1);
 			bitmap[sz - 1] = (1UL << (pkts % CHAR_BIT)) - 1;
 		}

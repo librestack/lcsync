@@ -42,7 +42,7 @@ void *do_recv(void *arg)
 	lc_channel_free(chan);
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
-	free(iov.iov_base);
+	mtree_free(dtree);
 	return NULL;
 }
 
