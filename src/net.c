@@ -81,7 +81,7 @@ ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 			pkts = be32toh(hdr->pkts);
 			bitmap = calloc(1, pkts / CHAR_BIT + !!(pkts / CHAR_BIT));
 			for (size_t z = 0; z < pkts; z++) {
-				bitmap[z >> CHAR_BIT] |= 1UL << (z % (CHAR_BIT));
+				bitmap[z >> CHAR_BIT] |= 1UL << (z % CHAR_BIT);
 			}
 		}
 		if (!iov->iov_base) {
@@ -104,7 +104,7 @@ ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 		fprintf(stderr, "%zu == %zu\n", msglen - sizeof (net_treehead_t), len);
 		if (!!(bitmap[idx >> CHAR_BIT] & 1UL << idx)) {
 			memcpy((char *)iov->iov_base + off, buf + sizeof (net_treehead_t), len);
-			bitmap[idx >> CHAR_BIT] &= ~(1UL << (idx % (CHAR_BIT)));
+			bitmap[idx >> CHAR_BIT] &= ~(1UL << (idx % CHAR_BIT));
 		}
 		fprintf(stderr, "got %zu bytes\n", msglen);
 		byt += be32toh(hdr->len);
