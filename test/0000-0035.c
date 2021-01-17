@@ -7,6 +7,7 @@
 #include "../src/net.h"
 #include "../src/mtree.h"
 #include <errno.h>
+#include <math.h>
 #include <pthread.h>
 #include <signal.h>
 #include <time.h>
@@ -27,17 +28,49 @@ void *do_recv(void *arg)
 	char *dstdata = (char *)data->iov[1].iov_base;
 	dtree = mtree_create(sz, blocksz);
 	mtree_build(dtree, dstdata, NULL);
+	map = mtree_diff_map(stree, dtree);
+	test_assert(map != 0, "differences found");
+
+#define ROUNDUP(x, y) (x + y - 1) / y
+#define MIN(x, y) ((x) < (y)) ? (x) : (y)
+#define POWEROF2(x) ((((x) - 1) & (x)) == 0)
+
+	size_t channels = MIN(blocks, (1UL << net_send_channels));
+	size_t chanblks = ROUNDUP(blocks, (1UL << net_send_channels));
+	size_t maxlvl = (POWEROF2(channels)) ? channels : next_pow2(channels);
+	size_t lvl = (size_t)log2(maxlvl);        /* level numbered from root */
+	size_t ulvl = mtree_lvl(stree) - lvl - 1; /* level numbered from base */
+	test_log("sz: %zu bytes\n", sz);
+	test_log("blocks: %zu\n", blocks);
+	test_log("base: %zu\n", mtree_base(stree));
+	test_log("channels available: %zu\n", 1UL << net_send_channels);
+	test_log("channels to use: %zu\n", channels);
+	test_log("blocks / channel: %zu\n", chanblks);
+	test_log("tree level: %zu (from root)\n", lvl);
+	test_log("tree level: %zu (from base)\n", ulvl);
+
+	if (POWEROF2(channels)) fprintf(stderr, "channels=%zu is power of 2\n", channels);
+	else fprintf(stderr, "channels=%zu is not a power of 2\n", channels);
+	fprintf(stderr, "nextpow2(%zu) = %zu\n", channels, (size_t)next_pow2(channels));
+
+
+
+	// TODO: find subtree hashes for each channel
+	/* loop through hashes on appropriate tree level */
+	for (size_t n = 0; n < channels; n++) {
+		unsigned char *hash = mtree_node(stree, ulvl, n);
+		fprintf(stderr, "%zu: got me a hash\n", n);
+	}
+
+	// TODO: break bitmap into channel sized pieces
+	// TODO: receive subtrees
+
 #if 0
 	int s;
 	ssize_t byt;
 	struct iovec iov = {0};
 #endif
 
-	map = mtree_diff_map(stree, dtree);
-	test_assert(map != 0, "differences found");
-
-	// TODO: set channel bitmasks
-	// TODO: receive subtrees
 
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
