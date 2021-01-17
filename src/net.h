@@ -70,7 +70,6 @@ ssize_t net_recv_tree(int sock, size_t vlen, struct iovec *iov);
 	struct iovec	iov[];		scatter-gather array
 First iovec is assumed to be the header and will be sent with every packet.
 */
-//ssize_t net_send_data(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov);
 ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov);
 
 int net_recv(int *argc, char *argv[]);
