@@ -38,7 +38,7 @@ net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
 	return hdr;
 }
 
-ssize_t net_recv_tree(int sock, size_t vlen, struct iovec *iov)
+ssize_t net_recv_tree(int sock, struct iovec *iov)
 {
 	size_t idx, off, len, pkts;
 	ssize_t byt = 0, msglen;
@@ -69,7 +69,6 @@ ssize_t net_recv_tree(int sock, size_t vlen, struct iovec *iov)
 				return -1;
 			}
 			iov->iov_len = sz;
-			vlen = 1;
 		}
 		idx = (size_t)be32toh(hdr->idx);
 		off = be32toh(hdr->idx) * DATA_FIXED;

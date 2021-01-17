@@ -29,7 +29,7 @@ void *do_recv(void *arg)
 	lc_channel_bind(sock, chan);
 	lc_channel_join(chan);
 	s = lc_socket_raw(sock);
-	byt = net_recv_tree(s, 0, &iov);
+	byt = net_recv_tree(s, &iov);
 	mtree_tree *dtree = mtree_create(blocks, blocksz);
 	mtree_setdata(dtree, iov.iov_base);
 	test_assert((size_t)byt == mtree_treelen(stree), "%zu bytes received", byt);

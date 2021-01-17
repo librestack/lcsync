@@ -54,13 +54,10 @@ struct net_data_s {
 /* pack tree header */
 net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree);
 
-/* blocking receive of chunk from a librecast socket 
+/* blocking receive of tree from a librecast socket
  * return bytes received or -1 on error
-	size_t		len;		len of scatter-gather array
-	struct iovec	iov[];		scatter-gather array
-If iov is NULL, allocate the receive buffer.
-*/
-ssize_t net_recv_tree(int sock, size_t vlen, struct iovec *iov);
+If iov is NULL, allocate the receive buffer. */
+ssize_t net_recv_tree(int sock, struct iovec *iov);
 
 /* send a data block or tree to a librecast channel
  * return bytes sent or -1 on error
