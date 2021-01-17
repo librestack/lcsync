@@ -38,26 +38,6 @@ net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
 	return hdr;
 }
 
-#if 0
-ssize_t net_recv_data(int sock, net_data_t *data)
-{
-	ssize_t byt = 0;
-	unsigned char hash[HASHSIZE];
-	fprintf(stderr, "%s() waiting for %zu bytes\n", __func__, data->len);
-	while (byt < (ssize_t)data->len) {
-		byt += readv(sock, data->iov, 2);
-		// TODO: ensure we read correct number of bytes
-		// TODO: check idx against our bitmap to see if we need this block -  mtree_bitcmp()
-		// TODO: check the hash
-		// TODO: write the block in the correct place
-		fprintf(stderr, "got %zu bytes\n", byt);
-	}
-	uint64_t idx = be64toh(*(uint64_t *)data->iov[0].iov_base);
-	fprintf(stderr, "idx = %zu\n", idx);
-	crypto_generichash(hash, HASHSIZE, data->iov[1].iov_base, data->iov[1].iov_len, NULL, 0);
-	return byt;
-}
-#endif
 ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 {
 	size_t idx, off, len, pkts;
@@ -69,7 +49,6 @@ ssize_t net_recv_data(int sock, size_t vlen, struct iovec *iov)
 	if (!buf) return -1;
 	do {
 		/* peek at msg header */
-		//if ((msglen = recv(sock, buf, MTU_FIXED, MSG_PEEK)) == -1) {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");
 			free(buf);
