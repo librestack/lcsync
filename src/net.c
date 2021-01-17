@@ -63,7 +63,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 		}
 		sz = be64toh(hdr->size);
 		if (!iov->iov_base) {
-			iov->iov_base = calloc(1, sz);
+			iov->iov_base = malloc(sz);
 			if (!iov->iov_base) {
 				perror("calloc()");
 				return -1;
