@@ -54,14 +54,14 @@ ssize_t net_recv_tree(int sock, size_t vlen, struct iovec *iov)
 			return -1;
 		}
 		hdr = (net_treehead_t *)buf;
-		sz = be64toh(hdr->size);
 		if (!bitmap) {
 			pkts = be32toh(hdr->pkts);
-			bitmap = calloc(1, pkts / CHAR_BIT + !!(pkts / CHAR_BIT));
-			for (size_t z = 0; z < pkts; z++) {
-				bitmap[z >> CHAR_BIT] |= 1UL << (z % CHAR_BIT);
-			}
+			sz = pkts / CHAR_BIT + !!(pkts % CHAR_BIT);
+			bitmap = malloc(sz);
+			memset(bitmap, ~0, sz - 1);
+			bitmap[sz - 1] = (1UL << (pkts % CHAR_BIT)) - 1;
 		}
+		sz = be64toh(hdr->size);
 		if (!iov->iov_base) {
 			iov->iov_base = calloc(1, sz);
 			if (!iov->iov_base) {
