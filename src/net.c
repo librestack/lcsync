@@ -44,13 +44,11 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 	ssize_t byt = 0, msglen;
 	uint64_t sz = iov->iov_len;
 	net_treehead_t *hdr;
-	char *buf = malloc(MTU_FIXED);
+	char buf[MTU_FIXED];
 	char *bitmap = NULL;
-	if (!buf) return -1;
 	do {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");
-			free(buf);
 			return -1;
 		}
 		hdr = (net_treehead_t *)buf;
@@ -80,7 +78,6 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 		byt += be32toh(hdr->len);
 	}
 	while (*bitmap);
-	free(buf);
 	free(bitmap);
 	return byt;
 }
