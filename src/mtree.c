@@ -23,6 +23,7 @@ struct mtree_tree {
 	size_t len;		/* total size of base (file) data */
 	size_t lvls;		/* count of levels in tree */
 	size_t nodes;		/* count of total nodes in tree */
+	char  *data;		/* ptr to the base data */
 	unsigned char *tree;	/* ptr to tree data == data(0) */
 };
 
@@ -44,6 +45,11 @@ void mtree_hexdump(mtree_tree *tree, FILE *fd)
 		sodium_bin2hex(hex, HEXLEN, tree->tree + i * HASHSIZE, HASHSIZE);
 		fprintf(fd, "%08zu: %.*s\n", i, HEXLEN, hex);
 	}
+}
+
+size_t mtree_level_base(mtree_tree *tree, size_t level)
+{
+	return mtree_lvl(tree) - level - 1;
 }
 
 /* node numbered from 0=root, levels numbered from 0=root */
@@ -254,8 +260,9 @@ int mtree_build(mtree_tree *tree, char *data, job_queue_t *jq)
 	job_queue_t *jobq = jq;
 	struct mtree_queue q = {0};
 	struct mtree_thread *mt = NULL;
+	tree->data = data;
 	q.tree = tree;
-	q.data = data;
+	q.data = data; // FIXME: redundant - tree now has pointer to data
 	q.done = calloc(tree->nodes, sizeof(sem_t));
 	if (!q.done) return -1;
 	for (size_t z = 0; z < tree->nodes; z++) sem_init(&q.done[z], 0, 0);
@@ -289,9 +296,10 @@ err_nomem_0:
 	return -1;
 }
 
+// FIXME: badly named - we're setting the tree ptr, not the data
 void mtree_setdata(mtree_tree *tree, unsigned char *data)
 {
-	free(tree->tree);
+	free(tree->tree); // FIXME: caller should do this
 	tree->tree = data;
 }
 
@@ -386,6 +394,7 @@ unsigned char *mtree_diff_map(mtree_tree *t1, mtree_tree *t2)
 	if (!memcmp(mtree_root(t1), mtree_root(t2), HASHSIZE)) return NULL;
 	sz = mtree_base(t1) / CHAR_BIT + !!(mtree_base(t1) % CHAR_BIT);
 	map = calloc(1, sz);
+	if (!map) return NULL;
 	/* the easy (slow) way to do this is compare all the data hashes */
 	/* FIXME: use tree to do this */
 	for (size_t z = 0; z < mtree_base(t1); z++) {
@@ -393,6 +402,54 @@ unsigned char *mtree_diff_map(mtree_tree *t1, mtree_tree *t2)
 			map [z / CHAR_BIT] |= 1UL << (z % CHAR_BIT);
 		}
 	}
+	return map;
+}
+
+/* TODO - create channel bitmaps
+ *
+ * test match
+ * if (channels == (1 << level))
+ *	add queue children to private (thread-local) queue
+ *	shift job from private queue
+ * else
+ *	publicly queue children (other threads can take job)
+ *	shift next job from public queue
+ *
+ * create threadpool with channel threads
+ * diff down the tree to channel level, shifting and queuing
+ * once at channel level, create empty bitmap
+ * shift, diff and queue until bitmap done
+ * join channel, sync data until bitmap zeroed
+ */
+
+// TODO the wrapper function for the job
+// search down to channel level, eventually calling mtree_diff_subtree()
+// and syncing the changes
+// n = node of subtree to sync
+// c = channel limit (power of 2)
+void mtree_sync_subtree(mtree_tree *t1, mtree_tree *t2, size_t n, size_t c)
+{
+	(void)t1;
+	(void)t2;
+	(void)n;
+	(void)c;
+	// TODO
+	// check root, return if matched
+	// create threadpool
+	// if lvl = channel limit
+	//	mtree_diff_subtree && 
+	// queue up jobs for child nodes
+}
+
+unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t node)
+{
+	(void) node;
+	// TODO:
+	// work our way down the subtree, when a difference is found, create the
+	// bitmap and return bitmap and subtree hash
+	unsigned char *map = NULL;
+	if (!memcmp(mtree_root(t1), mtree_root(t2), HASHSIZE)) return NULL;
+	map = malloc(1);
 	return map;
 }
 

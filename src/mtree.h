@@ -16,6 +16,9 @@ typedef struct mtree_tree mtree_tree;
 /* hexdump tree to fd */
 void mtree_hexdump(mtree_tree *tree, FILE *fd);
 
+/* return level numbered from base, given level numbered from root */
+size_t mtree_level_base(mtree_tree *tree, size_t level);
+
 /* return tree level of node, numbered from 0=root, levels from 0=root */
 size_t mtree_node_level(size_t node);
 
@@ -108,8 +111,13 @@ size_t mtree_diff(mtree_tree *tree1, mtree_tree *tree2);
 /* return 1 if bit corresponding to block is set in bitmap, 0 if not */
 int mtree_bitcmp(unsigned char *map, size_t block);
 
-/* return bitmap of block differences, NULL if no difference */
+/* return bitmap of block differences, NULL if no difference
+ * size is set to length of map returned */
 unsigned char *mtree_diff_map(mtree_tree *t1, mtree_tree *t2);
+
+/* return bitmap of block differences for the subtree below node n
+ * return NULL if trees match */
+unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t n);
 
 /* update tree after data node n changed */
 void mtree_update(mtree_tree *tree, char *data, size_t n);

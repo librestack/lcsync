@@ -6,6 +6,7 @@
 #include "../src/job.h"
 #include "../src/net.h"
 #include "../src/mtree.h"
+#include <assert.h>
 #include <errno.h>
 #include <math.h>
 #include <pthread.h>
@@ -30,10 +31,12 @@ void *do_recv(void *arg)
 	mtree_build(dtree, dstdata, NULL);
 	map = mtree_diff_map(stree, dtree);
 	test_assert(map != 0, "differences found");
+	net_send_channels = 4; /* give ourselves some channels to play with */
 
 #define ROUNDUP(x, y) (x + y - 1) / y
 #define MIN(x, y) ((x) < (y)) ? (x) : (y)
 #define POWEROF2(x) ((((x) - 1) & (x)) == 0)
+#define ISSET(a,i) !!((a)[(i)/CHAR_BIT] & (1U<<((i)%CHAR_BIT)))
 
 	size_t channels = MIN(blocks, (1UL << net_send_channels));
 	size_t chanblks = ROUNDUP(blocks, (1UL << net_send_channels));
@@ -53,16 +56,46 @@ void *do_recv(void *arg)
 	else fprintf(stderr, "channels=%zu is not a power of 2\n", channels);
 	fprintf(stderr, "nextpow2(%zu) = %zu\n", channels, (size_t)next_pow2(channels));
 
+	// TODO TODO TODO TODO TODO  mtree_diff_subtree()
+	// we want a separate map per channel, not one big one?
+	//
+	// two things we're trying to achieve with this bitmask
+	// 1) decide whether or not to join a channel (map == 0)
+	// 2) decide whether to accept a packet (is bit set)
+	// 3) same as (1) - decide when to break the loop
+	// each thread needs its own bitmap to write to
+	// when all threads exit, we're done
+	
+	// By creating a diffmap at each subtree, we return NULL
+	// when no differences == skip channel
+	// and we get exactly the map we need
 
-
-	// TODO: find subtree hashes for each channel
-	/* loop through hashes on appropriate tree level */
+	/* loop through subtree hashes we need */
 	for (size_t n = 0; n < channels; n++) {
 		unsigned char *hash = mtree_node(stree, ulvl, n);
 		fprintf(stderr, "%zu: got me a hash\n", n);
+		// TODO: check channel map is nonzero
+		// TODO: receive subtrees
+#if 0
+		memset(cmap, 0, ROUNDUP(chanblks, CHAR_BIT));
+
+		test_log("channel map: ");
+		for (size_t i = 0; i < chanblks; i++) {
+			test_log("%u", ISSET(cmap, i));
+		}
+		test_log("\n");
+#endif
 	}
 
+	/* dump the bitmap */
+	test_log("bitmap: ");
+	for (size_t n = 0; n < blocks; n++) {
+		test_log("%u", ISSET(map, n));
+	}
+	test_log("\n");
+
 	// TODO: break bitmap into channel sized pieces
+
 	// TODO: receive subtrees
 
 #if 0
@@ -155,6 +188,8 @@ int main(void)
 	/* build source data, make each block different */
 	for (size_t i = 0; i < blocks; i++) {
 		(srcdata + i * blocksz)[0] = i + 1;
+		/* copy a selection of blocks to destination */
+		if ((i % 7) && (i % 9)) (dstdata + i * blocksz)[0] = i + 1;
 	}
 
 	/* build source tree */

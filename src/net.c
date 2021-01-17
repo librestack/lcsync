@@ -86,6 +86,28 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 	return byt;
 }
 
+// TODO TODO TODO TODO TODO
+struct subsync_thing {
+	mtree_tree    *t1;
+	mtree_tree    *t2;
+	size_t		n; /* node of subtree to sync */
+	size_t		c; /* channel limit */
+};
+void net_sync_subtree(mtree_tree *t1, mtree_tree *t2, size_t n, size_t c)
+{
+	(void)t1;
+	(void)t2;
+	(void)n;
+	(void)c;
+
+	// TODO
+	// check root, return if matched
+	// create threadpool
+	// if lvl = channel limit
+	//      mtree_diff_subtree &&
+	// queue up jobs for child nodes
+}
+
 ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
 {
 	ssize_t byt = 0;
