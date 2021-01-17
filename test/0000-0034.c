@@ -92,7 +92,7 @@ int main(void)
 	char *srcdata = calloc(blocks, blocksz);
 	char *dstdata = calloc(blocks, blocksz);
 
-	test_name("net_send_data() / net_recv_data() - send tree");
+	test_name("net_send_tree() / net_recv_tree()");
 	
 	/* build source data, make each block different */
 	for (size_t i = 0; i < blocks; i++) {
@@ -102,22 +102,18 @@ int main(void)
 	/* build source tree */
 	stree = mtree_create(sz, blocksz);
 	mtree_build(stree, srcdata, NULL);
-
-	/* create channel hash */
-	crypto_generichash(hash, HASHSIZE, (unsigned char *)srcdata, sz, NULL, 0);
-
-	/* queue up send / recv jobs */
 	fprintf(stderr, "node= %zu, treelen=%zu\n", mtree_nodes(stree), mtree_treelen(stree));
 
 	/* we are sending the source tree */
-	odata->hash = hash;
+	odata->hash = mtree_root(stree);
 	odata->iov[0].iov_len = mtree_treelen(stree);
 	odata->iov[0].iov_base = mtree_data(stree, 0);
 
 	/* receiver is recving source tree of unknown size
 	 * all receiver knows is hash of data to join channel */
-	idata->hash = hash;
+	idata->hash = odata->hash;
 
+	/* queue up send / recv jobs */
 	jobq = job_queue_create(2);
 	job_send = job_push_new(jobq, &do_send, odata, NULL);
 	job_recv = job_push_new(jobq, &do_recv, idata, NULL);
