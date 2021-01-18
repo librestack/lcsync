@@ -59,9 +59,9 @@ job_t *job_push(job_queue_t *q, job_t *job)
 	return job;
 }
 
-job_t *job_push_new(job_queue_t *q, void *(*f)(void *), void *arg, void (*callback)(void *))
+job_t *job_push_new(job_queue_t *q, void *(*f)(void *), void *arg, void (*callback)(void *), int flags)
 {
-	job_t *job = job_new(f, arg, callback, 0);
+	job_t *job = job_new(f, arg, callback, flags);
 	return job_push(q, job);
 }
 

@@ -65,7 +65,7 @@ job_t *job_new(void *(*f)(void *), void *arg, void (*callback)(void *), int flag
 job_t *job_push(job_queue_t *q, job_t *job);
 
 /* create a job and push onto the queue in one call */
-job_t *job_push_new(job_queue_t *q, void *(*f)(void *), void *arg, void (*callback)(void *));
+job_t *job_push_new(job_queue_t *q, void *(*f)(void *), void *arg, void (*callback)(void *), int flags);
 
 /* Shift the next job from the front of the queue (FIFO) with no locks.
  * Use job_trywait() or job_wait() if lock required */
