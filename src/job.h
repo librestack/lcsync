@@ -16,10 +16,8 @@ enum job_status {
 #endif
 
 enum job_flag {
-	/* copy arg */
-	JOB_ARGCOPY = 1,
-	/* free arg */
-	JOB_ARGFREE = 2,
+	JOB_COPY = 1,	/* copy arg */
+	JOB_FREE = 2,	/* free arg */
 };
 
 typedef struct job_s job_t;

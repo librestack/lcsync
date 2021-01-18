@@ -39,6 +39,8 @@ job_t *job_new(void *(*f)(void *), void *arg, void (*callback)(void *), int flag
 {
 	job_t *job = calloc(1, sizeof(job_t));
 	job->f = f;
+	// TODO: if JOB_ARGCOPY, copy arg */
+	// FIXME: need size
 	job->arg = arg;
 	job->flags = flags;
 	job->callback = callback;
@@ -72,6 +74,8 @@ static void *job_seek(void *arg)
 	void(*callback)(void *);
 	while((job = job_wait(jt->q))) {
 		job->f(job->arg);
+		if ((job->flags & JOB_FREE) == JOB_FREE)
+			free(arg);
 		callback = job->callback; /* avoid race */
 		sem_post(&job->done);
 		if (callback) callback(job);
