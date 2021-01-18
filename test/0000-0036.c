@@ -5,7 +5,7 @@
 #include "../src/mtree.h"
 #include <errno.h>
 
-void cmp_tree(size_t sz, size_t n, size_t lvl)
+void cmp_tree(size_t sz, size_t blk, size_t n, uint8_t bin)
 {
 	unsigned char *map;
 	mtree_tree *t1 = NULL;
@@ -23,22 +23,19 @@ void cmp_tree(size_t sz, size_t n, size_t lvl)
 	mtree_build(t2, data, NULL);
 	test_assert(mtree_diff(t1, t2) == 0, "trees match");
 
-	map = mtree_diff_subtree(t1, t2, lvl);
+	map = mtree_diff_subtree(t1, t2, n);
 	test_assert(map == NULL, "mtree_diff_subtree() - trees match");
 
 	memcpy(copy, data, sz * chunksz);
-	fprintf(stderr, "scribbling on chunk %zu\n", n);
-	off = n * chunksz;
+	fprintf(stderr, "scribbling on chunk %zu\n", blk);
+	off = blk * chunksz;
 	(copy + off)[0] = !(data + off)[0];
 	mtree_build(t2, copy, NULL);
-	test_assert(mtree_diff(t1, t2) == n + 1, "%02zu: trees differ (tree)", n);
+	test_assert(mtree_diff(t1, t2) == blk + 1, "%02zu: trees differ (tree)", blk);
 
-	map = mtree_diff_subtree(t1, t2, 0);
-	test_assert(map != NULL, "mtree_diff_subtree() - trees differ");
-
-	// FIXME - working here
-	test_assert(mtree_bitcmp(map, n + 1) == 0, "mtree_bitcmp(%zu) (0) - bit not set", n);
-	test_assert(mtree_bitcmp(map, n + 0) == 1, "mtree_bitcmp(%zu) (1) - bit set", n);
+	map = mtree_diff_subtree(t1, t2, n);
+	if ((bin != 0x0 || map))
+		test_assert(map[0] == bin, "check %02x == %02x", map[0], bin);
 
 	free(map);
 	mtree_free(t1);
@@ -51,13 +48,23 @@ int main()
 {
 	test_name("mtree_diff_subtree() / mtree_bitcmp()");
 
-	/* base, diffblock, subtreelvl */
-	cmp_tree(1, 0, 0);
-#if 0
-	cmp_tree(2, 1);
-	cmp_tree(4, 0);
-	cmp_tree(4, 1);
-	cmp_tree(4, 2);
-#endif
+	/* base, diffblock, nodeatsubtree, map */
+	cmp_tree(1, 0, 0, 0x1);
+	cmp_tree(2, 0, 0, 0x1);
+	cmp_tree(2, 1, 0, 0x2);
+	cmp_tree(4, 0, 0, 0x1);
+	cmp_tree(4, 1, 0, 0x2);
+	cmp_tree(4, 2, 0, 0x4);
+	cmp_tree(4, 3, 0, 0x8);
+	cmp_tree(4, 0, 1, 0x1);
+	cmp_tree(4, 1, 1, 0x2);
+	cmp_tree(8, 0, 0, 0x1);
+	cmp_tree(8, 1, 0, 0x2);
+	cmp_tree(8, 2, 0, 0x4);
+	cmp_tree(8, 3, 0, 0x8);
+	cmp_tree(8, 4, 0, 0x10);
+	cmp_tree(8, 7, 0, 0x80);
+	cmp_tree(8, 0, 1, 0x1);
+	cmp_tree(8, 4, 1, 0x0);
 	return fails;
 }

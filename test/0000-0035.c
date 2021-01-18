@@ -72,7 +72,7 @@ void *do_recv(void *arg)
 
 	/* loop through subtree hashes we need */
 	for (size_t n = 0; n < channels; n++) {
-		unsigned char *hash = mtree_node(stree, ulvl, n);
+		//unsigned char *hash = mtree_node(stree, ulvl, n);
 		fprintf(stderr, "%zu: got me a hash\n", n);
 		// TODO: check channel map is nonzero
 		// TODO: receive subtrees
@@ -135,6 +135,7 @@ void *do_send(void *arg)
 {
 	const int on = 1;
 	net_data_t *data = (net_data_t *)arg;
+	(void)data; // FIXME
 #if 0
 	void *base = data->iov[0].iov_base;
 	size_t len = data->iov[0].iov_len;

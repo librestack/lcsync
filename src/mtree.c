@@ -384,6 +384,7 @@ size_t mtree_diff(mtree_tree *t1, mtree_tree *t2)
 
 int mtree_bitcmp(unsigned char *map, size_t block)
 {
+	if (!map) return -1;
 	return !!(map[block >> CHAR_BIT] & 1UL << block);
 }
 
@@ -448,45 +449,56 @@ size_t mtree_base_subtree(mtree_tree *tree, size_t n)
 
 unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t n)
 {
-	// TODO:
-	// work our way down the subtree, when a difference is found, create the
-	// bitmap and return bitmap and subtree hash
 	size_t c0, c1;
-	size_t node, sz;
+	size_t sz;
 	job_queue_t *q;
 	job_t *job;
 	unsigned char *map = NULL;
 
 	/* if root of subtree matches, stop now */
 	if (!memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE)) return NULL;
+	fprintf(stderr, "root of subtree (n = %zu) does not match\n", n);
 
 #define ROUNDUP(x, y) (x + (y - 1)) / y
 	sz = ROUNDUP(mtree_base_subtree(t1, n), CHAR_BIT);
+	fprintf(stderr, "I sized my size at %zu\n", sz);
 	map = calloc(1, sz);
-	
+
+	c0 = mtree_child(t1, n);
+	if (!c0) { /* leaf node */
+		map[0] |= 1U;
+		return map;
+	}
+	c1 = c0 + 1;
+
 	/* build private queue */
 	q = job_queue_create(0);
 
-	/* TODO: push on first two child nodes */
-	c0 = mtree_child(t1, n);
-	c1 = c0 + 1;
+	/* push on first two child nodes */
 	job_push_new(q, NULL, &c0, sizeof c0, NULL, JOB_COPY);
 	job_push_new(q, NULL, &c1, sizeof c1, NULL, JOB_COPY);
 
-	while ((job = job_shift(q))) {
-		node = *(size_t *)job->arg;
-		fprintf(stderr, "node=%zu\n", node);
+	fprintf(stderr, "n = %zu, c0 = %zu, c1 = %zu\n", n, c0, c1);
 
-		// FIXME FIXME FIXME FIXME FIXME 
-		// FIXME - mtree_nnode() broken?
-		fprintf(stderr, "%p == %p\n", mtree_nnode(t1, node), mtree_nnode(t2, node));
-		// FIXME FIXME FIXME FIXME FIXME 
-#if 0
-		if (memcmp(mtree_nnode(t1, node), mtree_nnode(t2, node), HASHSIZE)) {
-			// TODO: update map
-			// map [z / CHAR_BIT] |= 1UL << (z % CHAR_BIT);
+	while ((job = job_shift(q))) {
+		n = *(size_t *)job->arg;
+		fprintf(stderr, "n=%zu\n", n);
+		if (memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE)) {
+			fprintf(stderr, "n=%zu does not match\n", n);
+			/* if base level, update bitmap */
+			if (mtree_node_level(n) == mtree_lvl(t1) - 1) {
+				fprintf(stderr, "%zu is a base node\n", n);
+				fprintf(stderr, "mtree_node_offset(%zu) == %zu\n", n, mtree_node_offset(n));
+				size_t off = mtree_node_offset(n);
+				map [off / CHAR_BIT] |= 1U << (off % CHAR_BIT);
+			}
+			c0 = mtree_child(t1, n);
+			if (c0) {
+				c1 = c0 + 1;
+				job_push_new(q, NULL, &c0, sizeof c0, NULL, JOB_COPY);
+				job_push_new(q, NULL, &c1, sizeof c1, NULL, JOB_COPY);
+			}
 		}
-#endif
 		free(job->arg);
 		free(job);
 	}
