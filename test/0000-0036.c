@@ -37,10 +37,9 @@ void cmp_tree(size_t sz, size_t n, size_t lvl)
 	test_assert(map != NULL, "mtree_diff_subtree() - trees differ");
 
 	// FIXME - working here
-#if 0
-	test_assert(mtree_bitcmp(map, i + 1) == 0, "mtree_bitcmp(%zu) (0)", i);
-	test_assert(mtree_bitcmp(map, i + 0) == 1, "mtree_bitcmp(%zu) (1)", i + 0);
-#endif
+	test_assert(mtree_bitcmp(map, n + 1) == 0, "mtree_bitcmp(%zu) (0) - bit not set", n);
+	test_assert(mtree_bitcmp(map, n + 0) == 1, "mtree_bitcmp(%zu) (1) - bit set", n);
+
 	free(map);
 	mtree_free(t1);
 	mtree_free(t2);

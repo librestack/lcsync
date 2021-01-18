@@ -441,15 +441,26 @@ void mtree_sync_subtree(mtree_tree *t1, mtree_tree *t2, size_t n, size_t c)
 	// queue up jobs for child nodes
 }
 
+size_t mtree_base_subtree(mtree_tree *tree, size_t n)
+{
+	return mtree_base(tree) / (1U << mtree_node_level(n));
+}
+
 unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t node)
 {
-	(void) node;
 	// TODO:
 	// work our way down the subtree, when a difference is found, create the
 	// bitmap and return bitmap and subtree hash
 	unsigned char *map = NULL;
+	size_t sz = 1;
 	if (!memcmp(mtree_root(t1), mtree_root(t2), HASHSIZE)) return NULL;
-	map = malloc(1);
+
+	// TODO: work out size of bitmap
+	//sz = mtree_base(t1) / CHAR_BIT + !!(mtree_base(t1) % CHAR_BIT);
+	// TODO: need subtree base
+
+	map = calloc(1, sz);
+
 	return map;
 }
 
