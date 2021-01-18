@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "job.h"
 
 job_t *job_shift(job_queue_t *q)
@@ -39,8 +40,13 @@ job_t *job_new(void *(*f)(void *), void *arg, size_t len, void (*callback)(void 
 {
 	job_t *job = calloc(1, sizeof(job_t));
 	job->f = f;
-	// TODO: if JOB_COPY, copy arg */
-	job->arg = arg;
+	if ((flags & JOB_COPY) == JOB_COPY) {
+		job->arg = malloc(len);
+		memcpy(job->arg, arg, len);
+	}
+	else {
+		job->arg = arg;
+	}
 	job->len = len;
 	job->flags = flags;
 	job->callback = callback;
@@ -73,9 +79,9 @@ static void *job_seek(void *arg)
 	job_t *job;
 	void(*callback)(void *);
 	while((job = job_wait(jt->q))) {
-		job->f(job->arg);
+		if (job->f) job->f(job->arg);
 		if ((job->flags & JOB_FREE) == JOB_FREE)
-			free(arg);
+			free(job->arg);
 		callback = job->callback; /* avoid race */
 		sem_post(&job->done);
 		if (callback) callback(job);

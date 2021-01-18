@@ -451,32 +451,45 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t n)
 	// TODO:
 	// work our way down the subtree, when a difference is found, create the
 	// bitmap and return bitmap and subtree hash
+	size_t c0, c1;
+	size_t node, sz;
+	job_queue_t *q;
+	job_t *job;
 	unsigned char *map = NULL;
-	size_t sz = 1;
-	if (!memcmp(mtree_root(t1), mtree_root(t2), HASHSIZE)) return NULL;
+
+	/* if root of subtree matches, stop now */
+	if (!memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE)) return NULL;
 
 #define ROUNDUP(x, y) (x + (y - 1)) / y
 	sz = ROUNDUP(mtree_base_subtree(t1, n), CHAR_BIT);
 	map = calloc(1, sz);
 	
 	/* build private queue */
-	job_queue_t *q = job_queue_create(0);
+	q = job_queue_create(0);
 
 	/* TODO: push on first two child nodes */
-	
-	int c0 = mtree_child(t1, n);
-	int c1 = c0 + 1;
-	job_push_new(q, NULL, &c0, sizeof c0, NULL, 0);
-	job_push_new(q, NULL, &c1, sizeof c1, NULL, 0);
+	c0 = mtree_child(t1, n);
+	c1 = c0 + 1;
+	job_push_new(q, NULL, &c0, sizeof c0, NULL, JOB_COPY);
+	job_push_new(q, NULL, &c1, sizeof c1, NULL, JOB_COPY);
 
-	job_t *job;
 	while ((job = job_shift(q))) {
-		// TODO
-		//if (memcmp(mtree_data(t1, z), mtree_data(t2, z), HASHSIZE)) {
-		//	map [z / CHAR_BIT] |= 1UL << (z % CHAR_BIT);
-		//}
+		node = *(size_t *)job->arg;
+		fprintf(stderr, "node=%zu\n", node);
+
+		// FIXME FIXME FIXME FIXME FIXME 
+		// FIXME - mtree_nnode() broken?
+		fprintf(stderr, "%p == %p\n", mtree_nnode(t1, node), mtree_nnode(t2, node));
+		// FIXME FIXME FIXME FIXME FIXME 
+#if 0
+		if (memcmp(mtree_nnode(t1, node), mtree_nnode(t2, node), HASHSIZE)) {
+			// TODO: update map
+			// map [z / CHAR_BIT] |= 1UL << (z % CHAR_BIT);
+		}
+#endif
+		free(job->arg);
+		free(job);
 	}
-	job = job_shift(q); // TODO: working here
 	job_queue_destroy(q);
 	return map;
 }
