@@ -15,6 +15,13 @@ enum job_status {
 };
 #endif
 
+enum job_flag {
+	/* copy arg */
+	JOB_ARGCOPY = 1,
+	/* free arg */
+	JOB_ARGFREE = 2,
+};
+
 typedef struct job_s job_t;
 typedef struct job_queue_s job_queue_t;
 typedef struct job_thread_s job_thread_t;
@@ -23,6 +30,7 @@ struct job_s {
 	void *(*f)(void *arg);		/* function for thread to call */
 	void *arg;			/* pass this argument to f() */
 	job_t *next;			/* ptr to next job */
+	int flags;			/* job flags */
 	void (*callback)(void *);	/* callback when done */
 	sem_t done;			/* set when job complete */
 };
@@ -51,7 +59,7 @@ void job_queue_destroy(job_queue_t *q);
 /* Create new job.
  * callback is called with the job as argument. Can be called with &free to free
  * job when done if nothing else needs to access it */
-job_t *job_new(void *(*f)(void *), void *arg, void (*callback)(void *));
+job_t *job_new(void *(*f)(void *), void *arg, void (*callback)(void *), int flags);
 
 /* Push a new job onto the end of the queue. */
 job_t *job_push(job_queue_t *q, job_t *job);

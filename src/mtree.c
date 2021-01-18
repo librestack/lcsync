@@ -446,7 +446,7 @@ size_t mtree_base_subtree(mtree_tree *tree, size_t n)
 	return mtree_base(tree) / (1U << mtree_node_level(n));
 }
 
-unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t node)
+unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t n)
 {
 	// TODO:
 	// work our way down the subtree, when a difference is found, create the
@@ -455,12 +455,29 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t node)
 	size_t sz = 1;
 	if (!memcmp(mtree_root(t1), mtree_root(t2), HASHSIZE)) return NULL;
 
-	// TODO: work out size of bitmap
-	//sz = mtree_base(t1) / CHAR_BIT + !!(mtree_base(t1) % CHAR_BIT);
-	// TODO: need subtree base
-
+#define ROUNDUP(x, y) (x + (y - 1)) / y
+	sz = ROUNDUP(mtree_base_subtree(t1, n), CHAR_BIT);
 	map = calloc(1, sz);
+	
+	/* build private queue */
+	job_queue_t *q = job_queue_create(0);
 
+	/* TODO: push on first two child nodes */
+	
+	int c0 = mtree_child(t1, n);
+	int c1 = c0 + 1;
+	job_push_new(q, NULL, &c0, NULL);
+	job_push_new(q, NULL, &c1, NULL);
+
+	job_t *job;
+	while ((job = job_shift(q))) {
+		// TODO
+		//if (memcmp(mtree_data(t1, z), mtree_data(t2, z), HASHSIZE)) {
+		//	map [z / CHAR_BIT] |= 1UL << (z % CHAR_BIT);
+		//}
+	}
+	job = job_shift(q); // TODO: working here
+	job_queue_destroy(q);
 	return map;
 }
 

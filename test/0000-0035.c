@@ -33,7 +33,7 @@ void *do_recv(void *arg)
 	test_assert(map != 0, "differences found");
 	net_send_channels = 4; /* give ourselves some channels to play with */
 
-#define ROUNDUP(x, y) (x + y - 1) / y
+#define ROUNDUP(x, y) ((x) + ((y) - 1)) / (y)
 #define MIN(x, y) ((x) < (y)) ? (x) : (y)
 #define POWEROF2(x) ((((x) - 1) & (x)) == 0)
 #define ISSET(a,i) !!((a)[(i)/CHAR_BIT] & (1U<<((i)%CHAR_BIT)))

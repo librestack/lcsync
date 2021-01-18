@@ -79,7 +79,7 @@ int main()
 		job_push_new(q, &test_f, fred, &free);
 		job_push_new(q, &test_f, wilma, &free);
 	}
-	job = job_new(&test_f, betty, NULL);
+	job = job_new(&test_f, betty, NULL, 0);
 	test_assert(job_push(q, job) == job, "job_push()");
 	sem_wait(&job->done); /* wait on last job */
 	free(job);

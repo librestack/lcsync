@@ -26,7 +26,7 @@ int main()
 		test_log("pushing job %i\n", i);
 		job_push_new(q, &test_f, &i, &free);
 	}
-	job = job_new(&test_f, &i, NULL);
+	job = job_new(&test_f, &i, NULL, 0);
 	test_assert(job_push(q, job) == job, "job_push()");
 	sem_wait(&job->done); /* wait on last job */
 	free(job);

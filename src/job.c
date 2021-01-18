@@ -35,11 +35,12 @@ job_t *job_wait(job_queue_t *q)
 	return job_shiftlock(q, &sem_wait);
 }
 
-job_t *job_new(void *(*f)(void *), void *arg, void (*callback)(void *))
+job_t *job_new(void *(*f)(void *), void *arg, void (*callback)(void *), int flags)
 {
 	job_t *job = calloc(1, sizeof(job_t));
 	job->f = f;
 	job->arg = arg;
+	job->flags = flags;
 	job->callback = callback;
 	sem_init(&job->done, 0, 0);
 	return job;
@@ -60,7 +61,7 @@ job_t *job_push(job_queue_t *q, job_t *job)
 
 job_t *job_push_new(job_queue_t *q, void *(*f)(void *), void *arg, void (*callback)(void *))
 {
-	job_t *job = job_new(f, arg, callback);
+	job_t *job = job_new(f, arg, callback, 0);
 	return job_push(q, job);
 }
 
