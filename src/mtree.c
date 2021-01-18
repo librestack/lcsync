@@ -275,7 +275,7 @@ int mtree_build(mtree_tree *tree, char *data, job_queue_t *jq)
 	for (size_t z = 0; z < nthreads; z++) {
 		mt[z].id = z;
 		mt[z].q = &q;
-		job_push_new(jobq, &mtree_hash_data, &mt[z], &free, 0);
+		job_push_new(jobq, &mtree_hash_data, &mt[z], sizeof mt[z], &free, 0);
 	}
 #if THREAD_MAX == 0
 	mt = calloc(1, sizeof(struct mtree_thread));
@@ -466,8 +466,8 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t n)
 	
 	int c0 = mtree_child(t1, n);
 	int c1 = c0 + 1;
-	job_push_new(q, NULL, &c0, NULL, 0);
-	job_push_new(q, NULL, &c1, NULL, 0);
+	job_push_new(q, NULL, &c0, sizeof c0, NULL, 0);
+	job_push_new(q, NULL, &c1, sizeof c1, NULL, 0);
 
 	job_t *job;
 	while ((job = job_shift(q))) {

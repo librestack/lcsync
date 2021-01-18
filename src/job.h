@@ -27,6 +27,7 @@ typedef struct job_thread_s job_thread_t;
 struct job_s {
 	void *(*f)(void *arg);		/* function for thread to call */
 	void *arg;			/* pass this argument to f() */
+	size_t len;			/* size of arg */
 	job_t *next;			/* ptr to next job */
 	int flags;			/* job flags */
 	void (*callback)(void *);	/* callback when done */
@@ -57,13 +58,13 @@ void job_queue_destroy(job_queue_t *q);
 /* Create new job.
  * callback is called with the job as argument. Can be called with &free to free
  * job when done if nothing else needs to access it */
-job_t *job_new(void *(*f)(void *), void *arg, void (*callback)(void *), int flags);
+job_t *job_new(void *(*f)(void *), void *arg, size_t len, void (*callback)(void *), int flags);
 
 /* Push a new job onto the end of the queue. */
 job_t *job_push(job_queue_t *q, job_t *job);
 
 /* create a job and push onto the queue in one call */
-job_t *job_push_new(job_queue_t *q, void *(*f)(void *), void *arg, void (*callback)(void *), int flags);
+job_t *job_push_new(job_queue_t *q, void *(*f)(void *), void *arg, size_t len, void (*callback)(void *), int flags);
 
 /* Shift the next job from the front of the queue (FIFO) with no locks.
  * Use job_trywait() or job_wait() if lock required */

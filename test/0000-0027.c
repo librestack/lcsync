@@ -75,8 +75,8 @@ int main(void)
 
 	/* queue up send / recv jobs */
 	jobq = job_queue_create(2);
-	job_send = job_push_new(jobq, &do_send, odat, NULL, 0);
-	job_recv = job_push_new(jobq, &do_recv, idat, NULL, 0);
+	job_send = job_push_new(jobq, &do_send, odat, sizeof odat, NULL, 0);
+	job_recv = job_push_new(jobq, &do_recv, idat, sizeof idat, NULL, 0);
 
 	/* wait for recv job to finish, check for timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");

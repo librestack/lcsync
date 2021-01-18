@@ -32,13 +32,13 @@ int main()
 	test_assert(q != NULL, "queue created");
 
 	/* push on some jobs */
-	job_t *j1 = job_push_new(q, &test_f, wilma, NULL, 0);
+	job_t *j1 = job_push_new(q, &test_f, wilma, strlen(wilma), NULL, 0);
 	test_assert(q->next == j1, "(1) q->next set");
 	test_assert(q->last == j1, "(1) q->last set");
-	job_t *j2 = job_push_new(q, &test_f, betty, NULL, 0);
+	job_t *j2 = job_push_new(q, &test_f, betty, strlen(betty), NULL, 0);
 	test_assert(q->next == j1, "(2) q->next set");
 	test_assert(q->last == j2, "(2) q->last set");
-	job_t *j3 = job_push_new(q, &test_f, fred, NULL, 0);
+	job_t *j3 = job_push_new(q, &test_f, fred, strlen(fred), NULL, 0);
 	test_assert(q->next == j1, "(3) q->next set");
 	test_assert(q->next->next == j2, "(3) q->next->next set");
 	test_assert(q->last == j3, "(3) q->last set");
@@ -63,9 +63,9 @@ int main()
 	/* create a single thread so we have a deterministic order for jobs */
 	q = job_queue_create(1);
 	test_assert(q != NULL, "queue created");
-	job_push_new(q, &test_f, fred, &free, 0);	/* free first two jobs */
-	job_push_new(q, &test_f, wilma, &free, 0);
-	job = job_push_new(q, &test_f, betty, NULL, 0);	/* don't free this, we need it */
+	job_push_new(q, &test_f, fred, strlen(fred), &free, 0);		/* free first two jobs */
+	job_push_new(q, &test_f, wilma, strlen(wilma), &free, 0);
+	job = job_push_new(q, &test_f, betty, strlen(betty), NULL, 0);	/* don't free this, we need it */
 	sem_wait(&job->done); /* wait on this last job */
 	free(job);
 	job = job_trywait(q);
@@ -76,10 +76,10 @@ int main()
 	/* create a bunch of threads and jobs */
 	q = job_queue_create(16);
 	for (int i = 0; i < 25; i++) {
-		job_push_new(q, &test_f, fred, &free, 0);
-		job_push_new(q, &test_f, wilma, &free, 0);
+		job_push_new(q, &test_f, fred, strlen(fred), &free, 0);
+		job_push_new(q, &test_f, wilma, strlen(wilma), &free, 0);
 	}
-	job = job_new(&test_f, betty, NULL, 0);
+	job = job_new(&test_f, betty, strlen(betty), NULL, 0);
 	test_assert(job_push(q, job) == job, "job_push()");
 	sem_wait(&job->done); /* wait on last job */
 	free(job);

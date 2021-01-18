@@ -35,13 +35,13 @@ job_t *job_wait(job_queue_t *q)
 	return job_shiftlock(q, &sem_wait);
 }
 
-job_t *job_new(void *(*f)(void *), void *arg, void (*callback)(void *), int flags)
+job_t *job_new(void *(*f)(void *), void *arg, size_t len, void (*callback)(void *), int flags)
 {
 	job_t *job = calloc(1, sizeof(job_t));
 	job->f = f;
-	// TODO: if JOB_ARGCOPY, copy arg */
-	// FIXME: need size
+	// TODO: if JOB_COPY, copy arg */
 	job->arg = arg;
+	job->len = len;
 	job->flags = flags;
 	job->callback = callback;
 	sem_init(&job->done, 0, 0);
@@ -61,9 +61,9 @@ job_t *job_push(job_queue_t *q, job_t *job)
 	return job;
 }
 
-job_t *job_push_new(job_queue_t *q, void *(*f)(void *), void *arg, void (*callback)(void *), int flags)
+job_t *job_push_new(job_queue_t *q, void *(*f)(void *), void *arg, size_t len, void (*callback)(void *), int flags)
 {
-	job_t *job = job_new(f, arg, callback, flags);
+	job_t *job = job_new(f, arg, len, callback, flags);
 	return job_push(q, job);
 }
 
