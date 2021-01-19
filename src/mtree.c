@@ -447,56 +447,39 @@ size_t mtree_base_subtree(mtree_tree *tree, size_t n)
 	return mtree_base(tree) / (1U << mtree_node_level(n));
 }
 
+/* perform bredth-first search of subtree, return bitmap */
 unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t n)
 {
-	size_t c0, c1;
-	size_t sz;
+	size_t child, sz;
 	job_queue_t *q;
 	job_t *job;
 	unsigned char *map = NULL;
-
-	/* if root of subtree matches, stop now */
-	if (!memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE)) return NULL;
-	fprintf(stderr, "root of subtree (n = %zu) does not match\n", n);
-
+	if (!memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE))
+		return NULL; /* subtree root matches, stop now */
 #define ROUNDUP(x, y) (x + (y - 1)) / y
 	sz = ROUNDUP(mtree_base_subtree(t1, n), CHAR_BIT);
-	fprintf(stderr, "I sized my size at %zu\n", sz);
 	map = calloc(1, sz);
-
-	c0 = mtree_child(t1, n);
-	if (!c0) { /* leaf node */
+	child = mtree_child(t1, n);
+	if (!child) { /* leaf node */
 		map[0] |= 1U;
 		return map;
 	}
-	c1 = c0 + 1;
-
-	/* build private queue */
 	q = job_queue_create(0);
-
-	/* push on first two child nodes */
-	job_push_new(q, NULL, &c0, sizeof c0, NULL, JOB_COPY);
-	job_push_new(q, NULL, &c1, sizeof c1, NULL, JOB_COPY);
-
-	fprintf(stderr, "n = %zu, c0 = %zu, c1 = %zu\n", n, c0, c1);
-
+	job_push_new(q, NULL, &child, sizeof child, NULL, JOB_COPY);
+	child++;
+	job_push_new(q, NULL, &child, sizeof child, NULL, JOB_COPY);
 	while ((job = job_shift(q))) {
 		n = *(size_t *)job->arg;
-		fprintf(stderr, "n=%zu\n", n);
 		if (memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE)) {
-			fprintf(stderr, "n=%zu does not match\n", n);
-			/* if base level, update bitmap */
-			if (mtree_node_level(n) == mtree_lvl(t1) - 1) {
-				fprintf(stderr, "%zu is a base node\n", n);
-				fprintf(stderr, "mtree_node_offset(%zu) == %zu\n", n, mtree_node_offset(n));
-				size_t off = mtree_node_offset(n);
-				map [off / CHAR_BIT] |= 1U << (off % CHAR_BIT);
+			child = mtree_child(t1, n);
+			if (child) {
+				job_push_new(q, NULL, &child, sizeof child, NULL, JOB_COPY);
+				child++;
+				job_push_new(q, NULL, &child, sizeof child, NULL, JOB_COPY);
 			}
-			c0 = mtree_child(t1, n);
-			if (c0) {
-				c1 = c0 + 1;
-				job_push_new(q, NULL, &c0, sizeof c0, NULL, JOB_COPY);
-				job_push_new(q, NULL, &c1, sizeof c1, NULL, JOB_COPY);
+			else { /* leaf node, update bitmap */
+				sz = mtree_node_offset(n);
+				map [sz / CHAR_BIT] |= 1U << (sz % CHAR_BIT);
 			}
 		}
 		free(job->arg);
