@@ -2,7 +2,6 @@
 /* Copyright (c) 2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "test.h"
-#include "../src/job.h"
 #include "../src/net.h"
 #include <errno.h>
 #include <pthread.h>
@@ -38,6 +37,7 @@ void sigcaught(int signo)
 
 int main(void)
 {
+	return test_skip("net_stop()");
 	void *ret = NULL;
 	const int test_timeout = 1;
 	struct timespec ts = { test_timeout, 0 };

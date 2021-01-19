@@ -14,8 +14,6 @@
 #include "mtree.h"
 #include "misc.h"
 
-static size_t nthreads;
-
 struct mtree_tree {
 	size_t base;		/* size of base of tree (pow of 2) */
 	size_t chunksz;		/* size of block */
@@ -35,6 +33,7 @@ struct mtree_queue {
 
 struct mtree_thread {
 	size_t id;
+	size_t nthreads;
 	struct mtree_queue *q;
 };
 
@@ -223,6 +222,7 @@ static void *mtree_hash_data(void *arg)
 {
 	struct mtree_thread *mt = (struct mtree_thread *)arg;
 	struct mtree_queue *q = mt->q;
+	size_t nthreads = (nthreads > q->tree->base) ? q->tree->base : mt->nthreads;
 	size_t child0, child1, parent, t, sz, first, last, len, level_nodes;
 	unsigned char *wptr, *rptr;
 	crypto_generichash_state state;
@@ -269,6 +269,7 @@ static void *mtree_hash_data(void *arg)
 
 int mtree_build(mtree_tree *tree, char *data, job_queue_t *jq)
 {
+	size_t nthreads;
 	job_queue_t *jobq = jq;
 	struct mtree_queue q = {0};
 	struct mtree_thread *mt = NULL;
@@ -277,6 +278,7 @@ int mtree_build(mtree_tree *tree, char *data, job_queue_t *jq)
 	q.data = data; // FIXME: redundant - tree now has pointer to data
 	q.done = calloc(tree->nodes, sizeof(sem_t));
 	if (!q.done) return -1;
+	fprintf(stderr, "tree->nodes = %zu\n", tree->nodes);
 	for (size_t z = 0; z < tree->nodes; z++) sem_init(&q.done[z], 0, 0);
 	nthreads = (tree->base < THREAD_MAX) ? tree->base : THREAD_MAX;
 	if (!jq) jobq = job_queue_create(nthreads);
@@ -287,12 +289,14 @@ int mtree_build(mtree_tree *tree, char *data, job_queue_t *jq)
 	for (size_t z = 0; z < nthreads; z++) {
 		mt[z].id = z;
 		mt[z].q = &q;
+		mt[z].nthreads = nthreads;
 		job_push_new(jobq, &mtree_hash_data, &mt[z], sizeof mt[z], &free, 0);
 	}
 #if THREAD_MAX == 0
 	mt = calloc(1, sizeof(struct mtree_thread));
 	if (!mt) goto err_nomem_0;
 	mt[0].q = &q;
+	mt[0].nthreads = nthreads;
 	mtree_hash_data(mt);
 #else
 	sem_wait(&q.done[0]); /* wait for root node */
