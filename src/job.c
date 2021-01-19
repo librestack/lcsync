@@ -80,7 +80,7 @@ static void *job_seek(void *arg)
 	job_t *job;
 	void(*callback)(void *);
 	while((job = job_wait(jt->q))) {
-		if (job->f) job->f(job->arg);
+		if (job->f) job->ret = job->f(job->arg);
 		if ((job->flags & JOB_FREE) == JOB_FREE)
 			free(job->arg);
 		callback = job->callback; /* avoid race */

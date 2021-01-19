@@ -27,6 +27,7 @@ typedef struct job_thread_s job_thread_t;
 struct job_s {
 	void *(*f)(void *arg);		/* function for thread to call */
 	void *arg;			/* pass this argument to f() */
+	void *ret;			/* return value from f() */
 	size_t len;			/* size of arg */
 	job_t *next;			/* ptr to next job */
 	int flags;			/* job flags */

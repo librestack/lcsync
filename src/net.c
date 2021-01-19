@@ -190,7 +190,8 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	data->hash = hash;
 	job = job_push_new(q, &net_job_recv_tree, data, sizeof data, NULL, 0);
 	sem_wait(&job->done);
-	//free(job);
+	free(job->ret);
+	free(job);
 
 	// do we have a tree yet?
 
@@ -214,9 +215,10 @@ ssize_t net_send_data(char *srcdata, size_t len)
 	data->hash = mtree_root(tree);
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = mtree_data(tree, 0);
-	job = job_push_new(q, &net_job_send_tree, data, sizeof data, &free, 0);
+	job = job_push_new(q, &net_job_send_tree, data, sizeof data, NULL, 0);
 	fprintf(stderr, "%s(): job pushed\n", __func__);
 	sem_wait(&job->done);
+	free(job);
 	
 	// TODO: send data blocks
 
