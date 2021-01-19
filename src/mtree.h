@@ -121,9 +121,9 @@ int mtree_bitcmp(unsigned char *map, size_t block);
  * size is set to length of map returned */
 unsigned char *mtree_diff_map(mtree_tree *t1, mtree_tree *t2);
 
-/* return bitmap of block differences for the subtree below node n
+/* return bitmap of block differences for the subtree below root
  * return NULL if trees match */
-unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t n);
+unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root);
 
 /* update tree after data node n changed */
 void mtree_update(mtree_tree *tree, char *data, size_t n);

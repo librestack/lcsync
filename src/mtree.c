@@ -460,19 +460,18 @@ size_t mtree_base_subtree(mtree_tree *tree, size_t n)
 }
 
 /* perform bredth-first search of subtree, return bitmap */
-unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t n)
+unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root)
 {
-	size_t base, child, sz;
+	size_t base, child, n;
 	job_queue_t *q;
 	job_t *job;
 	unsigned char *map = NULL;
-	if (!memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE))
+	if (!memcmp(mtree_nnode(t1, root), mtree_nnode(t2, root), HASHSIZE))
 		return NULL; /* subtree root matches, stop now */
-#define ROUNDUP(x, y) (x + (y - 1)) / y
-	base = mtree_base_subtree(t1, n);
-	sz = ROUNDUP(base, CHAR_BIT);
-	map = calloc(1, sz);
-	child = mtree_child(t1, n);
+	base = mtree_base_subtree(t1, root);
+	n = (base + (CHAR_BIT - 1)) / CHAR_BIT;
+	map = calloc(1, n);
+	child = mtree_child(t1, root);
 	if (!child) { /* leaf node */
 		map[0] |= 1U;
 		return map;
@@ -491,9 +490,8 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t n)
 				job_push_new(q, NULL, &child, sizeof child, NULL, JOB_COPY);
 			}
 			else { /* leaf node, update bitmap */
-				sz = mtree_node_offset(n);
-				while (sz > base) sz -= base;
-				map [sz / CHAR_BIT] |= 1U << (sz % CHAR_BIT);
+				n = mtree_node_offset_subtree(n, root);
+				map[n / CHAR_BIT] |= 1U << (n % CHAR_BIT);
 			}
 		}
 		free(job->arg);
