@@ -74,6 +74,18 @@ size_t mtree_node_offset(size_t node)
 	return node - npow + 1;
 }
 
+/* NB: we have no bounds checking or errors,
+ * root MUST NOT be greater than node */
+size_t mtree_node_offset_subtree(size_t node, size_t root)
+{
+	size_t off = mtree_node_offset(node);
+	size_t a = mtree_node_level(node);
+	size_t b = mtree_node_level(root);
+	size_t d = (1U << a) / (1U << b);
+	while (off > (d - 1)) off -= d;
+	return off;
+}
+
 size_t mtree_node_parent(size_t node)
 {
 	return node / 2;
@@ -450,14 +462,15 @@ size_t mtree_base_subtree(mtree_tree *tree, size_t n)
 /* perform bredth-first search of subtree, return bitmap */
 unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t n)
 {
-	size_t child, sz;
+	size_t base, child, sz;
 	job_queue_t *q;
 	job_t *job;
 	unsigned char *map = NULL;
 	if (!memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE))
 		return NULL; /* subtree root matches, stop now */
 #define ROUNDUP(x, y) (x + (y - 1)) / y
-	sz = ROUNDUP(mtree_base_subtree(t1, n), CHAR_BIT);
+	base = mtree_base_subtree(t1, n);
+	sz = ROUNDUP(base, CHAR_BIT);
 	map = calloc(1, sz);
 	child = mtree_child(t1, n);
 	if (!child) { /* leaf node */
@@ -479,6 +492,7 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t n)
 			}
 			else { /* leaf node, update bitmap */
 				sz = mtree_node_offset(n);
+				while (sz > base) sz -= base;
 				map [sz / CHAR_BIT] |= 1U << (sz % CHAR_BIT);
 			}
 		}

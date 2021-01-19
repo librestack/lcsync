@@ -28,6 +28,9 @@ size_t mtree_node_level_base(size_t base, size_t node);
 /* return offset of node from first node in level */
 size_t mtree_node_offset(size_t node);
 
+/* return offset of node from first node in subtree level */
+size_t mtree_node_offset_subtree(size_t node, size_t root);
+
 /* return number of parent node, or 0 if none */
 size_t mtree_node_parent(size_t node);
 
