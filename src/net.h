@@ -47,6 +47,9 @@ typedef union {
 typedef struct net_data_s net_data_t;
 struct net_data_s {
 	unsigned char *hash;		/* hash of file/data */
+	char		*map;		/* channel bitmap */
+	size_t		chan;		/* channels */
+	size_t		n;		/* node */
 	size_t		len;		/* len of scatter-gather array */
 	struct iovec	iov[];		/* scatter-gather array */
 };
@@ -71,6 +74,8 @@ ssize_t net_recv_tree(int sock, struct iovec *iov);
 First iovec is assumed to be the header and will be sent with every packet.
 */
 ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov);
+
+ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, char *dstdata, size_t *len);
 
 /* thread job functions for above */
 void *net_job_recv_tree(void *arg);

@@ -42,6 +42,8 @@ struct job_queue_s {
 	job_thread_t *thread;		/* array of threads */
 	sem_t jobs;			/* semaphore of avail jobs */
 	sem_t lock;			/* read/write lock */
+	/* Optional semaphore - set manually when queue complete */
+	sem_t done;			
 };
 
 struct job_thread_s {

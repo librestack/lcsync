@@ -101,6 +101,7 @@ job_queue_t *job_queue_create(size_t nthreads)
 		free(q);
 		return NULL;
 	}
+	sem_init(&q->done, 0, 0);
 	sem_init(&q->jobs, 0, 0);
 	sem_init(&q->lock, 0, 1);
 	q->nthreads = nthreads;

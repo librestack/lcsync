@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>
+#include <sys/param.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -175,35 +176,165 @@ void *net_job_send_tree(void *arg)
 	return NULL;
 }
 
+/* return number of bits set in bitmap */
+unsigned int countmap(char *map, size_t len)
+{
+	unsigned int c = 0;
+	while (len--) {
+		for (char v = map[len]; v; c++) {
+			v &= v - 1;
+		}
+	}
+	return c;
+}
+
+static void printmap(char *map, size_t len)
+{
+	for (size_t i = 0; i < len * CHAR_BIT; i++) {
+		fprintf(stderr, "%d", !!isset(map, i));
+	}
+	fputc('\n', stderr);
+}
+
+ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, char *dstdata, size_t *len)
+{
+	ssize_t byt = 0;
+	unsigned char *bitmap = mtree_diff_subtree(stree, dtree, 0);
+	printmap((char *)bitmap, howmany(mtree_base(stree), CHAR_BIT));
+
+	/* TODO: first, ensure destination is big enough */
+	/* TODO: malloc, remap, update *len etc */
+
+	// TODO: NB: if only one data channel is in use, this is going to conflict,
+	// so we hash in an extra flag to mark it as tree data when forming the channel hash.
+	free(bitmap);
+	return byt;
+}
+
+// TODO: write test for this function
+// pass in arg with appropriate data and map
+// check map is updated
+// check jobs are queued
+// data syncing?
+//
+// what does this job do?
+// check a node, if different, queue it up
+// if (and only if) we're at the channel level,
+//	call mtree_diff_subtree() to build channel map
+//	sync data on that channel
+//	(this will be a separate function)
+static void *net_job_diff_tree(void *arg)
+{
+	net_data_t *data = (net_data_t *)arg;
+	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * data->len;
+	job_queue_t *q = (job_queue_t *)data->iov[0].iov_base;
+	mtree_tree *t1 = (mtree_tree *)data->iov[1].iov_base;
+	mtree_tree *t2 = (mtree_tree *)data->iov[2].iov_base;
+	char *dstdata = (char *)data->iov[3].iov_base;
+	size_t len = data->iov[3].iov_len;
+	size_t n = data->n;
+	size_t child;
+
+	fprintf(stderr, "sz %zu\n", sz);
+	fprintf(stderr, "checking node %zu\n", n);
+	if (memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE)) {
+		fprintf(stderr, "node %zu is different, but that's not its fault\n", n);
+		if ((child = mtree_child(t1, n))) {
+			// FIXME: if level == channel, call mtree_diff_subtree()
+#if 0
+			data->n = child;
+			fprintf(stderr, "child of %zu is %zu\n", n, child);
+			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
+			data->n = child + 1;
+			fprintf(stderr, "child of %zu is %zu\n", n, child + 1);
+			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
+#endif
+		}
+	}
+	clrbit(data->map, n - 1);
+	printmap(data->map, howmany(data->chan, CHAR_BIT));
+	if (!countmap(data->map, data->chan - 1)) {
+		fprintf(stderr, "map is clear - all done\n");
+		sem_post(&q->done);
+	}
+	else {
+		fprintf(stderr, "we have more work to do\n");
+	}
+	return NULL;
+}
+
 ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 {
 	fprintf(stderr, "%s()\n", __func__);
-	// TODO: recv tree
-	// TODO: diff trees, build maps
-	// TODO: bredth search of tree, then mtree_diff_subtree() once at
-	//	channel level
-	// TODO: recv data blocks
+	mtree_tree *stree, *dtree;
 	net_data_t *data;
 	job_t *job;
-	job_queue_t *q = job_queue_create(1);
-	data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
+	job_queue_t *q;
+	size_t vlen = 4;
+	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * vlen;
+
+	data = calloc(1, sz);
+	data->len = vlen;
 	data->hash = hash;
+	q = job_queue_create(1);
+
+	/* fetch source tree */
 	job = job_push_new(q, &net_job_recv_tree, data, sizeof data, NULL, 0);
 	sem_wait(&job->done);
-	free(job->ret);
+	stree = mtree_create(*len, blocksize); // FIXME: get len from job
+	mtree_setdata(stree, job->ret);
 	free(job);
+	fprintf(stderr, "%s(): tree with %zu nodes received\n", __func__, mtree_nodes(stree));
 
-	// do we have a tree yet?
+	/* build destination tree */
+	dtree = mtree_create(*len, blocksize); // FIXME: get len from job
+	mtree_build(dtree, dstdata, q);
 
+	/* if root nodes differ, perform bredth-first search */
+	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
+		data->chan = 1; // FIXME - temp
+		if (data->chan == 1) {
+			net_sync_subtree(stree, dtree, dstdata, len);
+		}
+		else {
+			data->map = calloc(1, howmany(data->chan, CHAR_BIT));
+			for (size_t i = 0; i < data->chan; i++) setbit(data->map, i);
+			fprintf(stderr, "starting map: \n");
+			printmap(data->map, howmany(data->chan, CHAR_BIT));
+
+			// TODO: diff trees, build maps
+			// TODO: bredth search of tree, then mtree_diff_subtree() once at channel level
+
+			data->iov[0].iov_base = q;
+			data->iov[0].iov_len = sz;
+			data->iov[1].iov_base = stree;
+			data->iov[2].iov_base = dtree;
+			data->iov[3].iov_len = *len;
+			data->iov[3].iov_base = dstdata;
+
+			/* push on first two children */
+			data->n = 1;
+			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
+			data->n = 2;
+			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
+			sem_wait(&q->done);
+		}
+		// TODO: recv data blocks - this will happen in net_job_diff_tree()
+	}
+
+	/* clean up */
 	job_queue_destroy(q);
+	free(data->map);
 	free(data);
+	mtree_free(stree);
+	mtree_free(dtree);
 	return 0;
 }
 
 ssize_t net_send_data(char *srcdata, size_t len)
 {
 	fprintf(stderr, "%s()\n", __func__);
-	size_t channels = 1U << net_send_channels;
+	size_t channels = 1U << net_send_channels; // FIXME
 	net_data_t *data;
 	job_t *job;
 	mtree_tree *tree = mtree_create(len, blocksize);
