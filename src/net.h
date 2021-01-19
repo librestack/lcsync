@@ -51,6 +51,9 @@ struct net_data_s {
 	struct iovec	iov[];		/* scatter-gather array */
 };
 
+/* signal server threads to stop work/exit */
+void net_stop(int signo);
+
 /* pack tree header */
 net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree);
 
@@ -68,6 +71,21 @@ ssize_t net_recv_tree(int sock, struct iovec *iov);
 First iovec is assumed to be the header and will be sent with every packet.
 */
 ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov);
+
+/* thread job functions for above */
+void *net_job_recv_tree(void *arg);
+void *net_job_send_tree(void *arg);
+
+/* recv data with root hash into memory at dstdata which hash size len
+ * if dstdata is NULL, memory will be allocated. If len is too small, dstdata
+ * will be reallocated */
+ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len);
+
+/* send data at srcdata with size len
+ * tree data will be sent on the channel formed from the root hash
+ * the actual data will be split across 2 ** net_send_channels
+ * formed from the hash of the subtree root */
+ssize_t net_send_data(char *srcdata, size_t len);
 
 int net_recv(int *argc, char *argv[]);
 int net_send(int *argc, char *argv[]);

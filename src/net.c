@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
+#include <assert.h>
 #include <endian.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -40,6 +41,7 @@ net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
 
 ssize_t net_recv_tree(int sock, struct iovec *iov)
 {
+	fprintf(stderr, "%s()\n", __func__);
 	size_t idx, off, len, pkts;
 	ssize_t byt = 0, msglen;
 	uint64_t sz = iov->iov_len;
@@ -52,6 +54,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 			byt = -1;
 			break;
 		}
+		fprintf(stderr, "%s(): recv %zi bytes\n", __func__, msglen);
 		hdr = (net_treehead_t *)buf;
 		if (!bitmap) {
 			pkts = be32toh(hdr->pkts);
@@ -82,30 +85,31 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 		byt += be32toh(hdr->len);
 	}
 	while (*bitmap);
+	// TODO verify tree (check hashes, mark bitmap with any that don't
+	// match, go again
 	free(bitmap);
 	return byt;
 }
 
-// TODO TODO TODO TODO TODO
-struct subsync_thing {
-	mtree_tree    *t1;
-	mtree_tree    *t2;
-	size_t		n; /* node of subtree to sync */
-	size_t		c; /* channel limit */
-};
-void net_sync_subtree(mtree_tree *t1, mtree_tree *t2, size_t n, size_t c)
+void *net_job_recv_tree(void *arg)
 {
-	(void)t1;
-	(void)t2;
-	(void)n;
-	(void)c;
-
-	// TODO
-	// check root, return if matched
-	// create threadpool
-	// if lvl = channel limit
-	//      mtree_diff_subtree &&
-	// queue up jobs for child nodes
+	fprintf(stderr, "%s()\n", __func__);
+	int s;
+	ssize_t byt;
+	net_data_t *data = (net_data_t *)arg;
+	struct iovec iov = {0};
+	lc_ctx_t *lctx = lc_ctx_new();
+	lc_socket_t *sock = lc_socket_new(lctx);
+	lc_channel_t *chan = lc_channel_nnew(lctx, data->hash, HASHSIZE);
+	lc_channel_bind(sock, chan);
+	lc_channel_join(chan);
+	s = lc_socket_raw(sock);
+	byt = net_recv_tree(s, &iov);
+	fprintf(stderr, "%s(): tree received\n", __func__);
+	lc_channel_free(chan);
+	lc_socket_close(sock);
+	lc_ctx_free(lctx);
+	return iov.iov_base;
 }
 
 ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
@@ -137,6 +141,91 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 	return byt;
 }
 
+void *net_job_send_tree(void *arg)
+{
+	fprintf(stderr, "%s()\n", __func__);
+	const int on = 1;
+	net_data_t *data = (net_data_t *)arg;
+	void *base = data->iov[0].iov_base;
+	size_t len = data->iov[0].iov_len;
+	lc_ctx_t *lctx = lc_ctx_new();
+	lc_socket_t *sock = lc_socket_new(lctx);
+	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
+	lc_channel_t *chan = lc_channel_nnew(lctx, data->hash, HASHSIZE);
+	lc_channel_bind(sock, chan);
+	int s = lc_channel_socket_raw(chan);
+	struct addrinfo *addr = lc_channel_addrinfo(chan);
+	struct iovec iov[2] = {0};
+	net_treehead_t hdr = {
+		.size = htobe64(data->iov[0].iov_len),
+		.chan = net_send_channels,
+		.pkts = data->iov[0].iov_len / DATA_FIXED + !!(data->iov[0].iov_len % DATA_FIXED)
+	};
+	memcpy(&hdr.hash, data->hash, HASHSIZE);
+	iov[0].iov_base = &hdr;
+	iov[0].iov_len = sizeof hdr;
+	while (running) {
+		iov[1].iov_len = len;
+		iov[1].iov_base = base;
+		net_send_tree(s, addr, 2, iov);
+	}
+	lc_channel_free(chan);
+	lc_socket_close(sock);
+	lc_ctx_free(lctx);
+	return NULL;
+}
+
+ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
+{
+	fprintf(stderr, "%s()\n", __func__);
+	// TODO: recv tree
+	// TODO: diff trees, build maps
+	// TODO: bredth search of tree, then mtree_diff_subtree() once at
+	//	channel level
+	// TODO: recv data blocks
+	net_data_t *data;
+	job_t *job;
+	job_queue_t *q = job_queue_create(1);
+	data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
+	data->hash = hash;
+	job = job_push_new(q, &net_job_recv_tree, data, sizeof data, NULL, 0);
+	sem_wait(&job->done);
+	//free(job);
+
+	// do we have a tree yet?
+
+	job_queue_destroy(q);
+	free(data);
+	return 0;
+}
+
+ssize_t net_send_data(char *srcdata, size_t len)
+{
+	fprintf(stderr, "%s()\n", __func__);
+	size_t channels = 1U << net_send_channels;
+	net_data_t *data;
+	job_t *job;
+	mtree_tree *tree = mtree_create(len, blocksize);
+	job_queue_t *q = job_queue_create(channels);
+	mtree_build(tree, srcdata, q);
+	fprintf(stderr, "%s(): source tree built\n", __func__);
+
+	data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
+	data->hash = mtree_root(tree);
+	data->iov[0].iov_len = mtree_treelen(tree);
+	data->iov[0].iov_base = mtree_data(tree, 0);
+	job = job_push_new(q, &net_job_send_tree, data, sizeof data, &free, 0);
+	fprintf(stderr, "%s(): job pushed\n", __func__);
+	sem_wait(&job->done);
+	
+	// TODO: send data blocks
+
+	mtree_free(tree);
+	job_queue_destroy(q);
+	free(data);
+	return 0;
+}
+
 int net_recv(int *argc, char *argv[])
 {
 	(void) argc;
@@ -150,9 +239,6 @@ int net_recv(int *argc, char *argv[])
 	// TODO: part / cleanup
 	return 0;
 }
-
-// TODO: send subtree - blocks below a specific node
-//static void *net_send_subtree();
 
 int net_send(int *argc, char *argv[])
 {

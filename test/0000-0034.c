@@ -12,7 +12,6 @@
 #include <time.h>
 #include <unistd.h>
 
-static int keep_sending = 1;
 mtree_tree *stree;
 const size_t blocks = 42;
 const size_t blocksz = 4096;
@@ -43,39 +42,6 @@ void *do_recv(void *arg)
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
 	mtree_free(dtree);
-	return NULL;
-}
-
-void *do_send(void *arg)
-{
-	const int on = 1;
-	net_data_t *data = (net_data_t *)arg;
-	void *base = data->iov[0].iov_base;
-	size_t len = data->iov[0].iov_len;
-	lc_ctx_t *lctx = lc_ctx_new();
-	lc_socket_t *sock = lc_socket_new(lctx);
-	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
-	lc_channel_t *chan = lc_channel_nnew(lctx, data->hash, HASHSIZE);
-	lc_channel_bind(sock, chan);
-	int s = lc_channel_socket_raw(chan);
-	struct addrinfo *addr = lc_channel_addrinfo(chan);
-	struct iovec iov[2] = {0};
-	net_treehead_t hdr = {
-		.size = htobe64(data->iov[0].iov_len),
-		.chan = net_send_channels,
-		.pkts = data->iov[0].iov_len / DATA_FIXED + !!(data->iov[0].iov_len % DATA_FIXED)
-	};
-	memcpy(&hdr.hash, data->hash, HASHSIZE);
-	iov[0].iov_base = &hdr;
-	iov[0].iov_len = sizeof hdr;
-	while (keep_sending) {
-		iov[1].iov_len = len;
-		iov[1].iov_base = base;
-		net_send_tree(s, addr, 2, iov);
-	}
-	lc_channel_free(chan);
-	lc_socket_close(sock);
-	lc_ctx_free(lctx);
 	return NULL;
 }
 
@@ -114,7 +80,7 @@ int main(void)
 
 	/* queue up send / recv jobs */
 	jobq = job_queue_create(2);
-	job_send = job_push_new(jobq, &do_send, odata, sizeof odata, NULL, 0);
+	job_send = job_push_new(jobq, &net_job_send_tree, odata, sizeof odata, NULL, 0);
 	job_recv = job_push_new(jobq, &do_recv, idata, sizeof idata, NULL, 0);
 
 	/* wait for recv job to finish, check for timeout */
@@ -123,7 +89,7 @@ int main(void)
 	test_assert(!sem_timedwait(&job_recv->done, &timeout), "timeout - recv");
 	free(job_recv);
 
-	keep_sending = 0; /* stop send job */
+	net_stop(SIGINT);
 
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
 	timeout.tv_sec++;

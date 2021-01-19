@@ -13,6 +13,12 @@
 
 typedef struct mtree_tree mtree_tree;
 
+typedef struct mtree_subtree_s mtree_subtree_t;
+struct mtree_subtree_s {
+	mtree_tree *    tree;           /* main tree */
+	size_t          root;           /* root node of subtree */
+};
+
 /* hexdump tree to fd */
 void mtree_hexdump(mtree_tree *tree, FILE *fd);
 

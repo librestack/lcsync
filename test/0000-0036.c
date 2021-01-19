@@ -46,7 +46,7 @@ void cmp_tree(size_t sz, size_t blk, size_t n, uint8_t bin)
 
 int main()
 {
-	test_name("mtree_diff_subtree() / mtree_bitcmp()");
+	test_name("mtree_diff_subtree()");
 
 	/* base, diffblock, nodeatsubtree, map */
 	cmp_tree(1, 0, 0, 0x1);

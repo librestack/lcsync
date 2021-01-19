@@ -222,7 +222,7 @@ static void *mtree_hash_data(void *arg)
 {
 	struct mtree_thread *mt = (struct mtree_thread *)arg;
 	struct mtree_queue *q = mt->q;
-	size_t nthreads = (nthreads > q->tree->base) ? q->tree->base : mt->nthreads;
+	size_t nthreads = (mt->nthreads > q->tree->base) ? q->tree->base : mt->nthreads;
 	size_t child0, child1, parent, t, sz, first, last, len, level_nodes;
 	unsigned char *wptr, *rptr;
 	crypto_generichash_state state;
@@ -280,8 +280,13 @@ int mtree_build(mtree_tree *tree, char *data, job_queue_t *jq)
 	if (!q.done) return -1;
 	fprintf(stderr, "tree->nodes = %zu\n", tree->nodes);
 	for (size_t z = 0; z < tree->nodes; z++) sem_init(&q.done[z], 0, 0);
-	nthreads = (tree->base < THREAD_MAX) ? tree->base : THREAD_MAX;
-	if (!jq) jobq = job_queue_create(nthreads);
+	if (jq) {
+		nthreads = jq->nthreads;
+	}
+	else {
+		nthreads = (tree->base < THREAD_MAX) ? tree->base : THREAD_MAX;
+		jobq = job_queue_create(nthreads);
+	}
 	if (nthreads) {
 		mt = calloc(nthreads, sizeof(struct mtree_thread));
 		if (!mt) goto err_nomem_0;
@@ -406,20 +411,7 @@ int mtree_bitcmp(unsigned char *map, size_t block)
 
 unsigned char *mtree_diff_map(mtree_tree *t1, mtree_tree *t2)
 {
-	unsigned char *map = NULL;
-	size_t sz = 0;
-	if (!memcmp(mtree_root(t1), mtree_root(t2), HASHSIZE)) return NULL;
-	sz = mtree_base(t1) / CHAR_BIT + !!(mtree_base(t1) % CHAR_BIT);
-	map = calloc(1, sz);
-	if (!map) return NULL;
-	/* the easy (slow) way to do this is compare all the data hashes */
-	/* FIXME: use tree to do this */
-	for (size_t z = 0; z < mtree_base(t1); z++) {
-		if (memcmp(mtree_data(t1, z), mtree_data(t2, z), HASHSIZE)) {
-			map [z / CHAR_BIT] |= 1UL << (z % CHAR_BIT);
-		}
-	}
-	return map;
+	return mtree_diff_subtree(t1, t2, 0);
 }
 
 /* TODO - create channel bitmaps
