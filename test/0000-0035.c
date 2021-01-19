@@ -18,7 +18,6 @@ const int waits = 1; /* test timeout in s */
 const size_t blocks = 42;
 const size_t blocksz = 4096;
 const size_t sz = blocks * blocksz;
-static int keep_sending = 1;
 unsigned char hash[HASHSIZE];
 
 void *do_recv(void *arg)
@@ -52,7 +51,7 @@ void do_sync(char *srcdata, char *dstdata)
 	free(job_recv);
 
 	/* stop send job */
-	keep_sending = 0;
+	net_stop(SIGINT);
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
 	timeout.tv_sec += waits;
 	test_assert(!sem_timedwait(&job_send->done, &timeout), "timeout - send");
