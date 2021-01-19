@@ -12,6 +12,7 @@ job_t *job_shift(job_queue_t *q)
 	sem_wait(&q->lock);
 	if ((job = q->next)) {
 		q->next = q->next->next;
+		if (!q->next) q->last = NULL;
 	}
 	sem_post(&q->lock);
 	return job;

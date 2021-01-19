@@ -123,5 +123,20 @@ int main()
 	}
 	job_queue_destroy(q);
 
+	/* shift all jobs from queue, then add more */
+	q = job_queue_create(1);
+	for (int i = 0; i < 8; i++) {
+		job_push_new(q, NULL, &i, sizeof i, &free, 0);
+	}
+	job = job_push_new(q, NULL, &i, sizeof i, NULL, 0);
+	sem_wait(&job->done);
+	free(job);
+	test_assert(q->next == NULL, "q->next == NULL");
+	test_assert(q->last == NULL, "q->last == NULL");
+	job = job_push_new(q, NULL, &i, sizeof i, NULL, 0);
+	sem_wait(&job->done);
+	free(job);
+	job_queue_destroy(q);
+
 	return fails;
 }
