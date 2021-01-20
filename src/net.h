@@ -75,7 +75,8 @@ First iovec is assumed to be the header and will be sent with every packet.
 */
 ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov);
 
-ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, char *dstdata, size_t *len);
+ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root);
+ssize_t net_send_subtree(mtree_tree *stree, size_t root);
 
 /* thread job functions for above */
 void *net_job_recv_tree(void *arg);

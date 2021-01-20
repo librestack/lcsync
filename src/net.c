@@ -196,7 +196,7 @@ static void printmap(char *map, size_t len)
 	fputc('\n', stderr);
 }
 
-ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, char *dstdata, size_t *len)
+ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 {
 	ssize_t byt = 0;
 	unsigned char *bitmap = mtree_diff_subtree(stree, dtree, 0);
@@ -204,9 +204,10 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, char *dstdata, si
 
 	/* TODO: first, ensure destination is big enough */
 	/* TODO: malloc, remap, update *len etc */
-
+	// TODO: join channel for subtree
 	// TODO: NB: if only one data channel is in use, this is going to conflict,
-	// so we hash in an extra flag to mark it as tree data when forming the channel hash.
+	// TODO: hash in an extra flag to mark it as tree data when forming the channel hash.
+
 	free(bitmap);
 	return byt;
 }
@@ -240,7 +241,7 @@ static void *net_job_diff_tree(void *arg)
 	if (memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE)) {
 		fprintf(stderr, "node %zu is different, but that's not its fault\n", n);
 		if ((child = mtree_child(t1, n))) {
-			// FIXME: if level == channel, call mtree_diff_subtree()
+			// FIXME: if level == channel, call net_sync_subtree()
 #if 0
 			data->n = child;
 			fprintf(stderr, "child of %zu is %zu\n", n, child);
@@ -294,7 +295,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
 		data->chan = 1; // FIXME - temp
 		if (data->chan == 1) {
-			net_sync_subtree(stree, dtree, dstdata, len);
+			net_sync_subtree(stree, dtree, 0);
 		}
 		else {
 			data->map = calloc(1, howmany(data->chan, CHAR_BIT));
@@ -331,6 +332,11 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	return 0;
 }
 
+ssize_t net_send_subtree(mtree_tree *stree, size_t root)
+{
+	return 0;
+}
+
 ssize_t net_send_data(char *srcdata, size_t len)
 {
 	fprintf(stderr, "%s()\n", __func__);
@@ -352,6 +358,8 @@ ssize_t net_send_data(char *srcdata, size_t len)
 	free(job);
 	
 	// TODO: send data blocks
+	// TODO: work out channels
+	// TODO: call net_send_subtree() for each
 
 	mtree_free(tree);
 	job_queue_destroy(q);
