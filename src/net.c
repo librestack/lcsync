@@ -335,11 +335,6 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 {
 	fprintf(stderr, "%s()\n", __func__);
-#if 0
-	//net_data_t *data = (net_data_t *)arg;
-	void *base = data->iov[0].iov_base;
-	size_t len = data->iov[0].iov_len;
-#endif
 	const int on = 1;
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
@@ -354,10 +349,8 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	net_treehead_t hdr = {
 		.len = htobe32(mtree_len(stree)),
 	};
-#if 0
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
-#endif
 
 	size_t base = mtree_base(stree);
 	size_t min = mtree_subtree_data_min(base, root);
@@ -367,8 +360,9 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	while (running) {
 		uint32_t idx = 0;
 		for (size_t blk = min; blk < max; blk++, idx++) {
-			//for (size_t len = mtree_block_len(tree, blk); ; );
 			hdr.idx = htobe32(idx);
+			iov[1].iov_len = mtree_blockn_len(stree, blk);
+			iov[1].iov_base = mtree_blockn(stree, blk);
 			// TODO: send block in DATA_FIXED sized chunks
 			// TODO: header net_blockhead_t
 			// TODO: data chunk with offset
@@ -378,13 +372,10 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 			usleep(100);
 		}
 	}
-
 	lc_channel_free(chan);
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
-
 	return 0;
-;
 }
 
 ssize_t net_send_data(char *srcdata, size_t len)

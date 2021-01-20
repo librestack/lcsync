@@ -104,6 +104,12 @@ size_t mtree_subtree_data_min(size_t base, size_t root);
 /* return last data node for subtree with base and root */
 size_t mtree_subtree_data_max(size_t base, size_t root);
 
+/* return size of data block n */
+size_t mtree_block_len(mtree_tree *tree, size_t n);
+
+/* return size of data block for node n */
+size_t mtree_blockn_len(mtree_tree *tree, size_t n);
+
 /* return pointer to data block n, or NULL if n > nchunks */
 char *mtree_block(mtree_tree *tree, size_t n);
 
