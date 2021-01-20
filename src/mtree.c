@@ -216,6 +216,24 @@ static int mtree_resize(mtree_tree *tree)
 	return (tree->tree) ? 0 : -1;
 }
 
+size_t mtree_subtree_data_max(size_t base, size_t root)
+{
+	size_t n = root;
+	while (mtree_node_level_base(base, n)) {
+		n = mtree_child_base(base, n) + 1;
+	}
+	return n;
+}
+
+size_t mtree_subtree_data_min(size_t base, size_t root)
+{
+	size_t n = root;
+	while (mtree_node_level_base(base, n)) {
+		n = mtree_child_base(base, n);
+	}
+	return n;
+}
+
 size_t mtree_data_first(size_t nchunks, size_t nthreads, size_t id)
 {
 	if (nthreads == 0) nthreads++;
