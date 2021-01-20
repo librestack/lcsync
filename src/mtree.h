@@ -53,6 +53,9 @@ size_t mtree_levels(size_t base);
 /* return number of nodes in tree with base number of data nodes */
 size_t mtree_size(size_t base);
 
+/* return blocksize (FIXME: this is called chunksz in struct) for tree */
+size_t mtree_blocksz(mtree_tree *tree);
+
 /* return size of base (file) data from which tree is built */
 size_t mtree_len(mtree_tree *tree);
 
@@ -94,6 +97,9 @@ unsigned char *mtree_root(mtree_tree *tree);
 
 /* return pointer to specific data node */
 unsigned char *mtree_data(mtree_tree *tree, size_t n);
+
+/* return pointer to data block for node n */
+char *mtree_block(mtree_tree *tree, size_t n);
 
 /* build/update tree */
 int mtree_build(mtree_tree *tree, char *data, job_queue_t *jobq);

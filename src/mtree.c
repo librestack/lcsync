@@ -119,6 +119,11 @@ size_t mtree_size(size_t base)
 	return (size_t)(next_pow2((uint32_t)base) << 1UL) - 1;
 }
 
+size_t mtree_blocksz(mtree_tree *tree)
+{
+	return tree->chunksz;
+}
+
 size_t mtree_len(mtree_tree *tree)
 {
 	return tree->len;
@@ -196,6 +201,12 @@ unsigned char *mtree_root(mtree_tree *tree)
 unsigned char *mtree_data(mtree_tree *tree, size_t n)
 {
 	return tree->tree + n * HASHSIZE;
+}
+
+char *mtree_block(mtree_tree *tree, size_t n)
+{
+	if (n > tree->nchunks) return NULL;
+	return tree->data + tree->chunksz * n;
 }
 
 static int mtree_resize(mtree_tree *tree)

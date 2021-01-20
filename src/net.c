@@ -334,7 +334,38 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 
 ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 {
-	return 0;
+	fprintf(stderr, "%s()\n", __func__);
+#if 0
+	const int on = 1;
+	//net_data_t *data = (net_data_t *)arg;
+	void *base = data->iov[0].iov_base;
+	size_t len = data->iov[0].iov_len;
+	lc_ctx_t *lctx = lc_ctx_new();
+	lc_socket_t *sock = lc_socket_new(lctx);
+	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
+	lc_channel_t *chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE);
+	lc_channel_bind(sock, chan);
+	int s = lc_channel_socket_raw(chan);
+	struct addrinfo *addr = lc_channel_addrinfo(chan);
+	struct iovec iov[2] = {0};
+	net_treehead_t hdr = {
+		.len = htobe32(mtree_len(stree));
+	};
+	iov[0].iov_base = &hdr;
+	iov[0].iov_len = sizeof hdr;
+
+	/* TODO: send blocks for subtree on a loop with appropriate idx */
+	while (running) {
+		iov[1].iov_len = len;
+		iov[1].iov_base = base;
+		//net_send_block(s, addr, 
+	}
+	lc_channel_free(chan);
+	lc_socket_close(sock);
+	lc_ctx_free(lctx);
+#endif
+	return NULL;
+;
 }
 
 ssize_t net_send_data(char *srcdata, size_t len)

@@ -23,16 +23,16 @@ mtree_tree *stree, *dtree;
 
 void *do_recv(void *arg)
 {
+	(void)arg; /* unused */
 	size_t root = 0;
-	char *dstdata = (char *)arg;
 	net_sync_subtree(stree, dtree, root);
 	return arg;
 }
 
 void *do_send(void *arg)
 {
+	(void)arg; /* unused */
 	size_t root = 0;
-	char *srcdata = (char *)arg;
 	net_send_subtree(stree, root);
 	return arg;
 }
@@ -45,8 +45,8 @@ void do_sync(char *srcdata, char *dstdata)
 
 	/* queue up send / recv jobs */
 	jobq = job_queue_create(2);
-	job_send = job_push_new(jobq, &do_send, srcdata, sizeof srcdata, NULL, 0);
-	job_recv = job_push_new(jobq, &do_recv, dstdata, sizeof dstdata, NULL, 0);
+	job_send = job_push_new(jobq, &do_send, NULL, 0, NULL, 0);
+	job_recv = job_push_new(jobq, &do_recv, NULL, 0, NULL, 0);
 
 	/* wait for recv job to finish, check for timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
