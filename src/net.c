@@ -336,10 +336,11 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 {
 	fprintf(stderr, "%s()\n", __func__);
 #if 0
-	const int on = 1;
 	//net_data_t *data = (net_data_t *)arg;
 	void *base = data->iov[0].iov_base;
 	size_t len = data->iov[0].iov_len;
+#endif
+	const int on = 1;
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
 	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
@@ -348,23 +349,41 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	int s = lc_channel_socket_raw(chan);
 	struct addrinfo *addr = lc_channel_addrinfo(chan);
 	struct iovec iov[2] = {0};
+
+	// TODO: build the header
 	net_treehead_t hdr = {
-		.len = htobe32(mtree_len(stree));
+		.len = htobe32(mtree_len(stree)),
 	};
+#if 0
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
+#endif
 
-	/* TODO: send blocks for subtree on a loop with appropriate idx */
+	size_t base = mtree_base(stree);
+	size_t min = mtree_subtree_data_min(base, root);
+	size_t max = mtree_subtree_data_max(base, root);
+	fprintf(stderr, "base: %zu, min: %zu, max: %zu\n", base, min, max);
+	size_t sz;
 	while (running) {
-		iov[1].iov_len = len;
-		iov[1].iov_base = base;
-		//net_send_block(s, addr, 
+		uint32_t idx = 0;
+		for (size_t blk = min; blk < max; blk++, idx++) {
+			//for (size_t len = mtree_block_len(tree, blk); ; );
+			hdr.idx = htobe32(idx);
+			// TODO: send block in DATA_FIXED sized chunks
+			// TODO: header net_blockhead_t
+			// TODO: data chunk with offset
+			//iov[1].iov_len = len;
+			//iov[1].iov_base = base;
+			//net_send_block(s, addr, 
+			usleep(100);
+		}
 	}
+
 	lc_channel_free(chan);
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
-#endif
-	return NULL;
+
+	return 0;
 ;
 }
 

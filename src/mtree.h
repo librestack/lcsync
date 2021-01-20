@@ -104,8 +104,11 @@ size_t mtree_subtree_data_min(size_t base, size_t root);
 /* return last data node for subtree with base and root */
 size_t mtree_subtree_data_max(size_t base, size_t root);
 
-/* return pointer to data block for node n, or NULL if n > nchunks */
+/* return pointer to data block n, or NULL if n > nchunks */
 char *mtree_block(mtree_tree *tree, size_t n);
+
+/* return pointer to data block for node n, or NULL if n not a data block */
+char *mtree_blockn(mtree_tree *tree, size_t n);
 
 /* build/update tree */
 int mtree_build(mtree_tree *tree, char *data, job_queue_t *jobq);

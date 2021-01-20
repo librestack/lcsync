@@ -209,6 +209,15 @@ char *mtree_block(mtree_tree *tree, size_t n)
 	return tree->data + tree->chunksz * n;
 }
 
+char *mtree_blockn(mtree_tree *tree, size_t n)
+{
+	size_t min = mtree_subtree_data_min(mtree_base(tree), 0);
+	size_t max = mtree_subtree_data_max(mtree_base(tree), 0);
+	fprintf(stderr, "min=%zu, max=%zu\n", min, max);
+	if (n < min || n > max) return NULL;
+	return tree->data + tree->chunksz * (n - min);
+}
+
 static int mtree_resize(mtree_tree *tree)
 {
 	/* FIXME: this only works for a fixed-size tree */

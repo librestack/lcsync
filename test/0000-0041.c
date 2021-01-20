@@ -12,6 +12,13 @@ void test_mtree_block(mtree_tree *tree, size_t node, char *blkptr)
 	test_assert(ptr == blkptr, "expected %p, got %p", blkptr, ptr);
 }
 
+void test_mtree_blockn(mtree_tree *tree, size_t node, char *blkptr)
+{
+	char *ptr;
+	ptr = mtree_blockn(tree, node);
+	test_assert(ptr == blkptr, "expected %p, got %p", blkptr, ptr);
+}
+
 int main()
 {
 	mtree_tree *tree;
@@ -19,7 +26,7 @@ int main()
 	size_t blocks = 17;
 	size_t sz = blocks * blocksz;
 	char *srcdata;
-	test_name("mtree_block()");
+	test_name("mtree_block() / mtree_blockn()");
 	srcdata = calloc(blocks, blocksz);
 	tree = mtree_create(sz, blocksz);
 	mtree_build(tree, srcdata, NULL);
@@ -30,11 +37,15 @@ int main()
 	test_mtree_block(tree, 1, srcdata + blocksz);
 	test_mtree_block(tree, 2, srcdata + blocksz * 2);
 	test_mtree_block(tree, blocks, srcdata + blocksz * blocks);
+	test_mtree_block(tree, blocks + 1, NULL); /* Madness: One Step Beyond */
 
-	/* Madness: One Step Beyond */
-	test_mtree_block(tree, blocks + 1, NULL);
+	test_mtree_blockn(tree, 0, NULL);
+	test_mtree_blockn(tree, 1, NULL);
+	test_mtree_blockn(tree, 31, srcdata);
+	test_mtree_blockn(tree, 32, srcdata + blocksz);
+	test_mtree_blockn(tree, 62, srcdata + blocksz * (62 - 31));
+	test_mtree_blockn(tree, 63, NULL);
 
-	mtree_free(tree);
 	free(srcdata);
 	return fails;
 }
