@@ -16,7 +16,7 @@
 
 const int waits = 1; /* test timeout in s */
 const size_t blocks = 17;
-const size_t blocksz = 1024;
+const size_t blocksz = 4096;
 const size_t sz = blocks * blocksz;
 unsigned char hash[HASHSIZE];
 mtree_tree *stree, *dtree;

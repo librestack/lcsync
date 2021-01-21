@@ -415,6 +415,7 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 	size_t idx = 0;
 	net_blockhead_t *hdr = iov[0].iov_base;
 	struct msghdr msgh = {0};
+	fprintf(stderr, "iov[1] = %p\n", (void *)iov[1].iov_base);
 	while (len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		msgh.msg_name = addr->ai_addr;
@@ -423,13 +424,14 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 		msgh.msg_iovlen = vlen;
 		iov[1].iov_len = sz;
 		//iov[1].iov_base = (char *)iov[1].iov_base + off;
-		//iov[1].iov_base = iov[1].iov_base;
 		//hdr->idx = htobe32(idx++);
 		hdr->len = htobe32(sz);
 		off = sz;
 		len -= sz;
+		// FIXME: Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
+			//_exit(EXIT_FAILURE);
 			break;
 		}
 	}
@@ -463,10 +465,17 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	while (running) {
 		uint32_t idx = 0;
 		for (size_t blk = min; blk <= max; blk++, idx++) {
-			//fprintf(stderr, "sending block %zu with idx=%u\n", blk, idx);
+			fprintf(stderr, "sending block %zu with idx=%u\n", blk, idx);
 			hdr.idx = htobe32(idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
-			iov[1].iov_base = mtree_blockn(stree, blk); // FIXME
+			unsigned char *ptr = mtree_blockn(stree, blk);
+			fprintf(stderr, "tree = %p, iov[1] = %ld (%ld)\n",
+					mtree_data(stree, 0),
+					ptr - mtree_data(stree, 0),
+					(ptr - mtree_data(stree, 0)) / mtree_blocksz(stree)
+					);
+			assert(ptr);
+			iov[1].iov_base = ptr; // FIXME
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
 			net_send_block(s, addr, 2, iov);
 			usleep(100); // FIXME
