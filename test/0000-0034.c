@@ -15,6 +15,7 @@
 mtree_tree *stree;
 const size_t blocks = 42;
 const size_t blocksz = 4096;
+const char *alias = "My Preciousssss";
 
 void *do_recv(void *arg)
 {
@@ -24,7 +25,7 @@ void *do_recv(void *arg)
 	struct iovec iov = {0};
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
-	lc_channel_t *chan = lc_channel_nnew(lctx, data->hash, HASHSIZE);
+	lc_channel_t *chan = lc_channel_nnew(lctx, (unsigned char *)data->alias, HASHSIZE);
 	lc_channel_bind(sock, chan);
 	lc_channel_join(chan);
 	s = lc_socket_raw(sock);
@@ -70,13 +71,16 @@ int main(void)
 	fprintf(stderr, "node= %zu, treelen=%zu\n", mtree_nodes(stree), mtree_treelen(stree));
 
 	/* we are sending the source tree */
+	test_assert(sodium_init() != -1, "sodium_init()");
+	odata->alias = malloc(HASHSIZE);
+	crypto_generichash(odata->alias, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
 	odata->hash = mtree_root(stree);
 	odata->iov[0].iov_len = mtree_treelen(stree);
 	odata->iov[0].iov_base = mtree_data(stree, 0);
 
 	/* receiver is recving source tree of unknown size
-	 * all receiver knows is hash of data to join channel */
-	idata->hash = odata->hash;
+	 * all receiver knows is alias of channel to join */
+	idata->alias = odata->alias;
 
 	/* queue up send / recv jobs */
 	jobq = job_queue_create(2);
@@ -88,8 +92,15 @@ int main(void)
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
 	timeout.tv_sec += waits;
 	test_assert(!sem_timedwait(&job_recv->done, &timeout), "timeout - recv");
+
+	struct iovec *iov = (struct iovec *)job_recv->ret;
+	test_assert(iov->iov_base != NULL, "recv buffer allocated");
+	mtree_tree *dtree = mtree_create(blocks, blocksz);
+	mtree_setdata(dtree, iov->iov_base);
+	test_assert(!mtree_verify(dtree, iov->iov_len), "validate tree");
 	free(job_recv->ret);
 	free(job_recv);
+	mtree_free(dtree);
 
 	net_stop(SIGINT);
 
@@ -100,6 +111,7 @@ int main(void)
 
 	job_queue_destroy(jobq);
 	free(srcdata);
+	free(odata->alias);
 	free(odata);
 	free(idata);
 	free(hash);

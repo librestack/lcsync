@@ -1,5 +1,7 @@
 NEXT ACTION: sync data based on tree
 
+* send file permissions
+
 * set up new test for net_send() / net_recv()
 - build source data
 - generate tree

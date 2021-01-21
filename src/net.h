@@ -24,6 +24,8 @@ typedef struct net_treehead_s {
 	uint32_t	idx;
 	/* length in bytes of data in this packet */
 	uint32_t	len;
+	/* size of whole data in bytes */
+	uint64_t	data;
 	/* size of whole tree in bytes */
 	uint64_t	size;
 	/* no. of packets in tree */
@@ -50,8 +52,10 @@ typedef union {
 /* struct for send/recving tree/data block */
 typedef struct net_data_s net_data_t;
 struct net_data_s {
+	unsigned char * alias;		/* hash of file alias */
 	unsigned char * hash;		/* hash of file/data */
 	unsigned char * map;		/* channel bitmap */
+	size_t		byt;		/* data bytes */
 	size_t		chan;		/* channels */
 	size_t		n;		/* node */
 	size_t		len;		/* len of scatter-gather array */
