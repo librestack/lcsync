@@ -15,6 +15,10 @@
 #define MTU_FIXED 1194
 #define DATA_FIXED 1024
 
+enum net_channel_flags {
+	NET_TREE = 1,
+};
+
 typedef struct net_treehead_s {
 	/* packet index 0 to n-1 of tree */
 	uint32_t	idx;
@@ -46,8 +50,8 @@ typedef union {
 /* struct for send/recving tree/data block */
 typedef struct net_data_s net_data_t;
 struct net_data_s {
-	unsigned char *hash;		/* hash of file/data */
-	char		*map;		/* channel bitmap */
+	unsigned char * hash;		/* hash of file/data */
+	unsigned char * map;		/* channel bitmap */
 	size_t		chan;		/* channels */
 	size_t		n;		/* node */
 	size_t		len;		/* len of scatter-gather array */
@@ -81,6 +85,8 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root);
 /* thread job functions for above */
 void *net_job_recv_tree(void *arg);
 void *net_job_send_tree(void *arg);
+void *net_job_sync_subtree(void *arg);
+void *net_job_send_subtree(void *arg);
 
 /* recv data with root hash into memory at dstdata which hash size len
  * if dstdata is NULL, memory will be allocated. If len is too small, dstdata

@@ -178,6 +178,11 @@ unsigned char *mtree_nnode(mtree_tree *tree, size_t node)
 	return mtree_node(tree, lvl, off);
 }
 
+size_t mtree_blocks(mtree_tree *tree)
+{
+	return tree->nchunks;
+}
+
 size_t mtree_base(mtree_tree *tree)
 {
 	return tree->base;

@@ -62,7 +62,10 @@ size_t mtree_len(mtree_tree *tree);
 /* return size of tree data */
 size_t mtree_treelen(mtree_tree *tree);
 
-/* return base (# of data chunks) in tree */
+/* return number of data blocks in tree (can be < base) */
+size_t mtree_blocks(mtree_tree *tree);
+
+/* return base size of tree */
 size_t mtree_base(mtree_tree *tree);
 
 /* return base size of subtree */

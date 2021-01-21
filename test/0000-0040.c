@@ -21,37 +21,26 @@ const size_t sz = blocks * blocksz;
 unsigned char hash[HASHSIZE];
 mtree_tree *stree, *dtree;
 
-void *do_recv(void *arg)
-{
-	(void)arg; /* unused */
-	size_t root = 0;
-	net_sync_subtree(stree, dtree, root);
-	return arg;
-}
-
-void *do_send(void *arg)
-{
-	(void)arg; /* unused */
-	size_t root = 0;
-	net_send_subtree(stree, root);
-	return arg;
-}
-
-void do_sync(char *srcdata, char *dstdata)
+void do_sync(void)
 {
 	struct timespec timeout;
 	job_queue_t *jobq;
 	job_t *job_send, *job_recv;
+	net_data_t *data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec) * 2);
+	data->n = 0;
+	data->iov[0].iov_base = stree;
+	data->iov[1].iov_base = dtree;
 
 	/* queue up send / recv jobs */
 	jobq = job_queue_create(2);
-	job_send = job_push_new(jobq, &do_send, NULL, 0, NULL, 0);
-	job_recv = job_push_new(jobq, &do_recv, NULL, 0, NULL, 0);
+	job_send = job_push_new(jobq, &net_job_send_subtree, data, 0, NULL, 0);
+	job_recv = job_push_new(jobq, &net_job_sync_subtree, data, 0, NULL, 0);
 
 	/* wait for recv job to finish, check for timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
 	timeout.tv_sec += waits;
 	test_assert(!sem_timedwait(&job_recv->done, &timeout), "timeout - recv");
+	//free(job_recv->ret);
 	free(job_recv);
 
 	/* stop send job */
@@ -59,8 +48,10 @@ void do_sync(char *srcdata, char *dstdata)
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
 	timeout.tv_sec += waits;
 	test_assert(!sem_timedwait(&job_send->done, &timeout), "timeout - send");
+	//free(job_send->ret);
 	free(job_send);
 	job_queue_destroy(jobq);
+	free(data);
 }
 
 void gentestdata(char *srcdata, char *dstdata)
@@ -85,7 +76,7 @@ int main(void)
 	mtree_build(stree, srcdata, NULL);
 	mtree_build(dtree, dstdata, NULL);
 	test_assert(memcmp(srcdata, dstdata, sz), "src and dst data differ before syncing");
-	do_sync(srcdata, dstdata);
+	do_sync();
 	test_assert(!memcmp(srcdata, dstdata, sz), "src and dst data match after syncing");
 	free(srcdata);
 	free(dstdata);
