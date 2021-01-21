@@ -107,6 +107,7 @@ void *net_job_recv_tree(void *arg)
 	s = lc_socket_raw(sock);
 	byt = net_recv_tree(s, &iov);
 	fprintf(stderr, "%s(): tree received\n", __func__);
+	lc_channel_part(chan);
 	lc_channel_free(chan);
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
@@ -196,19 +197,70 @@ static void printmap(char *map, size_t len)
 	fputc('\n', stderr);
 }
 
+ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t root)
+{
+	fprintf(stderr, "%s()\n", __func__);
+	ssize_t byt = 0, msglen;
+	unsigned char *bitmap = NULL;
+	char buf[MTU_FIXED];
+	struct iovec iov[2] = {0};
+	net_blockhead_t *hdr;
+	uint32_t idx;
+	size_t len, off;
+	size_t maplen = howmany(mtree_base(stree), CHAR_BIT);
+	bitmap = mtree_diff_subtree(stree, dtree, 0);
+	printmap((char *)bitmap, maplen);
+	do {
+		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
+			perror("recv()");
+			byt = -1;
+			break;
+		}
+		fprintf(stderr, "%s(): recv %zi bytes\n", __func__, msglen);
+		hdr = (net_blockhead_t *)buf;
+		//sz = be64toh(hdr->size);
+		idx = be32toh(hdr->idx);
+		off = (size_t)be32toh(hdr->idx) * DATA_FIXED;
+		len = (size_t)be32toh(hdr->len);
+		if (isset(bitmap, idx)) {
+			fprintf(stderr, "recv'd a block I wanted idx=%u\n", idx);
+			memcpy(mtree_block(dtree, idx), buf + sizeof (net_blockhead_t), len);
+			clrbit(bitmap, idx);
+		}
+		else {
+			fprintf(stderr, "recv'd a block I didn't want idx=%u\n", idx);
+		}
+		byt += be32toh(hdr->len);
+	}
+	while (countmap(bitmap, maplen));
+	fprintf(stderr, "receiver - all blocks received\n");
+	printmap((char *)bitmap, maplen);
+	free(bitmap);
+	return byt;
+}
+
 ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 {
+	int s;
 	ssize_t byt = 0;
-	unsigned char *bitmap = mtree_diff_subtree(stree, dtree, 0);
-	printmap((char *)bitmap, howmany(mtree_base(stree), CHAR_BIT));
+	lc_ctx_t *lctx = lc_ctx_new();
+	lc_socket_t *sock = lc_socket_new(lctx);
+	lc_channel_t *chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE);
+	lc_channel_bind(sock, chan);
+	lc_channel_join(chan);
+	s = lc_socket_raw(sock);
 
-	/* TODO: first, ensure destination is big enough */
-	/* TODO: malloc, remap, update *len etc */
-	// TODO: join channel for subtree
 	// TODO: NB: if only one data channel is in use, this is going to conflict,
 	// TODO: hash in an extra flag to mark it as tree data when forming the channel hash.
 
-	free(bitmap);
+	/* TODO: first, ensure destination is big enough */
+	/* TODO: malloc, remap, update *len etc */
+
+	byt = net_recv_subtree(s, stree, dtree, root);
+	lc_channel_part(chan);
+	lc_channel_free(chan);
+	lc_socket_close(sock);
+	lc_ctx_free(lctx);
 	return byt;
 }
 
@@ -332,6 +384,39 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	return 0;
 }
 
+
+/* break a block into DATA_FIXED size pieces and send with header
+ * header is in iov[0], data in iov[1] 
+ * idx and len need updating */
+ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
+{
+	ssize_t byt = 0;
+	size_t sz, off = 0;
+	size_t len = iov[1].iov_len;
+	size_t idx = 0;
+	net_blockhead_t *hdr = iov[0].iov_base;
+	struct msghdr msgh = {0};
+	while (len) {
+		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
+		msgh.msg_name = addr->ai_addr;
+		msgh.msg_namelen = addr->ai_addrlen;
+		msgh.msg_iov = iov;
+		msgh.msg_iovlen = vlen;
+		iov[1].iov_len = sz;
+		//iov[1].iov_base = (char *)iov[1].iov_base + off;
+		//iov[1].iov_base = iov[1].iov_base;
+		//hdr->idx = htobe32(idx++);
+		hdr->len = htobe32(sz);
+		off = sz;
+		len -= sz;
+		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
+			perror("sendmsg()");
+			break;
+		}
+	}
+	return byt;
+}
+
 ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 {
 	fprintf(stderr, "%s()\n", __func__);
@@ -344,9 +429,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	int s = lc_channel_socket_raw(chan);
 	struct addrinfo *addr = lc_channel_addrinfo(chan);
 	struct iovec iov[2] = {0};
-
-	// TODO: build the header
-	net_treehead_t hdr = {
+	net_blockhead_t hdr = {
 		.len = htobe32(mtree_len(stree)),
 	};
 	iov[0].iov_base = &hdr;
@@ -359,17 +442,14 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	size_t sz;
 	while (running) {
 		uint32_t idx = 0;
-		for (size_t blk = min; blk < max; blk++, idx++) {
+		for (size_t blk = min; blk <= max; blk++, idx++) {
+			fprintf(stderr, "sending block %zu with idx=%u\n", blk, idx);
 			hdr.idx = htobe32(idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
-			iov[1].iov_base = mtree_blockn(stree, blk);
-			// TODO: send block in DATA_FIXED sized chunks
-			// TODO: header net_blockhead_t
-			// TODO: data chunk with offset
-			//iov[1].iov_len = len;
-			//iov[1].iov_base = base;
-			//net_send_block(s, addr, 
-			usleep(100);
+			iov[1].iov_base = mtree_blockn(stree, blk); // FIXME
+			//iov[1].iov_base = mtree_block(stree, 0); // FIXME
+			hdr.len = htobe32((uint32_t)iov[1].iov_len);
+			net_send_block(s, addr, 2, iov);
 		}
 	}
 	lc_channel_free(chan);
