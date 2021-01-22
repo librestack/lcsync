@@ -92,7 +92,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 		hdr = (net_treehead_t *)buf;
 		if (!bitmap) {
 			pkts = be32toh(hdr->pkts);
-			maplen = pkts / CHAR_BIT + !!(pkts % CHAR_BIT);
+			maplen = howmany(pkts, CHAR_BIT);
 			if (!(bitmap = malloc(maplen))) {
 				perror("malloc()");
 				return -1;
@@ -100,21 +100,22 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 			memset(bitmap, ~0, maplen - 1);
 			bitmap[maplen - 1] = (1UL << (pkts % CHAR_BIT)) - 1;
 		}
-		sz = be64toh(hdr->size);
+		sz = (size_t)be64toh(hdr->size);
 		if (!iov->iov_base) {
 			if (!(iov->iov_base = malloc(sz))) {
 				perror("malloc()");
 				byt = -1;
 				break;
 			}
-			iov->iov_len = sz;
+			iov[0].iov_len = sz;
+			iov[1].iov_len = (size_t)be64toh(hdr->data);
 		}
 		idx = (size_t)be32toh(hdr->idx);
 		off = be32toh(hdr->idx) * DATA_FIXED;
 		len = (size_t)be32toh(hdr->len);
-		if (!!(bitmap[idx >> CHAR_BIT] & 1UL << idx)) {
+		if (isset(bitmap, idx)) {
 			memcpy((char *)iov->iov_base + off, buf + sizeof (net_treehead_t), len);
-			bitmap[idx >> CHAR_BIT] &= ~(1UL << (idx % CHAR_BIT));
+			clrbit(bitmap, idx);
 		}
 		byt += be32toh(hdr->len);
 	}
@@ -131,7 +132,7 @@ void *net_job_recv_tree(void *arg)
 	int s;
 	ssize_t byt;
 	net_data_t *data = (net_data_t *)arg;
-	struct iovec *iov = calloc(1, sizeof(struct iovec));
+	struct iovec *iov = calloc(1, sizeof(struct iovec) * 2);
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
 	lc_channel_t *chan = lc_channel_nnew(lctx, data->alias, HASHSIZE);
@@ -350,13 +351,14 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	/* fetch source tree */
 	job = job_push_new(q, &net_job_recv_tree, data, sizeof data, NULL, 0);
 	sem_wait(&job->done);
-	stree = mtree_create(*len, blocksize); // FIXME: get len from job
-	mtree_setdata(stree, ((struct iovec *)job->ret)[0].iov_base);
+	struct iovec *iov = (struct iovec *)job->ret;
+	stree = mtree_create(iov[1].iov_len, blocksize);
+	mtree_setdata(stree, iov[0].iov_base);
 	free(job);
 	fprintf(stderr, "%s(): tree with %zu nodes received\n", __func__, mtree_nodes(stree));
 
 	/* build destination tree */
-	dtree = mtree_create(*len, blocksize); // FIXME: get len from job
+	dtree = mtree_create(iov[1].iov_len, blocksize);
 	mtree_build(dtree, dstdata, q);
 #if 0
 	/* if root nodes differ, perform bredth-first search */
@@ -460,7 +462,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	fprintf(stderr, "base: %zu, min: %zu, max: %zu\n", base, min, max);
 	while (running) {
 		uint32_t idx = 0;
-		for (size_t blk = min; blk < max; blk++, idx++) {
+		for (size_t blk = min; blk <= max; blk++, idx++) {
 			fprintf(stderr, "sending block %zu with idx=%u\n", blk, idx);
 			hdr.idx = htobe32(idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
@@ -662,8 +664,7 @@ int net_sync(int *argc, char *argv[])
 	fprintf(stderr, "got tree\n");
 	struct iovec *iov = (struct iovec *)job_tree->ret;
 	chunksz = (size_t)net_chunksize();
-	size_t len = iov->iov_len;
-	fprintf(stderr, "length of tree is %zu\n", len);
+	size_t len = iov[1].iov_len;
 	mtree_tree *stree = mtree_create(len, chunksz);
 	mtree_setdata(stree, iov->iov_base);
 	fprintf(stderr, "source tree with %zu nodes (base = %zu, levels = %zu)\n",

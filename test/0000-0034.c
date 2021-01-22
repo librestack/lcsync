@@ -97,7 +97,7 @@ int main(void)
 	test_assert(iov->iov_base != NULL, "recv buffer allocated");
 	mtree_tree *dtree = mtree_create(blocks, blocksz);
 	mtree_setdata(dtree, iov->iov_base);
-	test_assert(!mtree_verify(dtree, iov->iov_len), "validate tree");
+	test_assert(!mtree_verify(dtree, iov[0].iov_len), "validate tree");
 	free(job_recv->ret);
 	free(job_recv);
 	mtree_free(dtree);
