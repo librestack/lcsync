@@ -107,9 +107,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 				byt = -1;
 				break;
 			}
-			//iov->iov_len = sz;
-			iov->iov_len = (size_t)be64toh(hdr->data);
-			fprintf(stderr, "got me %zu bytes !!!!!!!!!!!!!!!!!\n", iov->iov_len);
+			iov->iov_len = sz;
 		}
 		idx = (size_t)be32toh(hdr->idx);
 		off = be32toh(hdr->idx) * DATA_FIXED;
@@ -458,13 +456,11 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 
 	size_t base = mtree_base(stree);
 	size_t min = mtree_subtree_data_min(base, root);
-	size_t max = mtree_subtree_data_max(base, root);
-	//size_t max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree));
+	size_t max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min);
 	fprintf(stderr, "base: %zu, min: %zu, max: %zu\n", base, min, max);
-	//size_t sz;
 	while (running) {
 		uint32_t idx = 0;
-		for (size_t blk = min; blk <= max; blk++, idx++) {
+		for (size_t blk = min; blk < max; blk++, idx++) {
 			fprintf(stderr, "sending block %zu with idx=%u\n", blk, idx);
 			hdr.idx = htobe32(idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
@@ -654,7 +650,14 @@ int net_sync(int *argc, char *argv[])
 	job_tree = job_push_new(jobq, &net_job_recv_tree, idata, sizeof idata, NULL, 0);
 	sem_wait(&job_tree->done);
 
-	// TODO: sync everything else
+	if (!job_tree->ret) {
+		fprintf(stderr, "no tree received\n");
+		free(job_tree);
+		job_queue_destroy(jobq);
+		free(idata->alias);
+		free(idata);
+		return -1;
+	}
 	
 	fprintf(stderr, "got tree\n");
 	struct iovec *iov = (struct iovec *)job_tree->ret;
