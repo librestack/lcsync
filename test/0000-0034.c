@@ -75,6 +75,7 @@ int main(void)
 	odata->alias = malloc(HASHSIZE);
 	crypto_generichash(odata->alias, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
 	odata->hash = mtree_root(stree);
+	odata->byt = sz;
 	odata->iov[0].iov_len = mtree_treelen(stree);
 	odata->iov[0].iov_base = mtree_data(stree, 0);
 

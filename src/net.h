@@ -92,16 +92,15 @@ void *net_job_send_tree(void *arg);
 void *net_job_sync_subtree(void *arg);
 void *net_job_send_subtree(void *arg);
 
-/* recv data with root hash into memory at dstdata which hash size len
+/* recv data with root hash (or alias) into memory at dstdata which has size len
  * if dstdata is NULL, memory will be allocated. If len is too small, dstdata
  * will be reallocated */
 ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len);
 
-/* send data at srcdata with size len
- * tree data will be sent on the channel formed from the root hash
- * the actual data will be split across 2 ** net_send_channels
- * formed from the hash of the subtree root */
-ssize_t net_send_data(char *srcdata, size_t len);
+/* send data at srcdata with size len if hash is NULL, tree data will be sent on
+ * the channel formed from the root hash actual data will be split across
+ * (2 ** net_send_channels) formed from the hash of the subtree root */
+ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len);
 
 int net_recv(int *argc, char *argv[]);
 int net_send(int *argc, char *argv[]);

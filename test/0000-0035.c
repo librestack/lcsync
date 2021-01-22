@@ -30,7 +30,7 @@ void *do_recv(void *arg)
 
 void *do_send(void *arg)
 {
-	net_send_data((char *)arg, sz);
+	net_send_data(hash, (char *)arg, sz);
 	return arg;
 }
 

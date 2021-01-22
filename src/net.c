@@ -198,6 +198,7 @@ void *net_job_send_tree(void *arg)
 		.chan = net_send_channels,
 		.pkts = data->iov[0].iov_len / DATA_FIXED + !!(data->iov[0].iov_len % DATA_FIXED)
 	};
+	assert(data->byt > 0);
 	memcpy(&hdr.hash, data->hash, HASHSIZE);
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
@@ -270,6 +271,7 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 
 	fprintf(stderr, "%s(): receiving subtree at root %zu\n", __func__, root);
 
+	mtree_hexdump(stree, stderr);
 	byt = net_recv_subtree(s, stree, dtree, root);
 
 	lc_channel_part(chan);
@@ -335,7 +337,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 {
 	fprintf(stderr, "%s()\n", __func__);
 
-	mtree_tree *stree, *dtree;
+	mtree_tree *stree = NULL, *dtree = NULL;
 	net_data_t *data;
 	job_t *job;
 	job_queue_t *q;
@@ -352,6 +354,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	job = job_push_new(q, &net_job_recv_tree, data, sizeof data, NULL, 0);
 	sem_wait(&job->done);
 	struct iovec *iov = (struct iovec *)job->ret;
+	fprintf(stderr, "iov[1].iov_len=%zu, blocksize=%zu\n", iov[1].iov_len, blocksize);
 	stree = mtree_create(iov[1].iov_len, blocksize);
 	mtree_setdata(stree, iov[0].iov_base);
 	free(job);
@@ -360,7 +363,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	/* build destination tree */
 	dtree = mtree_create(iov[1].iov_len, blocksize);
 	mtree_build(dtree, dstdata, q);
-#if 0
+
 	/* if root nodes differ, perform bredth-first search */
 	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
 		data->chan = 1; // FIXME - temp
@@ -392,7 +395,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 		}
 		// TODO: recv data blocks - this will happen in net_job_diff_tree()
 	}
-#endif
+
 
 	/* clean up */
 	job_queue_destroy(q);
@@ -480,6 +483,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 			usleep(100); // FIXME
 		}
 	}
+	mtree_hexdump(stree, stderr);
 	lc_channel_free(chan);
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
@@ -505,7 +509,7 @@ void *net_job_send_subtree(void *arg)
 	return arg;
 }
 
-ssize_t net_send_data(char *srcdata, size_t len)
+ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 {
 	fprintf(stderr, "%s()\n", __func__);
 	size_t channels = 1U << net_send_channels; // FIXME
@@ -518,7 +522,8 @@ ssize_t net_send_data(char *srcdata, size_t len)
 
 	data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
 	data->hash = mtree_root(tree);
-	data->alias = data->hash;
+	data->alias = (hash) ? hash : data->hash;
+	data->byt = len;
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = mtree_data(tree, 0);
 	job_tree = job_push_new(q, &net_job_send_tree, data, sizeof data, NULL, 0);
@@ -595,6 +600,7 @@ int net_send(int *argc, char *argv[])
 	odata->alias = malloc(HASHSIZE);
 	odata->hash = mtree_root(stree);
 	odata->byt = mtree_len(stree);
+	assert(odata->byt > 0);
 	odata->iov[0].iov_len = mtree_treelen(stree);
 	odata->iov[0].iov_base = mtree_data(stree, 0);
 	char *alias = basename(src);
@@ -644,6 +650,7 @@ int net_sync(int *argc, char *argv[])
 	sigaction(SIGINT, &sa_int, NULL);
 	idata = calloc(1, sizeof(net_data_t) + sizeof(struct iovec) * 2);
 	idata->alias = malloc(HASHSIZE);
+	fprintf(stderr, "%s(): hashing alias '%s' as tree channel\n", __func__, idata->alias);
 	crypto_generichash(idata->alias, HASHSIZE, (unsigned char *)argv[0], strlen(argv[0]), NULL, 0);
 
 	fprintf(stderr, "lets sync '%s'\n", argv[0]);

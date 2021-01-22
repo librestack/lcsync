@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
+#include <assert.h>
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
@@ -245,6 +246,10 @@ static int mtree_resize(mtree_tree *tree)
 {
 	/* FIXME: this only works for a fixed-size tree */
 	tree->tree = calloc(tree->nodes, HASHSIZE);
+	if (!tree->tree) {
+		perror("calloc()");
+		return -1;
+	}
 	return (tree->tree) ? 0 : -1;
 }
 
@@ -389,14 +394,17 @@ mtree_tree *mtree_create(size_t len, size_t chunksz)
 {
 	mtree_tree *tree;
 	tree = calloc(1, sizeof(mtree_tree));
-	if (!tree) return NULL;
+	if (!tree) {
+		perror("calloc()");
+		return NULL;
+	}
 	tree->chunksz = chunksz;
 	tree->len = len;
 	tree->nchunks = len / chunksz + !!(len % chunksz);
 	tree->base = next_pow2(tree->nchunks);
 	tree->lvls = mtree_levels(tree->base);
 	tree->nodes = mtree_size(tree->base);
-	if (mtree_resize(tree)) {
+	if (len && mtree_resize(tree)) {
 		mtree_free(tree);
 		tree = NULL;
 	}
