@@ -1,6 +1,9 @@
 NEXT ACTION: sync data based on tree
 
 * send file permissions
+* --blocksz
+* --delay
+* -n / --dry-run
 
 * set up new test for net_send() / net_recv()
 - build source data
