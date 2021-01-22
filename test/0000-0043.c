@@ -38,10 +38,10 @@ int main()
 
 	test_mtree_blockn_len(tree, 0, 0);
 	test_mtree_blockn_len(tree, 30, 0);
-	for (size_t i = 31; i < 62; i++) {
+	for (size_t i = 31; i < 31 + blocks; i++) {
 		test_mtree_blockn_len(tree, i, blocksz);
 	}
-	test_mtree_blockn_len(tree, 62, extra);
+	test_mtree_blockn_len(tree, 31 + blocks + 1, extra);
 	test_mtree_blockn_len(tree, 63, 0);
 
 	free(srcdata);
