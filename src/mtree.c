@@ -392,8 +392,7 @@ void mtree_setdata(mtree_tree *tree, unsigned char *data)
 
 mtree_tree *mtree_create(size_t len, size_t chunksz)
 {
-	mtree_tree *tree;
-	tree = calloc(1, sizeof(mtree_tree));
+	mtree_tree *tree = calloc(1, sizeof(mtree_tree));
 	if (!tree) {
 		perror("calloc()");
 		return NULL;

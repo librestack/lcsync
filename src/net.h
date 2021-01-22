@@ -15,9 +15,11 @@
 #define MTU_FIXED 1194
 #define DATA_FIXED 1024
 
+#if 0
 enum net_channel_flags {
 	NET_TREE = 1,
 };
+#endif
 
 typedef struct net_treehead_s {
 	/* packet index 0 to n-1 of tree */
@@ -28,6 +30,8 @@ typedef struct net_treehead_s {
 	uint64_t	data;
 	/* size of whole tree in bytes */
 	uint64_t	size;
+	/* size of data blocks */
+	uint32_t        blocksz;
 	/* no. of packets in tree */
 	uint32_t	pkts;
 	/* channels used to send file (as power of 2) */

@@ -17,35 +17,6 @@ const size_t blocks = 42;
 const size_t blocksz = 4096;
 const char *alias = "My Preciousssss";
 
-void *do_recv(void *arg)
-{
-	int s;
-	ssize_t byt;
-	net_data_t *data = (net_data_t *)arg;
-	struct iovec iov = {0};
-	lc_ctx_t *lctx = lc_ctx_new();
-	lc_socket_t *sock = lc_socket_new(lctx);
-	lc_channel_t *chan = lc_channel_nnew(lctx, (unsigned char *)data->alias, HASHSIZE);
-	lc_channel_bind(sock, chan);
-	lc_channel_join(chan);
-	s = lc_socket_raw(sock);
-	byt = net_recv_tree(s, &iov);
-	mtree_tree *dtree = mtree_create(blocks, blocksz);
-	mtree_setdata(dtree, iov.iov_base);
-	test_assert((size_t)byt == mtree_treelen(stree), "%zu bytes received", byt);
-	test_assert(iov.iov_len == mtree_treelen(stree), "iov_len=%zu", iov.iov_len);
-	test_assert(iov.iov_base != NULL, "recv buffer allocated");
-	test_assert(!mtree_verify(dtree, iov.iov_len), "validate tree");
-	for (size_t z = 0; z < mtree_nodes(stree); z++) {
-		test_assert(!memcmp(mtree_data(stree, z), mtree_data(dtree, z), HASHSIZE), "check hash %zu", z);
-	}
-	lc_channel_free(chan);
-	lc_socket_close(sock);
-	lc_ctx_free(lctx);
-	mtree_free(dtree);
-	return NULL;
-}
-
 int main(void)
 {
 	const int waits = 1; /* test timeout in s */
@@ -86,7 +57,6 @@ int main(void)
 	/* queue up send / recv jobs */
 	jobq = job_queue_create(2);
 	job_send = job_push_new(jobq, &net_job_send_tree, odata, sizeof odata, NULL, 0);
-	//job_recv = job_push_new(jobq, &do_recv, idata, sizeof idata, NULL, 0);
 	job_recv = job_push_new(jobq, &net_job_recv_tree, idata, sizeof idata, NULL, 0);
 
 	/* wait for recv job to finish, check for timeout */

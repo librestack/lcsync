@@ -51,7 +51,7 @@ static size_t net_chunksize(void)
 {
 	return DATA_FIXED;
 }
-
+#if 0
 static unsigned char *net_hash_flag(unsigned char *hash, int flags)
 {
 	unsigned char *new = malloc(HASHSIZE);
@@ -62,12 +62,12 @@ static unsigned char *net_hash_flag(unsigned char *hash, int flags)
 	crypto_generichash_final(&state, new, HASHSIZE);
 	return new;
 }
+#endif
 
 net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
 {
 	memset(hdr, 0, sizeof *hdr);
-	hdr->pkts = mtree_len(tree) / DATA_FIXED;
-	if (mtree_len(tree) % DATA_FIXED) hdr->pkts++;
+	hdr->pkts = htobe32(howmany(mtree_len(tree), DATA_FIXED));
 	hdr->chan = net_send_channels;
 	memcpy(hdr->hash, mtree_root(tree), HASHSIZE);
 	return hdr;
@@ -76,7 +76,7 @@ net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
 ssize_t net_recv_tree(int sock, struct iovec *iov)
 {
 	fprintf(stderr, "%s()\n", __func__);
-	size_t idx, off, len, maplen, pkts;
+	size_t blocksz, idx, off, len, maplen, pkts;
 	ssize_t byt = 0, msglen;
 	uint64_t sz = iov->iov_len;
 	net_treehead_t *hdr;
@@ -90,8 +90,16 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 		}
 		fprintf(stderr, "%s(): recv %zi bytes\n", __func__, msglen);
 		hdr = (net_treehead_t *)buf;
+		fprintf(stderr, "idx=%u\n", be32toh(hdr->idx));
+		fprintf(stderr, "len=%u\n", be32toh(hdr->len));
+		fprintf(stderr, "data=%lu\n", be64toh(hdr->data));
+		fprintf(stderr, "size=%lu\n", be64toh(hdr->size));
+		fprintf(stderr, "blocksz=%u\n", be32toh(hdr->blocksz));
+		fprintf(stderr, "pkts=%u\n", be32toh(hdr->pkts));
+		fprintf(stderr, "chan=%d\n", hdr->chan);
 		if (!bitmap) {
 			pkts = be32toh(hdr->pkts);
+			assert(pkts); // FIXME
 			maplen = howmany(pkts, CHAR_BIT);
 			if (!(bitmap = malloc(maplen))) {
 				perror("malloc()");
@@ -111,15 +119,23 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 			iov[1].iov_len = (size_t)be64toh(hdr->data);
 		}
 		idx = (size_t)be32toh(hdr->idx);
+		blocksz = (size_t)be32toh(hdr->blocksz);
 		off = be32toh(hdr->idx) * DATA_FIXED;
 		len = (size_t)be32toh(hdr->len);
 		if (isset(bitmap, idx)) {
+			// FIXME: test 0035 fails here
 			memcpy((char *)iov->iov_base + off, buf + sizeof (net_treehead_t), len);
 			clrbit(bitmap, idx);
 		}
 		byt += be32toh(hdr->len);
 	}
 	while (countmap(bitmap, maplen));
+	mtree_tree *tree = mtree_create(sz, blocksz);
+	mtree_setdata(tree, iov[0].iov_base);
+	//void * base = mtree_data(tree, 0);
+	size_t treelen = mtree_len(tree);
+	mtree_hexdump(tree, stderr);
+	assert(!mtree_verify(tree, treelen));
 	// TODO verify tree (check hashes, mark bitmap with any that don't
 	// match, go again
 	free(bitmap);
@@ -156,7 +172,7 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 	size_t idx = 0;
 	net_treehead_t *hdr = iov[0].iov_base;
 	struct msghdr msgh = {0};
-	hdr->pkts = htobe32(iov[1].iov_len / DATA_FIXED + !!(iov[1].iov_len % DATA_FIXED));
+	hdr->pkts = htobe32(howmany(iov[1].iov_len, DATA_FIXED));
 	while (len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		msgh.msg_name = addr->ai_addr;
@@ -169,6 +185,8 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 		hdr->len = htobe32(sz);
 		off = sz;
 		len -= sz;
+		// FIXME: Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)
+		// FIXME: test 0035 fails here
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
 			break;
@@ -182,8 +200,10 @@ void *net_job_send_tree(void *arg)
 	fprintf(stderr, "%s()\n", __func__);
 	const int on = 1;
 	net_data_t *data = (net_data_t *)arg;
-	void *base = data->iov[0].iov_base;
-	size_t len = data->iov[0].iov_len;
+	mtree_tree *tree = (mtree_tree *)data->iov[0].iov_base;
+	void * base = mtree_data(tree, 0);
+	size_t len = mtree_len(tree);
+	assert(!mtree_verify(tree, len)); // FIXME - test 0034 fails here
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
 	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
@@ -195,9 +215,17 @@ void *net_job_send_tree(void *arg)
 	net_treehead_t hdr = {
 		.data = htobe64((uint64_t)data->byt),
 		.size = htobe64(data->iov[0].iov_len),
+		.blocksz = htobe32(mtree_blocksz(tree)),
 		.chan = net_send_channels,
-		.pkts = data->iov[0].iov_len / DATA_FIXED + !!(data->iov[0].iov_len % DATA_FIXED)
+		.pkts = htobe32(howmany(data->iov[0].iov_len, DATA_FIXED))
 	};
+	fprintf(stderr, "idx=%u\n", be32toh(hdr.idx));
+	fprintf(stderr, "len=%u\n", be32toh(hdr.len));
+	fprintf(stderr, "data=%lu\n", be64toh(hdr.data));
+	fprintf(stderr, "size=%lu\n", be64toh(hdr.size));
+	fprintf(stderr, "blocksz=%u\n", be32toh(hdr.blocksz));
+	fprintf(stderr, "pkts=%u\n", be32toh(hdr.pkts));
+	fprintf(stderr, "chan=%u\n", hdr.chan);
 	assert(data->byt > 0);
 	memcpy(&hdr.hash, data->hash, HASHSIZE);
 	iov[0].iov_base = &hdr;
@@ -219,12 +247,12 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	ssize_t byt = 0, msglen;
 	unsigned char *bitmap = NULL;
 	char buf[MTU_FIXED];
-	struct iovec iov[2] = {0};
+	//struct iovec iov[2] = {0};
 	net_blockhead_t *hdr;
 	uint32_t idx;
-	size_t len, off;
+	size_t len;//, off;
 	size_t maplen = howmany(mtree_base(stree), CHAR_BIT);
-	bitmap = mtree_diff_subtree(stree, dtree, 0);
+	bitmap = mtree_diff_subtree(stree, dtree, root);
 	printmap(bitmap, maplen);
 	do {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
@@ -236,7 +264,7 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 		hdr = (net_blockhead_t *)buf;
 		//sz = be64toh(hdr->size);
 		idx = be32toh(hdr->idx);
-		off = (size_t)be32toh(hdr->idx) * DATA_FIXED;
+		//off = (size_t)be32toh(hdr->idx) * DATA_FIXED;
 		len = (size_t)be32toh(hdr->len);
 		if (isset(bitmap, idx)) {
 			fprintf(stderr, "recv'd a block I wanted idx=%u\n", idx);
@@ -300,8 +328,8 @@ static void *net_job_diff_tree(void *arg)
 	job_queue_t *q = (job_queue_t *)data->iov[0].iov_base;
 	mtree_tree *t1 = (mtree_tree *)data->iov[1].iov_base;
 	mtree_tree *t2 = (mtree_tree *)data->iov[2].iov_base;
-	char *dstdata = (char *)data->iov[3].iov_base;
-	size_t len = data->iov[3].iov_len;
+	//char *dstdata = (char *)data->iov[3].iov_base;
+	//size_t len = data->iov[3].iov_len;
 	size_t n = data->n;
 	size_t child;
 
@@ -413,9 +441,9 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
 {
 	ssize_t byt = 0;
-	size_t sz, off = 0;
+	size_t sz;//, off = 0;
 	size_t len = iov[1].iov_len;
-	size_t idx = 0;
+	//size_t idx = 0;
 	net_blockhead_t *hdr = iov[0].iov_base;
 	struct msghdr msgh = {0};
 	fprintf(stderr, "iov[1] = %p\n", (void *)iov[1].iov_base);
@@ -429,7 +457,7 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 		//iov[1].iov_base = (char *)iov[1].iov_base + off;
 		//hdr->idx = htobe32(idx++);
 		hdr->len = htobe32(sz);
-		off = sz;
+		//off = sz;
 		len -= sz;
 		// FIXME: Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
@@ -601,7 +629,8 @@ int net_send(int *argc, char *argv[])
 	odata->hash = mtree_root(stree);
 	odata->byt = mtree_len(stree);
 	assert(odata->byt > 0);
-	odata->iov[0].iov_len = mtree_treelen(stree);
+	//odata->iov[0].iov_len = mtree_treelen(stree);
+	odata->iov[0].iov_len = mtree_len(stree);
 	odata->iov[0].iov_base = mtree_data(stree, 0);
 	char *alias = basename(src);
 	crypto_generichash(odata->alias, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
