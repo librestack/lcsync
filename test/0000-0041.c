@@ -43,8 +43,8 @@ int main()
 	test_mtree_blockn(tree, 1, NULL);
 	test_mtree_blockn(tree, 31, srcdata);
 	test_mtree_blockn(tree, 32, srcdata + blocksz);
-	test_mtree_blockn(tree, 62, srcdata + blocksz * (62 - 31));
-	test_mtree_blockn(tree, 63, NULL);
+	test_mtree_blockn(tree, 31 + blocks, srcdata + blocksz * blocks);
+	test_mtree_blockn(tree, 31 + blocks + 1, NULL);
 
 	free(srcdata);
 	mtree_free(tree);

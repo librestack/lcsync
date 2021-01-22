@@ -221,7 +221,7 @@ size_t mtree_blockn_len(mtree_tree *tree, size_t n)
 	size_t mod;
 	size_t min = mtree_subtree_data_min(mtree_base(tree), 0);
 	size_t max = mtree_subtree_data_max(mtree_base(tree), 0);
-	if (n < min || n > max) return 0;
+	if (n < min || n > max || n > min + tree->nchunks) return 0;
 	mod = tree->len % tree->chunksz;
 	return ((mod) && (n == max)) ? mod : tree->chunksz;
 }
@@ -236,7 +236,7 @@ char *mtree_blockn(mtree_tree *tree, size_t n)
 {
 	size_t min = mtree_subtree_data_min(mtree_base(tree), 0);
 	size_t max = mtree_subtree_data_max(mtree_base(tree), 0);
-	if (n < min || n > max) return NULL;
+	if (n < min || n > max || n > min + tree->nchunks) return NULL;
 	return tree->data + tree->chunksz * (n - min);
 }
 

@@ -468,13 +468,14 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 			fprintf(stderr, "sending block %zu with idx=%u\n", blk, idx);
 			hdr.idx = htobe32(idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
-			unsigned char *ptr = mtree_blockn(stree, blk);
-			fprintf(stderr, "tree = %p, iov[1] = %ld (%ld)\n",
-					mtree_data(stree, 0),
-					ptr - mtree_data(stree, 0),
-					(ptr - mtree_data(stree, 0)) / mtree_blocksz(stree)
-					);
-			assert(ptr);
+			fprintf(stderr, "blockn(%zu)=%p, data(%zu)=%p\n",
+					blk, mtree_blockn(stree, blk), 
+					blk-min, mtree_block(stree, blk-min));
+			char *ptr = mtree_blockn(stree, blk);
+			if (!ptr) {
+				fprintf(stderr, "no data for this block\n");
+				break;
+			}
 			iov[1].iov_base = ptr; // FIXME
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
 			net_send_block(s, addr, 2, iov);
