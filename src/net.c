@@ -169,24 +169,24 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 	ssize_t byt = 0;
 	size_t sz, off = 0;
 	size_t len = iov[1].iov_len;
+	size_t filesz = len;
 	size_t idx = 0;
 	net_treehead_t *hdr = iov[0].iov_base;
 	struct msghdr msgh = {0};
 	hdr->pkts = htobe32(howmany(iov[1].iov_len, DATA_FIXED));
 	while (len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
+		iov[1].iov_len = sz;
+		iov[1].iov_base = (char *)iov[1].iov_base + off;
 		msgh.msg_name = addr->ai_addr;
 		msgh.msg_namelen = addr->ai_addrlen;
 		msgh.msg_iov = iov;
 		msgh.msg_iovlen = vlen;
-		iov[1].iov_len = sz;
-		iov[1].iov_base = (char *)iov[1].iov_base + off;
+		assert(off + sz <= filesz);
 		hdr->idx = htobe32(idx++);
 		hdr->len = htobe32(sz);
-		off = sz;
+		off += sz;
 		len -= sz;
-		// FIXME: Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)
-		// FIXME: test 0035 fails here
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
 			break;
