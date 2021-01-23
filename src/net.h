@@ -21,6 +21,7 @@ enum net_channel_flags {
 };
 #endif
 
+/* packet header for tree data */
 typedef struct net_treehead_s {
 	/* packet index 0 to n-1 of tree */
 	uint32_t	idx;
@@ -40,6 +41,7 @@ typedef struct net_treehead_s {
 	unsigned char hash[HASHSIZE];
 } __attribute__((__packed__)) net_treehead_t;
 
+/* packet header for block data */
 typedef struct net_blockhead_s net_blockhead_t;
 struct net_blockhead_s {
 	/* packet index 0 to n-1 of block */
