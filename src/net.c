@@ -437,6 +437,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	free(data);
 	mtree_free(stree);
 	mtree_free(dtree);
+	free(iov);
 	return 0;
 }
 
@@ -447,7 +448,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov, size_t blk)
 {
 	ssize_t byt = 0;
-	size_t sz;//, off = 0;
+	size_t sz, off = 0;
 	size_t len = iov[1].iov_len;
 	net_blockhead_t *hdr = iov[0].iov_base;
 	unsigned bits = howmany(len, DATA_FIXED);
@@ -461,10 +462,10 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 		msgh.msg_iov = iov;
 		msgh.msg_iovlen = vlen;
 		iov[1].iov_len = sz;
-		//iov[1].iov_base = (char *)iov[1].iov_base + off;
+		iov[1].iov_base = (char *)iov[1].iov_base + off;
 		hdr->len = htobe32(sz);
 		hdr->idx = htobe32(idx);
-		//off = sz;
+		//off += sz;
 		len -= sz;
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
