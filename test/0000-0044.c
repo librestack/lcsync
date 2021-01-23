@@ -16,7 +16,7 @@
 
 const int waits = 1; /* test timeout in s */
 const size_t blocks = 42;
-const size_t blocksz = 1024;
+const size_t blocksz = 4096;
 const size_t sz = blocks * blocksz;
 unsigned char hash[HASHSIZE];
 mtree_tree *stree, *dtree;
@@ -69,7 +69,7 @@ void gentestdata(char *srcdata, char *dstdata)
 
 int main(void)
 {
-	test_name("net_send_subtree() / net_sync_subtree() - 1024 byte blocks");
+	test_name("net_send_subtree() / net_sync_subtree() - 4096 byte blocks");
 	char *srcdata = calloc(blocks, blocksz);
 	char *dstdata = calloc(blocks, blocksz);
 	gentestdata(srcdata, dstdata);

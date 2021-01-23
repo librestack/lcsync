@@ -253,7 +253,7 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	//struct iovec iov[2] = {0};
 	net_blockhead_t *hdr;
 	uint32_t idx;
-	size_t len;
+	size_t blk, len, off;
 	size_t blocksz = mtree_blocksz(stree);
 	fprintf(stderr, "%s(): blocksz = %zu\n", __func__, blocksz);
 	unsigned bits = howmany(blocksz, DATA_FIXED);
@@ -274,13 +274,15 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 		idx = be32toh(hdr->idx);
 		//off = (size_t)be32toh(hdr->idx) * DATA_FIXED;
 		len = (size_t)be32toh(hdr->len);
+		blk = idx / bits;
 		if (isset(bitmap, idx)) {
-			fprintf(stderr, "recv'd a block I wanted idx=%u\n", idx);
-			memcpy(mtree_block(dtree, idx), buf + sizeof (net_blockhead_t), len);
+			off = (idx % bits) * DATA_FIXED;
+			fprintf(stderr, "recv'd a block I wanted idx=%u, blk=%zu\n", idx, blk);
+			memcpy(mtree_block(dtree, blk) + off, buf + sizeof (net_blockhead_t), len);
 			clrbit(bitmap, idx);
 		}
 		else {
-			fprintf(stderr, "recv'd a block I didn't want idx=%u\n", idx);
+			fprintf(stderr, "recv'd a block I didn't want idx=%u, blk=%zu\n", idx, blk);
 		}
 		byt += be32toh(hdr->len);
 	}
@@ -456,7 +458,7 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 	struct msghdr msgh = {0};
 	fprintf(stderr, "iov[1] = %p\n", (void *)iov[1].iov_base);
 	fprintf(stderr, "bits=%u\n", bits);
-	for (size_t idx = blk + bits - 1; len; idx++) {
+	for (size_t idx = blk * bits; len; idx++) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		msgh.msg_name = addr->ai_addr;
 		msgh.msg_namelen = addr->ai_addrlen;
