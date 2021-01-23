@@ -1,12 +1,5 @@
 NEXT ACTIONS:
 
-Disable failing tests.  Clean slate.  Get back to green.
-
-Update bitmap code to cater for block sizes other than 1024.  This is
-fundamental, so do this first.  Adding it later will break many things.
-
-Test with full block changes (not just first byte diffs).
-
 Ensure trees are sent / received and validated properly.
 
 Update cli to show differences without syncing -n / --dry-run

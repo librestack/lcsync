@@ -16,8 +16,8 @@
 
 const int waits = 1; /* test timeout in s */
 const size_t blocks = 42;
-const size_t blocksz = 1024;
-const size_t sz = blocks * blocksz;
+size_t blocksz;
+size_t sz;
 const char *alias = "alias";
 unsigned char hash[HASHSIZE];
 
@@ -60,13 +60,10 @@ void do_sync(char *srcdata, char *dstdata)
 	job_queue_destroy(jobq);
 }
 
-/* work out root hash so recv thread knows what channel to join */
-void saveroothash(char *srcdata)
+/* hash alias so recv/send thread knows what channel to use for tree */
+void saveroothash()
 {
-	mtree_tree *tree = mtree_create(sz, blocksz);
-	mtree_build(tree, srcdata, NULL);
-	memcpy(hash, mtree_root(tree), HASHSIZE);
-	mtree_free(tree);
+	crypto_generichash(hash, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
 }
 
 void gentestdata(char *srcdata, char *dstdata)
@@ -81,11 +78,13 @@ void gentestdata(char *srcdata, char *dstdata)
 
 int main(void)
 {
+	blocksz = blocksize;
+	sz = blocks * blocksz;
 	char *srcdata = calloc(blocks, blocksz);
 	char *dstdata = calloc(blocks, blocksz);
-	return test_skip("net_send() / net_recv()");
+	test_name("net_send() / net_recv()");
 	gentestdata(srcdata, dstdata);
-	saveroothash(srcdata);
+	saveroothash();
 	test_assert(memcmp(srcdata, dstdata, sz), "src and dst data differ before syncing");
 	do_sync(srcdata, dstdata);
 	test_assert(!memcmp(srcdata, dstdata, sz), "src and dst data match after syncing");

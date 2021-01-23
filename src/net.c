@@ -250,7 +250,6 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	ssize_t byt = 0, msglen;
 	unsigned char *bitmap = NULL;
 	char buf[MTU_FIXED];
-	//struct iovec iov[2] = {0};
 	net_blockhead_t *hdr;
 	uint32_t idx;
 	size_t blk, len, off;
@@ -270,9 +269,7 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 		}
 		fprintf(stderr, "%s(): recv %zi bytes\n", __func__, msglen);
 		hdr = (net_blockhead_t *)buf;
-		//sz = be64toh(hdr->size);
 		idx = be32toh(hdr->idx);
-		//off = (size_t)be32toh(hdr->idx) * DATA_FIXED;
 		len = (size_t)be32toh(hdr->len);
 		blk = idx / bits;
 		if (isset(bitmap, idx)) {
