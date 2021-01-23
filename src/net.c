@@ -563,6 +563,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->byt = len;
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = tree;
+	assert(!mtree_verify(tree, len));
 	job_tree = job_push_new(q, &net_job_send_tree, data, sizeof data, NULL, 0);
 	fprintf(stderr, "%s(): job pushed\n", __func__);
 	
@@ -638,9 +639,8 @@ int net_send(int *argc, char *argv[])
 	odata->hash = mtree_root(stree);
 	odata->byt = mtree_len(stree);
 	assert(odata->byt > 0);
-	//odata->iov[0].iov_len = mtree_treelen(stree);
 	odata->iov[0].iov_len = mtree_len(stree);
-	odata->iov[0].iov_base = mtree_data(stree, 0);
+	odata->iov[0].iov_base = stree;
 	char *alias = basename(src);
 	crypto_generichash(odata->alias, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
 	fprintf(stderr, "sending file as '%s'\n", alias);
@@ -653,6 +653,7 @@ int net_send(int *argc, char *argv[])
 
 	jobq = job_queue_create(2);
 	mtree_build(stree, smap, NULL);
+	assert(!mtree_verify(stree, sz_s));
 	job_tree = job_push_new(jobq, &net_job_send_tree, odata, sizeof odata, NULL, 0);
 	job_data = job_push_new(jobq, &net_job_send_subtree, data, sizeof data, NULL, 0);
 	sem_wait(&job_tree->done);
