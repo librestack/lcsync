@@ -16,8 +16,8 @@
 
 const int waits = 1; /* test timeout in s */
 const size_t blocks = 42;
-const size_t blocksz = 4096;
-const size_t sz = blocks * blocksz;
+size_t blocksz = 1024;
+size_t sz;
 unsigned char hash[HASHSIZE];
 mtree_tree *stree, *dtree;
 
@@ -69,21 +69,26 @@ void gentestdata(char *srcdata, char *dstdata)
 
 int main(void)
 {
-	char *srcdata = calloc(blocks, blocksz);
-	char *dstdata = calloc(blocks, blocksz);
-	test_name("net_send_subtree() / net_sync_subtree()");
-	gentestdata(srcdata, dstdata);
-	/* start where receiver already has the source tree */
-	stree = mtree_create(sz, blocksz);
-	dtree = mtree_create(sz, blocksz);
-	mtree_build(stree, srcdata, NULL);
-	mtree_build(dtree, dstdata, NULL);
-	test_assert(memcmp(srcdata, dstdata, sz), "src and dst data differ before syncing");
-	do_sync();
-	test_assert(!memcmp(srcdata, dstdata, sz), "src and dst data match after syncing");
-	free(srcdata);
-	free(dstdata);
-	mtree_free(stree);
-	mtree_free(dtree);
+	for (int i = 0; i < 2; i++) {
+		sz = blocks * blocksz;
+		char *srcdata = calloc(blocks, blocksz);
+		char *dstdata = calloc(blocks, blocksz);
+		test_name("net_send_subtree() / net_sync_subtree()");
+		gentestdata(srcdata, dstdata);
+		/* start where receiver already has the source tree */
+		stree = mtree_create(sz, blocksz);
+		dtree = mtree_create(sz, blocksz);
+		mtree_build(stree, srcdata, NULL);
+		mtree_build(dtree, dstdata, NULL);
+		test_assert(memcmp(srcdata, dstdata, sz), "src and dst data differ before syncing");
+		do_sync();
+		test_assert(!memcmp(srcdata, dstdata, sz),
+				"src and dst data match after syncing (blocksz=%zu)", blocksz);
+		free(srcdata);
+		free(dstdata);
+		mtree_free(stree);
+		mtree_free(dtree);
+		blocksz *= 2;
+	}
 	return fails;
 }
