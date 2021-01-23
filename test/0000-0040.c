@@ -15,7 +15,7 @@
 #include <unistd.h>
 
 const int waits = 1; /* test timeout in s */
-const size_t blocks = 17;
+const size_t blocks = 42;
 const size_t blocksz = 4096;
 const size_t sz = blocks * blocksz;
 unsigned char hash[HASHSIZE];
@@ -58,9 +58,12 @@ void gentestdata(char *srcdata, char *dstdata)
 {
 	/* build source data, make each block different */
 	for (size_t i = 0; i < blocks; i++) {
-		(srcdata + i * blocksz)[0] = i + 1;
+		size_t off = i * blocksz;
+		memset(srcdata, i + i, blocksz); /* set whole block */
 		/* copy a selection of blocks to destination, leaving some holes */
-		if ((i % 7) && (i % 9)) (dstdata + i * blocksz)[0] = i + 1;
+		if ((i % 7) && (i % 9)) {
+			memcpy(dstdata + off, srcdata + off, blocksz);
+		}
 	}
 }
 
