@@ -23,7 +23,7 @@ void cmp_tree(size_t sz, size_t blk, size_t n, uint8_t bin)
 	mtree_build(t2, data, NULL);
 	test_assert(mtree_diff(t1, t2) == 0, "trees match");
 
-	map = mtree_diff_subtree(t1, t2, n);
+	map = mtree_diff_subtree(t1, t2, n, 1);
 	test_assert(map == NULL, "mtree_diff_subtree() - trees match");
 
 	memcpy(copy, data, sz * chunksz);
@@ -33,7 +33,7 @@ void cmp_tree(size_t sz, size_t blk, size_t n, uint8_t bin)
 	mtree_build(t2, copy, NULL);
 	test_assert(mtree_diff(t1, t2) == blk + 1, "%02zu: trees differ (tree)", blk);
 
-	map = mtree_diff_subtree(t1, t2, n);
+	map = mtree_diff_subtree(t1, t2, n, 1);
 	if ((bin != 0x0 || map))
 		test_assert(map[0] == bin, "check %02x == %02x", map[0], bin);
 

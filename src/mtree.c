@@ -479,7 +479,7 @@ int mtree_bitcmp(unsigned char *map, size_t block)
 
 unsigned char *mtree_diff_map(mtree_tree *t1, mtree_tree *t2)
 {
-	return mtree_diff_subtree(t1, t2, 0);
+	return mtree_diff_subtree(t1, t2, 0, 1);
 }
 
 /* TODO - create channel bitmaps
@@ -524,7 +524,7 @@ size_t mtree_base_subtree(mtree_tree *tree, size_t n)
 }
 
 /* perform bredth-first search of subtree, return bitmap */
-unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root)
+unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root, unsigned bits)
 {
 	size_t base, child, n;
 	job_queue_t *q;
@@ -534,7 +534,7 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root)
 		return NULL; /* subtree root matches, stop now */
 	base = mtree_base_subtree(t1, root);
 	n = (base + (CHAR_BIT - 1)) / CHAR_BIT;
-	map = calloc(1, n);
+	map = calloc(bits, n);
 	child = mtree_child(t1, root);
 	if (!child) { /* leaf node */
 		map[0] |= 1U;
@@ -555,7 +555,9 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root)
 			}
 			else { /* leaf node, update bitmap */
 				n = mtree_node_offset_subtree(n, root);
-				map[n / CHAR_BIT] |= 1U << (n % CHAR_BIT);
+				for (unsigned i = 1; i <= bits; i++) {
+					map[n * i / CHAR_BIT] |= 1U << ((n * i) % CHAR_BIT);
+				}
 			}
 		}
 		free(job->arg);

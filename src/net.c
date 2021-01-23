@@ -255,7 +255,7 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	uint32_t idx;
 	size_t len;//, off;
 	size_t maplen = howmany(mtree_base(stree), CHAR_BIT);
-	bitmap = mtree_diff_subtree(stree, dtree, root);
+	bitmap = mtree_diff_subtree(stree, dtree, root, 1);
 	printmap(bitmap, maplen);
 	do {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
