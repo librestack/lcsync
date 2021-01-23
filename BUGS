@@ -1,0 +1,6 @@
+valgrind runtime errors / leaks
+
+on sender:
+lcsync: net.c:653: net_send: Assertion `!mtree_verify(stree, sz_s)' failed.
+
+net_recv_data() incomplete - finish breadth-first search code
