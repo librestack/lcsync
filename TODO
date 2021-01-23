@@ -1,5 +1,10 @@
 NEXT ACTIONS:
 
+figure out the differences between the various net_* functions, particularly
+net_send() and net_send_data() - are they all needed?
+
+Document the function calls and structures.
+
 Ensure trees are sent / received and validated properly.
 
 Update cli to show differences without syncing -n / --dry-run
@@ -8,7 +13,10 @@ Now sync subtrees, starting with single-threaded root=0
 
 Now sync using multiple threads and bredth-first search.
 
-Ensure all tests pass in check mode (valgrind).  Clean code please.
+missing tests:
+- net_recv_subtree()
+- net_send_block()
+- net_job_diff_tree()
 
 ----------------------------------------------------------------------
 
@@ -16,25 +24,7 @@ Ensure all tests pass in check mode (valgrind).  Clean code please.
 * --blocksz
 * --delay
 * -n / --dry-run
-
-* set up new test for net_send() / net_recv()
-- build source data
-- generate tree
-- send tree (what header information do we send?)
-- send blocks
-
-- recv source tree
-- verify tree
-- build channel maps
-- join required channels
-- receive blocks
-- verify blocks / check hashes
-- part channels / cleanup
-
-* concatenate block bitmaps into channel bitmaps
-* send / receive + verify tree
-* do the actual sending / receiving of blocks
-* check hashes
+* logging
 * multicast sync
 * MTU path discovery for block size
 * MLD triggering - don't send when noone listening
