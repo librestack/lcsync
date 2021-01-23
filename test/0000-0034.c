@@ -14,7 +14,6 @@
 
 mtree_tree *stree;
 const size_t blocks = 42;
-const size_t blocksz = 4096;
 const char *alias = "My Preciousssss";
 
 int main(void)
@@ -23,21 +22,23 @@ int main(void)
 	struct timespec timeout;
 	job_queue_t *jobq;
 	job_t *job_send, *job_recv = NULL;
-	const size_t sz = blocks * blocksz;
+	const size_t sz = blocks * blocksize;
 	unsigned char *hash = malloc(HASHSIZE);
-	net_data_t *odata = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
+	size_t odatasz = sizeof(net_data_t) + sizeof(struct iovec);
+	net_data_t *odata = calloc(1, odatasz);
 	net_data_t *idata = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
-	char *srcdata = calloc(blocks, blocksz);
+	char *srcdata = calloc(blocks, blocksize);
 
 	test_name("net_send_tree() / net_recv_tree()");
 	
 	/* build source data, make each block different */
 	for (size_t i = 0; i < blocks; i++) {
-		(srcdata + i * blocksz)[0] = i + 1;
+		(srcdata + i * blocksize)[0] = i + 1;
 	}
 
 	/* build source tree */
-	stree = mtree_create(sz, blocksz);
+	stree = mtree_create(sz, blocksize);
+	fprintf(stderr, "mtree_create(%zu, %zu)\n", sz, blocksize);
 	mtree_build(stree, srcdata, NULL);
 	fprintf(stderr, "node= %zu, treelen=%zu\n", mtree_nodes(stree), mtree_treelen(stree));
 
@@ -47,16 +48,14 @@ int main(void)
 	crypto_generichash(odata->alias, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
 	odata->hash = mtree_root(stree);
 	odata->byt = sz;
-	//odata->iov[0].iov_len = mtree_treelen(stree);
-	//odata->iov[0].iov_base = mtree_data(stree, 0);
-	odata->iov[0].iov_len = sz;
+	odata->iov[0].iov_len = mtree_treelen(stree);
 	odata->iov[0].iov_base = stree;
 
 	test_assert(!mtree_verify(stree, odata->iov[0].iov_len), "source tree validates");
 
 	/* receiver is recving source tree of unknown size
 	 * all receiver knows is alias of channel to join */
-	//idata->alias = odata->alias;
+	idata->alias = odata->alias;
 
 	/* queue up send / recv jobs */
 	jobq = job_queue_create(2);
@@ -71,7 +70,7 @@ int main(void)
 
 	struct iovec *iov = (struct iovec *)job_recv->ret;
 	test_assert(iov->iov_base != NULL, "recv buffer allocated");
-	mtree_tree *dtree = mtree_create(blocks, blocksz);
+	mtree_tree *dtree = mtree_create(blocks, blocksize);
 	mtree_setdata(dtree, iov->iov_base);
 	test_assert(!mtree_verify(dtree, iov[0].iov_len), "validate tree");
 	free(job_recv->ret);
@@ -85,15 +84,12 @@ int main(void)
 	test_assert(!sem_timedwait(&job_send->done, &timeout), "timeout - send");
 	free(job_recv);
 	free(job_send);
-
 	job_queue_destroy(jobq);
 	free(srcdata);
 	free(odata->alias);
 	free(odata);
 	free(idata);
 	free(hash);
-
 	mtree_free(stree);
-
 	return fails;
 }

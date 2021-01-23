@@ -176,6 +176,7 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 	hdr->pkts = htobe32(howmany(iov[1].iov_len, DATA_FIXED));
 	while (len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
+		fprintf(stderr, "len = %zu, sz=%zu, off = %zu\n", len, sz, off);
 		iov[1].iov_len = sz;
 		iov[1].iov_base = (char *)iov[1].iov_base + off;
 		msgh.msg_name = addr->ai_addr;
@@ -185,12 +186,15 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 		assert(off + sz <= filesz);
 		hdr->idx = htobe32(idx++);
 		hdr->len = htobe32(sz);
+		size_t hdrsz = iov[0].iov_len;
+		fprintf(stderr, "%zu + %zu = %zu bytes\n", sz, hdrsz, sz + hdrsz); 
 		off += sz;
 		len -= sz;
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
 			break;
 		}
+		fprintf(stderr, "%zi bytes sent\n", byt); 
 	}
 	return byt;
 }
@@ -202,8 +206,8 @@ void *net_job_send_tree(void *arg)
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *tree = (mtree_tree *)data->iov[0].iov_base;
 	void * base = mtree_data(tree, 0);
-	size_t len = mtree_len(tree);
-	assert(!mtree_verify(tree, len)); // FIXME - test 0034 fails here
+	size_t len = mtree_treelen(tree);
+	assert(!mtree_verify(tree, len));
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
 	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
@@ -226,6 +230,7 @@ void *net_job_send_tree(void *arg)
 	fprintf(stderr, "blocksz=%u\n", be32toh(hdr.blocksz));
 	fprintf(stderr, "pkts=%u\n", be32toh(hdr.pkts));
 	fprintf(stderr, "chan=%u\n", hdr.chan);
+	fprintf(stderr, "sizeof hdr=%zu\n", sizeof hdr);
 	assert(data->byt > 0);
 	memcpy(&hdr.hash, data->hash, HASHSIZE);
 	iov[0].iov_base = &hdr;
