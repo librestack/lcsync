@@ -69,11 +69,11 @@ void gentestdata(char *srcdata, char *dstdata)
 
 int main(void)
 {
+	test_name("net_send_subtree() / net_sync_subtree()");
 	for (int i = 0; i < 2; i++) {
 		sz = blocks * blocksz;
 		char *srcdata = calloc(blocks, blocksz);
 		char *dstdata = calloc(blocks, blocksz);
-		test_name("net_send_subtree() / net_sync_subtree()");
 		gentestdata(srcdata, dstdata);
 		/* start where receiver already has the source tree */
 		stree = mtree_create(sz, blocksz);
