@@ -28,6 +28,8 @@ int main()
 	}
 	job = job_new(&test_f, &i, sizeof i, NULL, 0);
 	test_assert(job_push(q, job) == job, "job_push()");
+	/* NB: due to ordering the "last" job may not be the last executed, so
+	 * we might leak the memory from one job */
 	sem_wait(&job->done); /* wait on last job */
 	free(job);
 	job = job_trywait(q);
