@@ -28,6 +28,8 @@ sparse: clean
 clang: clean
 	CC=clang $(MAKE) src
 
+gcc: clean all
+
 check test sanitize: src
 	cd test && $(MAKE) $@
 
