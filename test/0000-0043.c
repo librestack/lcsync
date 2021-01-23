@@ -45,5 +45,6 @@ int main()
 	test_mtree_blockn_len(tree, 63, 0);
 
 	free(srcdata);
+	mtree_free(tree);
 	return fails;
 }
