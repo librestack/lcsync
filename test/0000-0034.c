@@ -60,7 +60,7 @@ int main(void)
 	/* queue up send / recv jobs */
 	jobq = job_queue_create(2);
 	job_send = job_push_new(jobq, &net_job_send_tree, odata, sizeof odata, NULL, 0);
-#if 0
+
 	job_recv = job_push_new(jobq, &net_job_recv_tree, idata, sizeof idata, NULL, 0);
 
 	/* wait for recv job to finish, check for timeout */
@@ -75,8 +75,7 @@ int main(void)
 	test_assert(!mtree_verify(dtree, iov[0].iov_len), "validate tree");
 	free(job_recv->ret);
 	mtree_free(dtree);
-#endif
-	usleep(800);
+
 	net_stop(SIGINT);
 
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");

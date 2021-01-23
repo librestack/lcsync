@@ -130,12 +130,6 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 		byt += be32toh(hdr->len);
 	}
 	while (countmap(bitmap, maplen));
-	mtree_tree *tree = mtree_create(sz, blocksz);
-	mtree_setdata(tree, iov[0].iov_base);
-	//void * base = mtree_data(tree, 0);
-	size_t treelen = mtree_len(tree);
-	mtree_hexdump(tree, stderr);
-	assert(!mtree_verify(tree, treelen));
 	// TODO verify tree (check hashes, mark bitmap with any that don't
 	// match, go again
 	free(bitmap);
