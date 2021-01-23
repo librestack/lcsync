@@ -482,42 +482,6 @@ unsigned char *mtree_diff_map(mtree_tree *t1, mtree_tree *t2)
 	return mtree_diff_subtree(t1, t2, 0, 1);
 }
 
-/* TODO - create channel bitmaps
- *
- * test match
- * if (channels == (1 << level))
- *	add queue children to private (thread-local) queue
- *	shift job from private queue
- * else
- *	publicly queue children (other threads can take job)
- *	shift next job from public queue
- *
- * create threadpool with channel threads
- * diff down the tree to channel level, shifting and queuing
- * once at channel level, create empty bitmap
- * shift, diff and queue until bitmap done
- * join channel, sync data until bitmap zeroed
- */
-
-// TODO the wrapper function for the job
-// search down to channel level, eventually calling mtree_diff_subtree()
-// and syncing the changes
-// n = node of subtree to sync
-// c = channel limit (power of 2)
-void mtree_sync_subtree(mtree_tree *t1, mtree_tree *t2, size_t n, size_t c)
-{
-	(void)t1;
-	(void)t2;
-	(void)n;
-	(void)c;
-	// TODO
-	// check root, return if matched
-	// create threadpool
-	// if lvl = channel limit
-	//	mtree_diff_subtree && 
-	// queue up jobs for child nodes
-}
-
 size_t mtree_base_subtree(mtree_tree *tree, size_t n)
 {
 	return mtree_base(tree) / (1U << mtree_node_level(n));

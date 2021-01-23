@@ -76,7 +76,7 @@ net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
 ssize_t net_recv_tree(int sock, struct iovec *iov)
 {
 	fprintf(stderr, "%s()\n", __func__);
-	size_t blocksz, idx, off, len, maplen, pkts;
+	size_t idx, off, len, maplen, pkts;
 	ssize_t byt = 0, msglen;
 	uint64_t sz = iov->iov_len;
 	net_treehead_t *hdr;
@@ -119,7 +119,6 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 			iov[1].iov_len = (size_t)be64toh(hdr->data);
 		}
 		idx = (size_t)be32toh(hdr->idx);
-		blocksz = (size_t)be32toh(hdr->blocksz);
 		off = be32toh(hdr->idx) * DATA_FIXED;
 		len = (size_t)be32toh(hdr->len);
 		if (isset(bitmap, idx)) {
@@ -505,8 +504,8 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 			//hdr.idx = htobe32(idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			fprintf(stderr, "blockn(%zu)=%p, data(%zu)=%p\n",
-					blk, mtree_blockn(stree, blk), 
-					blk-min, mtree_block(stree, blk-min));
+					blk, (void *)mtree_blockn(stree, blk),
+					blk-min, (void *)mtree_block(stree, blk-min));
 			char *ptr = mtree_blockn(stree, blk);
 			if (!ptr) {
 				fprintf(stderr, "no data for this block\n");
