@@ -123,7 +123,6 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 		off = be32toh(hdr->idx) * DATA_FIXED;
 		len = (size_t)be32toh(hdr->len);
 		if (isset(bitmap, idx)) {
-			// FIXME: test 0035 fails here
 			memcpy((char *)iov->iov_base + off, buf + sizeof (net_treehead_t), len);
 			clrbit(bitmap, idx);
 		}
@@ -467,10 +466,8 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 		hdr->idx = htobe32(idx);
 		//off = sz;
 		len -= sz;
-		// FIXME: Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
-			//_exit(EXIT_FAILURE);
 			break;
 		}
 		fprintf(stderr, "%zi bytes sent (blk=%zu, idx = %zu)\n", byt, blk, idx);
@@ -502,7 +499,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	fprintf(stderr, "base: %zu, min: %zu, max: %zu\n", base, min, max);
 	while (running) {
 		uint32_t idx = 0;
-		for (size_t blk = min; blk <= max; blk++, idx++) {
+		for (size_t blk = min; blk < max; blk++, idx++) {
 			fprintf(stderr, "sending block %zu with idx=%u\n", blk, idx);
 			//hdr.idx = htobe32(idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
