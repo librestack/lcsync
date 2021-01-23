@@ -1,4 +1,23 @@
-NEXT ACTION: sync data based on tree
+NEXT ACTIONS:
+
+Disable failing tests.  Clean slate.  Get back to green.
+
+Update bitmap code to cater for block sizes other than 1024.  This is
+fundamental, so do this first.  Adding it later will break many things.
+
+Test with full block changes (not just first byte diffs).
+
+Ensure trees are sent / received and validated properly.
+
+Update cli to show differences without syncing -n / --dry-run
+
+Now sync subtrees, starting with single-threaded root=0
+
+Now sync using multiple threads and bredth-first search.
+
+Ensure all tests pass in check mode (valgrind).  Clean code please.
+
+----------------------------------------------------------------------
 
 * send file permissions
 * --blocksz

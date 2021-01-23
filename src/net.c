@@ -253,9 +253,14 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	//struct iovec iov[2] = {0};
 	net_blockhead_t *hdr;
 	uint32_t idx;
-	size_t len;//, off;
-	size_t maplen = howmany(mtree_base(stree), CHAR_BIT);
-	bitmap = mtree_diff_subtree(stree, dtree, root, 1);
+	size_t len;
+	size_t blocksz = mtree_blocksz(stree);
+	fprintf(stderr, "%s(): blocksz = %zu\n", __func__, blocksz);
+	unsigned bits = howmany(blocksz, DATA_FIXED);
+	fprintf(stderr, "%s(): bits = %u\n", __func__, bits);
+	size_t maplen = howmany(mtree_base(stree), CHAR_BIT) * bits;
+	fprintf(stderr, "%s(): maplen = %zu\n", __func__, maplen);
+	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
 	printmap(bitmap, maplen);
 	do {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
@@ -441,16 +446,17 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 /* break a block into DATA_FIXED size pieces and send with header
  * header is in iov[0], data in iov[1] 
  * idx and len need updating */
-ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
+ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov, size_t blk)
 {
 	ssize_t byt = 0;
 	size_t sz;//, off = 0;
 	size_t len = iov[1].iov_len;
-	//size_t idx = 0;
 	net_blockhead_t *hdr = iov[0].iov_base;
+	unsigned bits = howmany(len, DATA_FIXED);
 	struct msghdr msgh = {0};
 	fprintf(stderr, "iov[1] = %p\n", (void *)iov[1].iov_base);
-	while (len) {
+	fprintf(stderr, "bits=%u\n", bits);
+	for (size_t idx = blk + bits - 1; len; idx++) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		msgh.msg_name = addr->ai_addr;
 		msgh.msg_namelen = addr->ai_addrlen;
@@ -458,8 +464,8 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 		msgh.msg_iovlen = vlen;
 		iov[1].iov_len = sz;
 		//iov[1].iov_base = (char *)iov[1].iov_base + off;
-		//hdr->idx = htobe32(idx++);
 		hdr->len = htobe32(sz);
+		hdr->idx = htobe32(idx);
 		//off = sz;
 		len -= sz;
 		// FIXME: Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)
@@ -468,6 +474,7 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 			//_exit(EXIT_FAILURE);
 			break;
 		}
+		fprintf(stderr, "%zi bytes sent (blk=%zu, idx = %zu)\n", byt, blk, idx);
 	}
 	return byt;
 }
@@ -498,7 +505,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 		uint32_t idx = 0;
 		for (size_t blk = min; blk <= max; blk++, idx++) {
 			fprintf(stderr, "sending block %zu with idx=%u\n", blk, idx);
-			hdr.idx = htobe32(idx);
+			//hdr.idx = htobe32(idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			fprintf(stderr, "blockn(%zu)=%p, data(%zu)=%p\n",
 					blk, mtree_blockn(stree, blk), 
@@ -510,7 +517,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 			}
 			iov[1].iov_base = ptr; // FIXME
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
-			net_send_block(s, addr, 2, iov);
+			net_send_block(s, addr, 2, iov, idx);
 			usleep(100); // FIXME
 		}
 	}
