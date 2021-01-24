@@ -295,8 +295,10 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	size_t maplen = howmany(mtree_base(stree), CHAR_BIT) * bits;
 	fprintf(stderr, "%s(): maplen = %zu\n", __func__, maplen);
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
-	fprintf(stderr, "packets still required=%u\n", countmap(bitmap, maplen));
-	printmap(bitmap, maplen * bits);
+	if (bitmap) {
+		fprintf(stderr, "packets still required=%u\n", countmap(bitmap, maplen));
+		printmap(bitmap, maplen * bits);
+	}
 	do {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");
@@ -321,7 +323,7 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 		fprintf(stderr, "packets still required=%u\n", countmap(bitmap, maplen));
 		printmap(bitmap, maplen * bits);
 	}
-	while (countmap(bitmap, maplen));
+	while (bitmap && countmap(bitmap, maplen));
 	fprintf(stderr, "receiver - all blocks received\n");
 	printmap(bitmap, maplen);
 	free(bitmap);
@@ -531,6 +533,11 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	fprintf(stderr, "base: %zu, min: %zu, max: %zu\n", base, min, max);
 	while (running) {
 		uint32_t idx = 0;
+		// FIXME: off by one error here
+		// tests 0035, 0040 and 0044 see:
+		// "Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)"
+		// when "<= max", but
+		// test 0027 fails when "< max"
 		for (size_t blk = min; blk <= max; blk++, idx++) {
 			fprintf(stderr, "sending block %zu with idx=%u\n", blk, idx);
 			//hdr.idx = htobe32(idx);
@@ -676,11 +683,11 @@ int net_sync(int *argc, char *argv[])
 	mtree_build(dtree, dmap, NULL); // FIXME
 	assert(!mtree_verify(stree, mtree_treelen(stree)));
 	assert(!mtree_verify(dtree, mtree_treelen(dtree)));
-	/* sync data */
-	//if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
-	net_sync_subtree(stree, dtree, 0);
-	//}
 
+	/* sync data */
+	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
+		net_sync_subtree(stree, dtree, 0);
+	}
 	mtree_free(stree);
 	mtree_free(dtree);
 	return 0;
