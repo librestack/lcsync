@@ -553,13 +553,13 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	job_queue_t *q = job_queue_create(channels);
 	mtree_build(tree, srcdata, q);
 	fprintf(stderr, "%s(): source tree built\n", __func__);
+	assert(!mtree_verify(tree, mtree_treelen(tree)));
 	data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
 	data->hash = mtree_root(tree);
 	data->alias = (hash) ? hash : data->hash;
 	data->byt = len;
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = tree;
-	assert(!mtree_verify(tree, len));
 	job_tree = job_push_new(q, &net_job_send_tree, data, sizeof data, NULL, 0);
 	data->n = 0;
 	job_data = job_push_new(q, &net_job_send_subtree, data, sizeof data, NULL, 0);
