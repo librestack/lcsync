@@ -588,72 +588,25 @@ int net_recv(int *argc, char *argv[])
 }
 
 
-// FIXME: why doesn't this call net_send_data?
 int net_send(int *argc, char *argv[])
 {
 	(void) argc;
-	char *src = argv[0];
 	int fds;
-	char *smap = NULL;
-	job_queue_t *jobq;
-	job_t *job_tree, *job_data;
-	mtree_tree *stree;
-	size_t chunksz;
 	ssize_t sz_s;
 	struct stat sbs;
 	struct sigaction sa_int = { .sa_handler = net_stop };
-
-	fprintf(stderr, "%s('%s')\n", __func__, argv[0]); // FIXME - delete
-
+	char *src = argv[0];
+	char *alias = basename(src);
+	char *smap = NULL;
+	unsigned char hash[HASHSIZE];
+	fprintf(stderr, "%s('%s')\n", __func__, argv[0]);
 	fprintf(stderr, "mapping src: %s\n", src);
 	if ((sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs)) == -1)
 		return -1;
-
-	// TODO: print hash
-	// TODO: allow inputing hash/alias for send/recv
-	//
-	// TODO: default to using hash(basename) as tree channel
-
 	sigaction(SIGINT, &sa_int, NULL);
-
-	chunksz = (size_t)net_chunksize();
-	stree = mtree_create(sz_s, chunksz);
-	fprintf(stderr, "source tree with %zu nodes (base = %zu, levels = %zu)\n",
-		mtree_nodes(stree), mtree_base(stree), mtree_lvl(stree));
-
-	// TODO: choose number of channels to use - global var
-
-	net_data_t *odata = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
-	odata->alias = malloc(HASHSIZE);
-	odata->hash = mtree_root(stree);
-	odata->byt = mtree_len(stree);
-	assert(odata->byt > 0);
-	odata->iov[0].iov_len = mtree_len(stree);
-	odata->iov[0].iov_base = stree;
-	char *alias = basename(src);
-	crypto_generichash(odata->alias, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
-	fprintf(stderr, "sending file as '%s'\n", alias);
-
-	net_data_t *data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec) * 2);
-	data->n = 0;
-	data->iov[0].iov_base = stree;
-
-	// TODO: spin up a thread for each subtree + one for tree itself
-
-	jobq = job_queue_create(2);
-	mtree_build(stree, smap, NULL);
-	assert(!mtree_verify(stree, sz_s));
-	job_tree = job_push_new(jobq, &net_job_send_tree, odata, sizeof odata, NULL, 0);
-	job_data = job_push_new(jobq, &net_job_send_subtree, data, sizeof data, NULL, 0);
-	sem_wait(&job_tree->done);
-	sem_wait(&job_data->done);
-	free(job_tree);
-	free(job_data);
-	free(odata->alias);
-	free(odata);
-	free(data);
-	job_queue_destroy(jobq);
-	mtree_free(stree);
+	crypto_generichash(hash, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
+	net_send_data(hash, smap, sz_s);
+	fprintf(stderr, "unmapping src: %s\n", src);
 	file_unmap(smap, sz_s, fds);
 	return 0;
 }
@@ -678,7 +631,6 @@ int net_sync(int *argc, char *argv[])
 	sigaction(SIGINT, &sa_int, NULL);
 	idata = calloc(1, sizeof(net_data_t) + sizeof(struct iovec) * 2);
 	idata->alias = malloc(HASHSIZE);
-	fprintf(stderr, "%s(): hashing alias '%s' as tree channel\n", __func__, idata->alias);
 	crypto_generichash(idata->alias, HASHSIZE, (unsigned char *)argv[0], strlen(argv[0]), NULL, 0);
 
 	fprintf(stderr, "lets sync '%s'\n", argv[0]);
