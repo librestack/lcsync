@@ -32,6 +32,8 @@ build:
 	@echo -e "$(TIMESTAMP) - starting tests" >> $(LOGFILE)
 	@echo -e "\nRunning tests"
 
+0000-0027.test: LDFLAGS += -lbsd
+
 %.test: %.c $(OBJS)
 	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 	@echo -ne "\e[2m" $* " "

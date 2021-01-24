@@ -2,81 +2,74 @@
 /* Copyright (c) 2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "test.h"
+#include "../src/globals.h"
 #include "../src/job.h"
 #include "../src/net.h"
 #include <errno.h>
+#include <bsd/md5.h>
 #include <pthread.h>
 #include <signal.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 
-#if 0
-static int keep_sending = 1;
-void *do_recv(void *arg)
+typedef struct arg_s {
+	int argc;
+	char **argv;
+} arg_t;
+
+static void do_verify(char *src, char *dst)
 {
-	net_data_t *data = (net_data_t *)arg;
-	lc_ctx_t *lctx = lc_ctx_new();
-	lc_socket_t *sock = lc_socket_new(lctx);
-	lc_channel_t *chan = lc_channel_nnew(lctx, data->hash, HASHSIZE);
-	lc_channel_bind(sock, chan);
-	lc_channel_join(chan);
-	int s = lc_socket_raw(sock);
-	net_recv_data(s, data);
-	lc_channel_free(chan);
-	lc_socket_close(sock);
-	lc_ctx_free(lctx);
+	char *sbuf = NULL;
+	char *dbuf = NULL;
+	char *shash, *dhash;
+	test_assert((shash = MD5File(src, sbuf)) != NULL, "MD5File(%s) - src file exists", src);
+	test_assert((dhash = MD5File(dst, dbuf)) != NULL, "MD5File(%s) - dst file exists", dst);
+	if (sbuf && dbuf)
+		test_assert(!memcmp(shash, dhash, MD5_DIGEST_STRING_LENGTH), "source and destination match");
+	free(shash);
+	free(dhash);
+}
+
+static void absname(char *file, char *buf, size_t buflen)
+{
+	size_t len;
+	test_assert(getcwd(buf, buflen) != NULL, "getcwd()");
+	len = strlen(buf);
+	buf[len] = '/';
+	strcpy(buf + len + 1, file);
+}
+
+static void *do_recv(void *arg)
+{
+	int argc = 2;
+	char *src = ((char **)arg)[0];
+	char dst[PATH_MAX];
+	char *argv[] = { src, dst, NULL };
+	absname(((char **)arg)[1], dst, PATH_MAX);
+	net_sync(&argc, argv);
 	return NULL;
 }
 
-void *do_send(void *arg)
+static void *do_send(void *arg)
 {
-	const int on = 1;
-	net_data_t *data = (net_data_t *)arg;
-	lc_ctx_t *lctx = lc_ctx_new();
-	lc_socket_t *sock = lc_socket_new(lctx);
-	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
-	lc_channel_t *chan = lc_channel_nnew(lctx, data->hash, HASHSIZE);
-	lc_channel_bind(sock, chan);
-	int s = lc_channel_socket_raw(chan);
-	struct addrinfo *addr = lc_channel_addrinfo(chan);
-	while (keep_sending) {
-		net_send_data(s, addr, data);
-		usleep(100);
-	}
-	lc_channel_free(chan);
-	lc_socket_close(sock);
-	lc_ctx_free(lctx);
+	int argc = 1;
+	char src[PATH_MAX];
+	char *argv[] = { src, NULL };
+	absname((char *)arg, src, PATH_MAX);
+	net_send(&argc, argv);
 	return NULL;
 }
-#endif
 
-int main(void)
+static void do_sync(char *src, char *dst)
 {
-#if 0
+	char *arg[2] = { src, dst };
 	struct timespec timeout;
-	job_queue_t *jobq;
-	job_t *job_send, *job_recv;
-	net_data_t *odat;
-	net_data_t *idat;
-	char question[] = "Life, the Universe and Everything";
-	char answer[42] = "42";
-	char *ptr = answer;
-	size_t sz = strlen(question);
-	unsigned char hash[HASHSIZE];
-#endif
-	return test_skip("net_send_data() / net_recv_data()");
-#if 0
-	// TODO: write librecast function to use supplied hash
-	crypto_generichash(hash, HASHSIZE, (unsigned char *)question, sz, NULL, 0);
+	job_queue_t *q = job_queue_create(2);
 
-	/* set up send / recv data structures */
-	odat = net_chunk(hash, sz, question, 42);
-	idat = net_chunk(hash, sz, ptr, 1);
-
-	/* queue up send / recv jobs */
-	jobq = job_queue_create(2);
-	job_send = job_push_new(jobq, &do_send, odat, sizeof odat, NULL, 0);
-	job_recv = job_push_new(jobq, &do_recv, idat, sizeof idat, NULL, 0);
+	/* queue up send/recv jobs */
+	job_t *job_send = job_push_new(q, &do_send, src, sizeof src, NULL, 0);
+	job_t *job_recv = job_push_new(q, &do_recv, arg, sizeof arg, NULL, 0);
 
 	/* wait for recv job to finish, check for timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
@@ -84,22 +77,41 @@ int main(void)
 	test_assert(!sem_timedwait(&job_recv->done, &timeout), "timeout - recv");
 	free(job_recv);
 
-	keep_sending = 0; /* stop send job */
-
+	/* stop send job */
+	net_stop(SIGINT);
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
 	timeout.tv_sec++;
 	test_assert(!sem_timedwait(&job_send->done, &timeout), "timeout - send");
 	free(job_send);
+	job_queue_destroy(q);
+}
 
-	test_expect(question, answer);
+static void gentestfiles(char *src, char *dst)
+{
+	const size_t nchunks = 127;
+	const size_t chunksz = blocksize;
+	FILE *fds;
+	test_assert(mkstemp(src) != -1, "mkstemp()");
+	size_t off = strlen(src) - 6;
+	memcpy(dst + off, src + off, 6);
+	fds = fopen(src, "w");
+	char *data = calloc(1, chunksz);
+	for (size_t i = 1; i <= nchunks; i++) {
+		data[0] = (char)i;
+		fwrite(data, 1, chunksz, fds);
+	}
+	fwrite(data, 1, 17, fds); /* write a few extra bytes */
+	fclose(fds);
+	free(data);
+}
 
-	/* check block index */
-	uint64_t idx = be64toh(idat->idx);
-	test_assert(idx == 42, "answer to the ultimate question: %zu", idx);
-
-	job_queue_destroy(jobq);
-	free(odat);
-	free(idat);
-#endif
+int main(void)
+{
+	char src[] = "0000-0027.src.tmp.XXXXXX";
+	char dst[] = "0000-0027.dst.tmp.XXXXXX";
+	test_name("net_send_data() / net_recv_data()");
+	gentestfiles(src, dst);
+	do_sync(src, dst);
+	do_verify(src, dst);
 	return fails;
 }
