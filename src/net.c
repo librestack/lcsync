@@ -553,7 +553,6 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	job_queue_t *q = job_queue_create(channels);
 	mtree_build(tree, srcdata, q);
 	fprintf(stderr, "%s(): source tree built\n", __func__);
-
 	data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
 	data->hash = mtree_root(tree);
 	data->alias = (hash) ? hash : data->hash;
@@ -562,17 +561,8 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->iov[0].iov_base = tree;
 	assert(!mtree_verify(tree, len));
 	job_tree = job_push_new(q, &net_job_send_tree, data, sizeof data, NULL, 0);
-	fprintf(stderr, "%s(): job pushed\n", __func__);
-	
-#if 0
-	// TODO: send data blocks
-	// TODO: work out channels
-	// TODO: call net_send_subtree() for each
-	//net_send_subtree(tree, 0);
-#endif
 	data->n = 0;
 	job_data = job_push_new(q, &net_job_send_subtree, data, sizeof data, NULL, 0);
-
 	sem_wait(&job_tree->done);
 	sem_wait(&job_data->done);
 	free(job_tree);
@@ -597,6 +587,8 @@ int net_recv(int *argc, char *argv[])
 	return 0;
 }
 
+
+// FIXME: why doesn't this call net_send_data?
 int net_send(int *argc, char *argv[])
 {
 	(void) argc;
