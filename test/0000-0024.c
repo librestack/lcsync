@@ -19,8 +19,6 @@ void *runtest(void *arg)
 	char **argv = arg0;
 	int argc = (int) sizeof arg0 / sizeof arg0[0] - 1;
 
-	test_name("net_stop()");
-
 	test_assert(net_send(&argc, argv) == -1, "net_send() - invalid source file");
 	argv = arg1;
 	test_assert(net_send(&argc, argv) == 0, "net_send() - valid source file");
@@ -37,7 +35,7 @@ void sigcaught(int signo)
 
 int main(void)
 {
-	return test_skip("net_stop()");
+	test_name("net_send() - check args");
 	void *ret = NULL;
 	const int test_timeout = 1;
 	struct timespec ts = { test_timeout, 0 };
