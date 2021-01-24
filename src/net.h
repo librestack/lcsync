@@ -77,7 +77,7 @@ net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree);
 /* blocking receive of tree from a librecast socket
  * return bytes received or -1 on error
 If iov is NULL, allocate the receive buffer. */
-ssize_t net_recv_tree(int sock, struct iovec *iov);
+ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz);
 
 /* send a data block or tree to a librecast channel
  * return bytes sent or -1 on error

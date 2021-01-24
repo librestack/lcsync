@@ -73,12 +73,12 @@ net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
 	return hdr;
 }
 
-ssize_t net_recv_tree(int sock, struct iovec *iov)
+ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 {
 	fprintf(stderr, "%s()\n", __func__);
 	size_t idx, off, len, maplen, pkts;
 	ssize_t byt = 0, msglen;
-	uint64_t sz = iov->iov_len;
+	uint64_t sz;
 	net_treehead_t *hdr;
 	char buf[MTU_FIXED];
 	unsigned char *bitmap = NULL;
@@ -90,16 +90,12 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 		}
 		fprintf(stderr, "%s(): recv %zi bytes\n", __func__, msglen);
 		hdr = (net_treehead_t *)buf;
-		fprintf(stderr, "idx=%u\n", be32toh(hdr->idx));
-		fprintf(stderr, "len=%u\n", be32toh(hdr->len));
-		fprintf(stderr, "data=%lu\n", be64toh(hdr->data));
-		fprintf(stderr, "size=%lu\n", be64toh(hdr->size));
-		fprintf(stderr, "blocksz=%u\n", be32toh(hdr->blocksz));
-		fprintf(stderr, "pkts=%u\n", be32toh(hdr->pkts));
-		fprintf(stderr, "chan=%d\n", hdr->chan);
 		if (!bitmap) {
 			pkts = be32toh(hdr->pkts);
-			assert(pkts); // FIXME
+			if (!pkts) {
+				fprintf(stderr, "invalid packet header\n");
+				return -1;
+			}
 			maplen = howmany(pkts, CHAR_BIT);
 			if (!(bitmap = malloc(maplen))) {
 				perror("malloc()");
@@ -109,6 +105,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 			bitmap[maplen - 1] = (1UL << (pkts % CHAR_BIT)) - 1;
 		}
 		sz = (size_t)be64toh(hdr->size);
+		*blocksz = be32toh(hdr->blocksz);
 		if (!iov->iov_base) {
 			if (!(iov->iov_base = malloc(sz))) {
 				perror("malloc()");
@@ -134,10 +131,39 @@ ssize_t net_recv_tree(int sock, struct iovec *iov)
 	return byt;
 }
 
+ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
+{
+	fprintf(stderr, "%s()\n", __func__);
+	int s;
+	size_t blocksz;
+	ssize_t byt;
+	struct iovec *iov = calloc(1, sizeof(struct iovec) * 2);
+	if (!iov) return -1;
+	lc_ctx_t *lctx = lc_ctx_new();
+	lc_socket_t *sock = lc_socket_new(lctx);
+	lc_channel_t *chan = lc_channel_nnew(lctx, hash, HASHSIZE);
+	lc_channel_bind(sock, chan);
+	lc_channel_join(chan);
+	s = lc_socket_raw(sock);
+	byt = net_recv_tree(s, iov, &blocksz);
+	if (byt > 0) {
+		fprintf(stderr, "%s(): tree received (%zi bytes)\n", __func__, byt);
+		*tree = mtree_create(iov[1].iov_len, blocksz);
+		mtree_setdata(*tree, iov[0].iov_base);
+	}
+	lc_channel_part(chan);
+	lc_channel_free(chan);
+	lc_socket_close(sock);
+	lc_ctx_free(lctx);
+	free(iov);
+	return byt;
+}
+
 void *net_job_recv_tree(void *arg)
 {
 	fprintf(stderr, "%s()\n", __func__);
 	int s;
+	size_t blocksz;
 	ssize_t byt;
 	net_data_t *data = (net_data_t *)arg;
 	struct iovec *iov = calloc(1, sizeof(struct iovec) * 2);
@@ -147,7 +173,7 @@ void *net_job_recv_tree(void *arg)
 	lc_channel_bind(sock, chan);
 	lc_channel_join(chan);
 	s = lc_socket_raw(sock);
-	byt = net_recv_tree(s, iov);
+	byt = net_recv_tree(s, iov, &blocksz);
 	fprintf(stderr, "%s(): tree received (%zi bytes)\n", __func__, byt);
 	lc_channel_part(chan);
 	lc_channel_free(chan);
@@ -374,6 +400,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	net_data_t *data;
 	job_t *job;
 	job_queue_t *q;
+	size_t blocksz;
 	size_t vlen = 4;
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * vlen;
 
@@ -383,18 +410,10 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	data->hash = hash;
 	q = job_queue_create(1);
 
-	/* fetch source tree */
-	job = job_push_new(q, &net_job_recv_tree, data, sizeof data, NULL, 0);
-	sem_wait(&job->done);
-	struct iovec *iov = (struct iovec *)job->ret;
-	fprintf(stderr, "iov[1].iov_len=%zu, blocksize=%zu\n", iov[1].iov_len, blocksize);
-	stree = mtree_create(iov[1].iov_len, blocksize);
-	mtree_setdata(stree, iov[0].iov_base);
-	free(job);
-	fprintf(stderr, "%s(): tree with %zu nodes received\n", __func__, mtree_nodes(stree));
-
-	/* build destination tree */
-	dtree = mtree_create(iov[1].iov_len, blocksize);
+	if (net_fetch_tree(hash, &stree) == -1) return -1;
+	blocksz = mtree_blocksz(stree);
+	*len = mtree_len(stree);
+	dtree = mtree_create(*len, blocksz);
 	mtree_build(dtree, dstdata, q);
 
 	/* if root nodes differ, perform bredth-first search */
@@ -403,6 +422,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 		if (data->chan == 1) {
 			net_sync_subtree(stree, dtree, 0);
 		}
+#if 0
 		else {
 			data->map = calloc(1, howmany(data->chan, CHAR_BIT));
 			for (size_t i = 0; i < data->chan; i++) setbit(data->map, i);
@@ -427,16 +447,14 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 			sem_wait(&q->done);
 		}
 		// TODO: recv data blocks - this will happen in net_job_diff_tree()
+#endif
 	}
-
-
 	/* clean up */
 	job_queue_destroy(q);
 	free(data->map);
 	free(data);
 	mtree_free(stree);
 	mtree_free(dtree);
-	free(iov);
 	return 0;
 }
 
@@ -613,6 +631,45 @@ int net_send(int *argc, char *argv[])
 
 int net_sync(int *argc, char *argv[])
 {
+	int fdd;
+	size_t blocksz, len;
+	ssize_t sz_d;
+	struct stat sbd;
+	char *src = argv[0];
+	char *dst = argv[1];
+	char *dmap = NULL;
+	struct sigaction sa_int = { .sa_handler = net_stop };
+	unsigned char hash[HASHSIZE];
+	mtree_tree *stree = NULL;
+	mtree_tree *dtree;
+	fprintf(stderr, "%s('%s')\n", __func__, argv[0]);
+	sigaction(SIGINT, &sa_int, NULL);
+
+	/* fetch source tree */
+	crypto_generichash(hash, HASHSIZE, (unsigned char *)src, strlen(src), NULL, 0);
+	if (net_fetch_tree(hash, &stree) == -1) return -1;
+
+	/* create & map destination file */
+	fprintf(stderr, "mapping dst: %s\n", dst);
+	len = mtree_len(stree);
+	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // FIXME
+	if ((sz_d = file_map(dst, &fdd, &dmap, len, PROT_READ|PROT_WRITE, &sbd)) == -1)
+		return -1; // FIXME - clean up here
+	
+	blocksz = mtree_blocksz(stree);
+	len = mtree_len(stree);
+	dtree = mtree_create(len, blocksz);
+	mtree_build(dtree, dmap, NULL); // FIXME
+	/* sync data */
+	//if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
+	//	net_sync_subtree(stree, dtree, 0);
+	//}
+
+	mtree_free(stree);
+	mtree_free(dtree);
+	return 0;
+}
+#if 0
 	(void) argc;
 	char *dst = argv[1];
 	int fdd;
@@ -689,3 +746,4 @@ int net_sync(int *argc, char *argv[])
 	file_unmap(dmap, sz_d, fdd);
 	return 0;
 }
+#endif

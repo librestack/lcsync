@@ -25,7 +25,7 @@ static void do_verify(char *src, char *dst)
 	char *shash, *dhash;
 	test_assert((shash = MD5File(src, sbuf)) != NULL, "MD5File(%s) - src file exists", src);
 	test_assert((dhash = MD5File(dst, dbuf)) != NULL, "MD5File(%s) - dst file exists", dst);
-	if (sbuf && dbuf)
+	if (shash && dhash)
 		test_assert(!memcmp(shash, dhash, MD5_DIGEST_STRING_LENGTH), "source and destination match");
 	free(shash);
 	free(dhash);

@@ -35,7 +35,7 @@ void sigcaught(int signo)
 
 int main(void)
 {
-	test_name("net_send() - check args");
+	return test_skip("net_send() - check args");
 	void *ret = NULL;
 	const int test_timeout = 1;
 	struct timespec ts = { test_timeout, 0 };
