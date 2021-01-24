@@ -33,7 +33,7 @@ static unsigned int countmap(unsigned char *map, size_t len)
 
 static void printmap(unsigned char *map, size_t len)
 {
-	for (size_t i = 0; i < len * CHAR_BIT; i++) {
+	for (size_t i = 0; i < len; i++) {
 		fprintf(stderr, "%d", !!isset(map, i));
 	}
 	fputc('\n', stderr);
@@ -103,6 +103,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 			}
 			memset(bitmap, ~0, maplen - 1);
 			bitmap[maplen - 1] = (1UL << (pkts % CHAR_BIT)) - 1;
+			printmap(bitmap, pkts);
 		}
 		sz = (size_t)be64toh(hdr->size);
 		*blocksz = be32toh(hdr->blocksz);
@@ -123,6 +124,8 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 			clrbit(bitmap, idx);
 		}
 		byt += be32toh(hdr->len);
+		printmap(bitmap, pkts);
+		fprintf(stderr, "packets still required=%u\n", countmap(bitmap, maplen));
 	}
 	while (countmap(bitmap, maplen));
 	// TODO verify tree (check hashes, mark bitmap with any that don't
@@ -660,6 +663,8 @@ int net_sync(int *argc, char *argv[])
 	len = mtree_len(stree);
 	dtree = mtree_create(len, blocksz);
 	mtree_build(dtree, dmap, NULL); // FIXME
+	assert(!mtree_verify(stree, mtree_treelen(stree)));
+	assert(!mtree_verify(dtree, mtree_treelen(dtree)));
 	/* sync data */
 	//if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
 	//	net_sync_subtree(stree, dtree, 0);
