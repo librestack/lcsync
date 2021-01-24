@@ -96,13 +96,21 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 				fprintf(stderr, "invalid packet header\n");
 				return -1;
 			}
+			fprintf(stderr, "packets = %lu\n", pkts);
 			maplen = howmany(pkts, CHAR_BIT);
 			if (!(bitmap = malloc(maplen))) {
 				perror("malloc()");
 				return -1;
 			}
+			memset(bitmap, 0, maplen);
+			for (uint32_t i=0; i < pkts; i++) setbit(bitmap, i);
+			// FIXME
+#if 0
+			printmap(bitmap, pkts);
 			memset(bitmap, ~0, maplen - 1);
+			printmap(bitmap, pkts);
 			bitmap[maplen - 1] = (1UL << (pkts % CHAR_BIT)) - 1;
+#endif
 			printmap(bitmap, pkts);
 		}
 		sz = (size_t)be64toh(hdr->size);
@@ -287,7 +295,8 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	size_t maplen = howmany(mtree_base(stree), CHAR_BIT) * bits;
 	fprintf(stderr, "%s(): maplen = %zu\n", __func__, maplen);
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
-	printmap(bitmap, maplen);
+	fprintf(stderr, "packets still required=%u\n", countmap(bitmap, maplen));
+	printmap(bitmap, maplen * bits);
 	do {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");
@@ -309,6 +318,8 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 			fprintf(stderr, "recv'd a block I didn't want idx=%u, blk=%zu\n", idx, blk);
 		}
 		byt += be32toh(hdr->len);
+		fprintf(stderr, "packets still required=%u\n", countmap(bitmap, maplen));
+		printmap(bitmap, maplen * bits);
 	}
 	while (countmap(bitmap, maplen));
 	fprintf(stderr, "receiver - all blocks received\n");
@@ -520,7 +531,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	fprintf(stderr, "base: %zu, min: %zu, max: %zu\n", base, min, max);
 	while (running) {
 		uint32_t idx = 0;
-		for (size_t blk = min; blk < max; blk++, idx++) {
+		for (size_t blk = min; blk <= max; blk++, idx++) {
 			fprintf(stderr, "sending block %zu with idx=%u\n", blk, idx);
 			//hdr.idx = htobe32(idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
@@ -667,7 +678,7 @@ int net_sync(int *argc, char *argv[])
 	assert(!mtree_verify(dtree, mtree_treelen(dtree)));
 	/* sync data */
 	//if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
-	//	net_sync_subtree(stree, dtree, 0);
+	net_sync_subtree(stree, dtree, 0);
 	//}
 
 	mtree_free(stree);
