@@ -11,6 +11,7 @@
 
 extern int (*action)(int *argc, char *argv[]);
 extern int hex;
+extern int quiet;
 extern int verbose;
 extern char *progname;
 
