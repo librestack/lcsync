@@ -92,10 +92,10 @@ int file_sync(int *argc, char *argv[])
 	struct stat sbs, sbd;
 	job_queue_t *jobq;
 	mtree_tree *stree, *dtree;
-	DEBUG("mapping src: %s\n", src);
+	DEBUG("mapping src: %s", src);
 	if ((sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs)) == -1)
 		return -1;
-	DEBUG("mapping dst: %s\n", dst);
+	DEBUG("mapping dst: %s", dst);
 	sbd.st_mode = sbs.st_mode;
 	if ((sz_d = file_map(dst, &fdd, &dmap, sz_s, PROT_READ|PROT_WRITE, &sbd)) == -1)
 		return -1;
@@ -109,7 +109,7 @@ int file_sync(int *argc, char *argv[])
 		stree = mtree_create(sz_s, chunksz);
 		dtree = mtree_create(sz_s, chunksz);
 		base = mtree_base(stree);
-		DEBUG("source tree with %zu nodes (base = %zu, levels = %zu)\n",
+		DEBUG("source tree with %zu nodes (base = %zu, levels = %zu)",
 				mtree_nodes(stree), base, mtree_lvl(stree));
 		nthreads = (base < THREAD_MAX) ? base : THREAD_MAX;
 		jobq = job_queue_create(nthreads);
@@ -119,7 +119,7 @@ int file_sync(int *argc, char *argv[])
 			n--;
 			sz = ((n + 1) * chunksz > (size_t)sz_s) ? sz_s % chunksz : chunksz;
 			off = n * chunksz;
-			DEBUG("syncing chunk %zu (offset=%zu)\n", n, off);
+			DEBUG("syncing chunk %zu (offset=%zu)", n, off);
 			memcpy(dmap + off, smap + off, sz);
 			mtree_update(dtree, dmap, n);
 			c++;
@@ -130,6 +130,6 @@ int file_sync(int *argc, char *argv[])
 	}
 	file_unmap(smap, sz_s, fds);
 	file_unmap(smap, sz_d, fdd);
-	DEBUG("syncing took %i rounds\n", c);
+	DEBUG("syncing took %i rounds", c);
 	return c;
 }

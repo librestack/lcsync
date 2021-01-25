@@ -44,7 +44,7 @@ void mtree_hexdump(mtree_tree *tree, FILE *fd)
 	char hex[HEXLEN];
 	for (size_t i = 0; i < tree->nodes; i++) {
 		sodium_bin2hex(hex, HEXLEN, tree->tree + i * HASHSIZE, HASHSIZE);
-		fprintf(fd, "%08zu: %.*s\n", i, HEXLEN, hex);
+		fprintf(fd, "%08zu: %.*s", i, HEXLEN, hex);
 	}
 }
 
@@ -345,7 +345,7 @@ int mtree_build(mtree_tree *tree, char *data, job_queue_t *jq)
 	q.data = data; // FIXME: redundant - tree now has pointer to data
 	q.done = calloc(tree->nodes, sizeof(sem_t));
 	if (!q.done) return -1;
-	DEBUG("tree->nodes = %zu\n", tree->nodes);
+	DEBUG("tree->nodes = %zu", tree->nodes);
 	for (size_t z = 0; z < tree->nodes; z++) sem_init(&q.done[z], 0, 0);
 	if (jq) {
 		nthreads = jq->nthreads;
