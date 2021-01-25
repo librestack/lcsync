@@ -18,5 +18,6 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 	DEBUG("loglevel=%u", loglevel);
+	DEBUG("blocksize=%zu", blocksize);
 	return action(&argc, argv);
 }
