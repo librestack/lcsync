@@ -517,9 +517,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	int s = lc_channel_socket_raw(chan);
 	struct addrinfo *addr = lc_channel_addrinfo(chan);
 	struct iovec iov[2] = {0};
-	net_blockhead_t hdr = {
-		.len = htobe32(mtree_len(stree)),
-	};
+	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 	size_t base = mtree_base(stree);
