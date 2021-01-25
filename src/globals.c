@@ -3,8 +3,14 @@
 #include <stddef.h>
 #include "globals.h"
 
-int (*action)(int *argc, char *argv[]);
-int hex;
+int (*action)(int *argc, char *argv[]) = &succeed;
+int hex = 0;
+int verbose = 0;
 char *progname;
 size_t blocksize = 1024;
 uint8_t net_send_channels = 3;
+
+int succeed(int *argc, char *argv[])
+{
+	return 0;
+}

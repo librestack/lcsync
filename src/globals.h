@@ -11,6 +11,7 @@
 
 extern int (*action)(int *argc, char *argv[]);
 extern int hex;
+extern int verbose;
 extern char *progname;
 
 extern size_t blocksize;
@@ -19,4 +20,6 @@ extern size_t blocksize;
  * eg. 8 = 256 channels */
 extern uint8_t net_send_channels;
 
+/* default action is to do nothing, successfully */
+int succeed(int *argc, char *argv[]);
 #endif /* _GLOBALS_h */

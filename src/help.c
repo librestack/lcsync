@@ -9,10 +9,10 @@
 
 void help_usage(void)
 {
-	WARN("usage: '%s source destination'\n", basename(progname));
+	WARN("usage: '%s source destination'", basename(progname));
 }
 
 void help_usage_hex(void)
 {
-	WARN("usage: '%s --hex filename'\n", basename(progname));
+	WARN("usage: '%s --hex filename'", basename(progname));
 }

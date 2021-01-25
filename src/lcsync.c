@@ -11,12 +11,12 @@
 
 int main(int argc, char *argv[])
 {
-	DEBUG("loglevel=%u", loglevel);
 	if ((arg_parse(&argc, &argv)))
 		return EXIT_FAILURE;
 	if (sodium_init() == -1) {
 		perror("sodium_init()");
 		return EXIT_FAILURE;
 	}
+	DEBUG("loglevel=%u", loglevel);
 	return action(&argc, argv);
 }

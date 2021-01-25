@@ -7,6 +7,7 @@
 #include "file.h"
 #include "globals.h"
 #include "help.h"
+#include "log.h"
 #include "net.h"
 
 int arg_islocal(char *filename)
@@ -18,10 +19,17 @@ int arg_parse(int *argc, char **argv[])
 {
 	int rc = 0;
 	opt_t ohex = { .var = &hex, .olong = "hex" };
-	opt_parser_t *parser = opt_init(1);
+	opt_t ologlevel = { .olong = "loglevel", .var = &loglevel, .type = OTYPE_INT };
+	opt_t overbose = { .oshort = 'v', .olong = "verbose", .var = &verbose, .type = OTYPE_BOOL };
+	opt_parser_t *parser = opt_init(3);
 	opt_new(parser, &ohex);
+	opt_new(parser, &ologlevel);
+	opt_new(parser, &overbose);
 	rc = opt_parse(parser, argc, argv);
 	opt_free(parser);
+	if (verbose) {
+		loglevel = LOG_LOGLEVEL_VERBOSE;
+	}
 	if (rc) help_usage();
 	else if (hex) {
 		if (*argc != 1) {

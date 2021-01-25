@@ -4,11 +4,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include "globals.h"
+#include "log.h"
 #include "opt.h"
 
 int opt_set_str(opt_t *opt, int *argc, char **argv[])
 {
 	(*argc)--;
+	if (!*argc) return -1;
 	*(char **)opt->var = *(++(*argv));
 	return 0;
 }
@@ -16,6 +18,7 @@ int opt_set_str(opt_t *opt, int *argc, char **argv[])
 int opt_set_int(opt_t *opt, int *argc, char **argv[])
 {
 	(*argc)--;
+	if (!*argc) return -1;
 	*(int *)opt->var = strtod(*(++(*argv)), NULL);
 	return 0;
 }
@@ -57,6 +60,7 @@ int opt_parse(opt_parser_t *parser, int *argc, char **argv[])
 	progname = *(*argv)++;
 	(*argc)--;
 	while ((*argc) && **argv) {
+		DEBUG("parsing '%s'", *argv[0]);
 		if (**argv[0] != '-') return 0; /* nec tamen consumebatur! */
 		if (!opt_valid(parser, *argv[0], &opt)) return -1;
 		if (opt->f != NULL) {

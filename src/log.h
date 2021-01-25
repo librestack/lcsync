@@ -41,6 +41,7 @@ enum {
 };
 
 #define LOG_LOGLEVEL_DEFAULT 15
+#define LOG_LOGLEVEL_VERBOSE 127
 extern unsigned int loglevel;
 
 #define FMTV(iov) (int)(iov).iov_len, (const char *)(iov).iov_base
