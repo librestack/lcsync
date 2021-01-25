@@ -7,6 +7,8 @@ Ensure trees are sent / received and validated properly.
 Update cli to show differences without syncing -n / --dry-run
 
 Now sync using multiple threads and bredth-first search.
+refactor net_recv_data()
+net_job_diff_tree()
 
 missing tests:
 - net_recv_subtree()

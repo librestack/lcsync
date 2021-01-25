@@ -46,11 +46,12 @@ void net_stop(int signo)
 	running = 0;
 	fprintf(stderr, "\nstopping on signal\n");
 }
-
+#if 0
 static size_t net_chunksize(void)
 {
 	return DATA_FIXED;
 }
+#endif
 #if 0
 static unsigned char *net_hash_flag(unsigned char *hash, int flags)
 {
@@ -438,6 +439,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 		if (data->chan == 1) {
 			net_sync_subtree(stree, dtree, 0);
 		}
+		// TODO: split this out into a function
 #if 0
 		else {
 			data->map = calloc(1, howmany(data->chan, CHAR_BIT));
@@ -650,6 +652,7 @@ int net_send(int *argc, char *argv[])
 
 int net_sync(int *argc, char *argv[])
 {
+	(void) argc; /* unused */
 	int fdd;
 	size_t blocksz, len;
 	ssize_t sz_d;
