@@ -26,7 +26,6 @@ not re-copying data.
 ----------------------------------------------------------------------
 * build without bsd/md5.h on Ubuntu
 * send file permissions - set in net_sync()
-* --blocksz
 * --delay
 * -n / --dry-run
 * logging

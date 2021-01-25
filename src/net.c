@@ -34,10 +34,12 @@ static unsigned int countmap(unsigned char *map, size_t len)
 
 static void printmap(unsigned char *map, size_t len)
 {
+	logwait(); /* stop logger from scribbling until we're done */
 	for (size_t i = 0; i < len; i++) {
 		fprintf(stderr, "%d", !!isset(map, i));
 	}
 	fputc('\n', stderr);
+	logdone(); /* release lock */
 }
 
 

@@ -58,6 +58,16 @@ extern unsigned int loglevel;
 #define TRACE(fmt, ...) LOG(LOG_TRACE, fmt ,##__VA_ARGS__)
 #define WARN(fmt, ...) LOG(LOG_WARNING, fmt ,##__VA_ARGS__)
 
+/* initialize logger & enable locking (optional) */
+void loginit(void);
+
+/* grab the log semaphore */
+void logwait(void);
+
+/* release log semaphore */
+void logdone(void);
+
+/* format log message */
 void logmsg(unsigned int level, const char *fmt, ...)
 #ifdef __GNUC__
 	__attribute__((format(printf, 2 ,3)))

@@ -11,6 +11,7 @@
 
 int main(int argc, char *argv[])
 {
+	loginit();
 	if ((arg_parse(&argc, &argv)))
 		return EXIT_FAILURE;
 	if (sodium_init() == -1) {

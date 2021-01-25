@@ -22,6 +22,7 @@
  */
 
 #include <assert.h>
+#include <semaphore.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -30,6 +31,24 @@
 #define LOG_BUFSIZE 128
 
 unsigned int loglevel = LOG_LOGLEVEL_DEFAULT;
+static int uselock;
+static sem_t loglock;
+
+void loginit(void)
+{
+	uselock = 1;
+	sem_init(&loglock, 0, 1);
+}
+
+void logwait(void)
+{
+	if (uselock) sem_wait(&loglock);
+}
+
+void logdone(void)
+{
+	if (uselock) sem_post(&loglock);
+}
 
 void logmsg(unsigned int level, const char *fmt, ...)
 {
@@ -46,7 +65,9 @@ void logmsg(unsigned int level, const char *fmt, ...)
 		mbuf = malloc(len + 1);
 		va_end(argp);
 		va_start(argp, fmt);
+		if (uselock) logwait();
 		vsprintf(mbuf, fmt, argp);
+		if (uselock) logdone();
 		b = mbuf;
 	}
 	va_end(argp);
