@@ -1,5 +1,3 @@
-valgrind runtime errors / leaks
-
 net_recv_data() incomplete - finish breadth-first search code
 
 net_send_block() - works without offset?  Works with ptr increment, but not

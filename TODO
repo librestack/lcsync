@@ -15,9 +15,12 @@ missing tests:
 - net_send_block()
 - net_job_diff_tree()
 
+ensure for blocksz > 1024 that bit map is set correctly for last block. ie. it
+may not be a full set of packets.
+
 ----------------------------------------------------------------------
 
-* send file permissions
+* send file permissions - set in net_sync()
 * --blocksz
 * --delay
 * -n / --dry-run

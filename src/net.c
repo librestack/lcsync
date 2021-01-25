@@ -297,10 +297,10 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	fprintf(stderr, "%s(): maplen = %zu\n", __func__, maplen);
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
 	if (bitmap) {
-		fprintf(stderr, "packets still required=%u\n", countmap(bitmap, maplen));
+		fprintf(stderr, "packets required=%u\n", countmap(bitmap, maplen));
 		printmap(bitmap, maplen * bits);
 	}
-	do {
+	while (bitmap && countmap(bitmap, maplen)) {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");
 			byt = -1;
@@ -324,9 +324,7 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 		fprintf(stderr, "packets still required=%u\n", countmap(bitmap, maplen));
 		printmap(bitmap, maplen * bits);
 	}
-	while (bitmap && countmap(bitmap, maplen));
 	fprintf(stderr, "receiver - all blocks received\n");
-	printmap(bitmap, maplen);
 	free(bitmap);
 	return byt;
 }
@@ -496,6 +494,7 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 		msgh.msg_iovlen = vlen;
 		iov[1].iov_len = sz;
 		iov[1].iov_base = ptr;
+		fprintf(stderr, "iov[1].iov_base = %p (len=%zu)\n", iov[1].iov_base, iov[1].iov_len);
 		hdr->len = htobe32(sz);
 		hdr->idx = htobe32(idx);
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
@@ -526,25 +525,15 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	};
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
-
 	size_t base = mtree_base(stree);
 	size_t min = mtree_subtree_data_min(base, root);
-	size_t max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min);
+	size_t max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 	fprintf(stderr, "base: %zu, min: %zu, max: %zu\n", base, min, max);
 	while (running) {
 		uint32_t idx = 0;
-		// FIXME: off by one error here
-		// tests 0035, 0040 and 0044 see:
-		// "Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)"
-		// when "<= max", but
-		// test 0027 fails when "< max"
 		for (size_t blk = min; blk <= max; blk++, idx++) {
 			fprintf(stderr, "sending block %zu with idx=%u\n", blk, idx);
-			//hdr.idx = htobe32(idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
-			fprintf(stderr, "blockn(%zu)=%p, data(%zu)=%p\n",
-					blk, (void *)mtree_blockn(stree, blk),
-					blk-min, (void *)mtree_block(stree, blk-min));
 			char *ptr = mtree_blockn(stree, blk);
 			if (!ptr) {
 				fprintf(stderr, "no data for this block\n");
@@ -674,14 +663,14 @@ int net_sync(int *argc, char *argv[])
 	/* create & map destination file */
 	fprintf(stderr, "mapping dst: %s\n", dst);
 	len = mtree_len(stree);
-	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // FIXME
+	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // TODO - set from packet data
 	if ((sz_d = file_map(dst, &fdd, &dmap, len, PROT_READ|PROT_WRITE, &sbd)) == -1)
 		return -1; // FIXME - clean up here
 	
 	blocksz = mtree_blocksz(stree);
 	len = mtree_len(stree);
 	dtree = mtree_create(len, blocksz);
-	mtree_build(dtree, dmap, NULL); // FIXME
+	mtree_build(dtree, dmap, NULL);
 	assert(!mtree_verify(stree, mtree_treelen(stree)));
 	assert(!mtree_verify(dtree, mtree_treelen(dtree)));
 
