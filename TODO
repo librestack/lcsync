@@ -1,15 +1,10 @@
 NEXT ACTIONS:
 
-figure out the differences between the various net_* functions, particularly
-net_send() and net_send_data() - are they all needed?
-
 Document the function calls and structures.
 
 Ensure trees are sent / received and validated properly.
 
 Update cli to show differences without syncing -n / --dry-run
-
-Now sync subtrees, starting with single-threaded root=0
 
 Now sync using multiple threads and bredth-first search.
 
@@ -37,3 +32,7 @@ missing tests:
 * handle - to input from stdin
 * improve / extend librecast API with supporting functions
 * (Linux) eBPF
+* directory syncing
+* sharding
+* indexing
+* channel interleaving
