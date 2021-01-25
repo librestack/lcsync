@@ -2,6 +2,7 @@
 /* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "test.h"
+#include "../src/log.h"
 
 int fails = 0;
 
@@ -95,6 +96,7 @@ void test_name(char *str, ...)
 {
 	char *b;
 	va_list argp;
+	loglevel = 127;
 	va_start(argp, str);
 	b = malloc(_vscprintf(str, argp) + 1);
 	vsprintf(b, str, argp);
