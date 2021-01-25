@@ -18,8 +18,14 @@ missing tests:
 ensure for blocksz > 1024 that bit map is set correctly for last block. ie. it
 may not be a full set of packets.
 
-----------------------------------------------------------------------
+* write test to sync, scribble and confirm exact countbits() to make sure we're
+not re-copying data.
 
+* test msync
+
+----------------------------------------------------------------------
+* logging
+* build without bsd/md5.h on Ubuntu
 * send file permissions - set in net_sync()
 * --blocksz
 * --delay

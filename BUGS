@@ -3,3 +3,7 @@ net_recv_data() incomplete - finish breadth-first search code
 net_send_block() - works without offset?  Works with ptr increment, but not
 offset?  Something fishy here.  Needs better tests - are we checking all bytes
 in a multi-packet block?
+
+Server doesn't stop without more than one SIGINT, or at all.
+
+Data being re-synced unnecessarily. Make sure tree compares working.
