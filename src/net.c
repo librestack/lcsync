@@ -474,20 +474,18 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	return 0;
 }
 
-
 /* break a block into DATA_FIXED size pieces and send with header
  * header is in iov[0], data in iov[1] 
  * idx and len need updating */
 ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov, size_t blk)
 {
 	ssize_t byt = 0;
-	size_t sz, off = 0;
+	size_t sz;
 	size_t len = iov[1].iov_len;
+	char * ptr = iov[1].iov_base;
 	net_blockhead_t *hdr = iov[0].iov_base;
 	unsigned bits = howmany(len, DATA_FIXED);
 	struct msghdr msgh = {0};
-	fprintf(stderr, "iov[1] = %p\n", (void *)iov[1].iov_base);
-	fprintf(stderr, "bits=%u\n", bits);
 	for (size_t idx = blk * bits; len; idx++) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		msgh.msg_name = addr->ai_addr;
@@ -495,15 +493,15 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 		msgh.msg_iov = iov;
 		msgh.msg_iovlen = vlen;
 		iov[1].iov_len = sz;
-		iov[1].iov_base = (char *)iov[1].iov_base + off;
+		iov[1].iov_base = ptr;
 		hdr->len = htobe32(sz);
 		hdr->idx = htobe32(idx);
-		//off += sz;
-		len -= sz;
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
 			break;
 		}
+		len -= sz;
+		ptr += sz;
 		fprintf(stderr, "%zi bytes sent (blk=%zu, idx = %zu)\n", byt, blk, idx);
 	}
 	return byt;
