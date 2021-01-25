@@ -42,6 +42,7 @@ struct mtree_thread {
 void mtree_hexdump(mtree_tree *tree, FILE *fd)
 {
 	char hex[HEXLEN];
+	if (quiet) return;
 	for (size_t i = 0; i < tree->nodes; i++) {
 		sodium_bin2hex(hex, HEXLEN, tree->tree + i * HASHSIZE, HASHSIZE);
 		fprintf(fd, "%08zu: %.*s\n", i, HEXLEN, hex);
