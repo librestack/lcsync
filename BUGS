@@ -1,6 +1,7 @@
 valgrind runtime errors / leaks
 
-on sender:
-lcsync: net.c:653: net_send: Assertion `!mtree_verify(stree, sz_s)' failed.
-
 net_recv_data() incomplete - finish breadth-first search code
+
+net_send_block() - works without offset?  Works with ptr increment, but not
+offset?  Something fishy here.  Needs better tests - are we checking all bytes
+in a multi-packet block?
