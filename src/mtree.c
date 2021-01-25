@@ -12,6 +12,7 @@
 #include "globals.h"
 #include "hash.h"
 #include "job.h"
+#include "log.h"
 #include "mtree.h"
 #include "misc.h"
 
@@ -344,7 +345,7 @@ int mtree_build(mtree_tree *tree, char *data, job_queue_t *jq)
 	q.data = data; // FIXME: redundant - tree now has pointer to data
 	q.done = calloc(tree->nodes, sizeof(sem_t));
 	if (!q.done) return -1;
-	fprintf(stderr, "tree->nodes = %zu\n", tree->nodes);
+	DEBUG("tree->nodes = %zu\n", tree->nodes);
 	for (size_t z = 0; z < tree->nodes; z++) sem_init(&q.done[z], 0, 0);
 	if (jq) {
 		nthreads = jq->nthreads;

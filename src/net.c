@@ -13,6 +13,7 @@
 #include <sys/uio.h>
 #include <unistd.h>
 #include "net.h"
+#include "log.h"
 #include "globals.h"
 #include "mtree.h"
 #include "file.h"
@@ -34,7 +35,7 @@ static unsigned int countmap(unsigned char *map, size_t len)
 static void printmap(unsigned char *map, size_t len)
 {
 	for (size_t i = 0; i < len; i++) {
-		fprintf(stderr, "%d", !!isset(map, i));
+		DEBUG("%d", !!isset(map, i));
 	}
 	fputc('\n', stderr);
 }
@@ -44,7 +45,7 @@ void net_stop(int signo)
 {
 	(void) signo;
 	running = 0;
-	fprintf(stderr, "\nstopping on signal\n");
+	DEBUG("\nstopping on signal\n");
 }
 #if 0
 static size_t net_chunksize(void)
@@ -76,7 +77,7 @@ net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
 
 ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 {
-	fprintf(stderr, "%s()\n", __func__);
+	TRACE("%s()\n", __func__);
 	size_t idx, off, len, maplen, pkts;
 	ssize_t byt = 0, msglen;
 	uint64_t sz;
@@ -89,15 +90,15 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 			byt = -1;
 			break;
 		}
-		fprintf(stderr, "%s(): recv %zi bytes\n", __func__, msglen);
+		DEBUG("%s(): recv %zi bytes\n", __func__, msglen);
 		hdr = (net_treehead_t *)buf;
 		if (!bitmap) {
 			pkts = be32toh(hdr->pkts);
 			if (!pkts) {
-				fprintf(stderr, "invalid packet header\n");
+				DEBUG("invalid packet header\n");
 				return -1;
 			}
-			fprintf(stderr, "packets = %lu\n", pkts);
+			DEBUG("packets = %lu\n", pkts);
 			maplen = howmany(pkts, CHAR_BIT);
 			if (!(bitmap = malloc(maplen))) {
 				perror("malloc()");
@@ -134,7 +135,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 		}
 		byt += be32toh(hdr->len);
 		printmap(bitmap, pkts);
-		fprintf(stderr, "packets still required=%u\n", countmap(bitmap, maplen));
+		DEBUG("packets still required=%u\n", countmap(bitmap, maplen));
 	}
 	while (countmap(bitmap, maplen));
 	// TODO verify tree (check hashes, mark bitmap with any that don't
@@ -145,7 +146,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 
 ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 {
-	fprintf(stderr, "%s()\n", __func__);
+	TRACE("%s()\n", __func__);
 	int s;
 	size_t blocksz;
 	ssize_t byt;
@@ -159,7 +160,7 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 	s = lc_socket_raw(sock);
 	byt = net_recv_tree(s, iov, &blocksz);
 	if (byt > 0) {
-		fprintf(stderr, "%s(): tree received (%zi bytes)\n", __func__, byt);
+		DEBUG("%s(): tree received (%zi bytes)\n", __func__, byt);
 		*tree = mtree_create(iov[1].iov_len, blocksz);
 		mtree_setdata(*tree, iov[0].iov_base);
 	}
@@ -173,7 +174,7 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 
 void *net_job_recv_tree(void *arg)
 {
-	fprintf(stderr, "%s()\n", __func__);
+	TRACE("%s()\n", __func__);
 	int s;
 	size_t blocksz;
 	ssize_t byt;
@@ -186,7 +187,7 @@ void *net_job_recv_tree(void *arg)
 	lc_channel_join(chan);
 	s = lc_socket_raw(sock);
 	byt = net_recv_tree(s, iov, &blocksz);
-	fprintf(stderr, "%s(): tree received (%zi bytes)\n", __func__, byt);
+	DEBUG("%s(): tree received (%zi bytes)\n", __func__, byt);
 	lc_channel_part(chan);
 	lc_channel_free(chan);
 	lc_socket_close(sock);
@@ -208,7 +209,7 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 	memcpy(temp, iov[1].iov_base, len);
 	while (len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
-		fprintf(stderr, "len = %zu, sz=%zu, off = %zu\n", len, sz, off);
+		DEBUG("len = %zu, sz=%zu, off = %zu\n", len, sz, off);
 		iov[1].iov_len = sz;
 		//iov[1].iov_base = (char *)iov[1].iov_base + off;
 		iov[1].iov_base = temp + off;
@@ -220,14 +221,14 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 		hdr->idx = htobe32(idx++);
 		hdr->len = htobe32(sz);
 		size_t hdrsz = iov[0].iov_len;
-		fprintf(stderr, "%zu + %zu = %zu bytes\n", sz, hdrsz, sz + hdrsz); 
+		DEBUG("%zu + %zu = %zu bytes\n", sz, hdrsz, sz + hdrsz); 
 		off += sz;
 		len -= sz;
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
 			break;
 		}
-		fprintf(stderr, "%zi bytes sent\n", byt); 
+		DEBUG("%zi bytes sent\n", byt); 
 	}
 	free(temp);
 	return byt;
@@ -235,7 +236,7 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 
 void *net_job_send_tree(void *arg)
 {
-	fprintf(stderr, "%s()\n", __func__);
+	TRACE("%s()\n", __func__);
 	const int on = 1;
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *tree = (mtree_tree *)data->iov[0].iov_base;
@@ -257,14 +258,14 @@ void *net_job_send_tree(void *arg)
 		.chan = net_send_channels,
 		.pkts = htobe32(howmany(data->iov[0].iov_len, DATA_FIXED))
 	};
-	fprintf(stderr, "idx=%u\n", be32toh(hdr.idx));
-	fprintf(stderr, "len=%u\n", be32toh(hdr.len));
-	fprintf(stderr, "data=%lu\n", be64toh(hdr.data));
-	fprintf(stderr, "size=%lu\n", be64toh(hdr.size));
-	fprintf(stderr, "blocksz=%u\n", be32toh(hdr.blocksz));
-	fprintf(stderr, "pkts=%u\n", be32toh(hdr.pkts));
-	fprintf(stderr, "chan=%u\n", hdr.chan);
-	fprintf(stderr, "sizeof hdr=%zu\n", sizeof hdr);
+	DEBUG("idx=%u\n", be32toh(hdr.idx));
+	DEBUG("len=%u\n", be32toh(hdr.len));
+	DEBUG("data=%lu\n", be64toh(hdr.data));
+	DEBUG("size=%lu\n", be64toh(hdr.size));
+	DEBUG("blocksz=%u\n", be32toh(hdr.blocksz));
+	DEBUG("pkts=%u\n", be32toh(hdr.pkts));
+	DEBUG("chan=%u\n", hdr.chan);
+	DEBUG("sizeof hdr=%zu\n", sizeof hdr);
 	assert(data->byt > 0);
 	memcpy(&hdr.hash, data->hash, HASHSIZE);
 	iov[0].iov_base = &hdr;
@@ -282,7 +283,7 @@ void *net_job_send_tree(void *arg)
 
 ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t root)
 {
-	fprintf(stderr, "%s()\n", __func__);
+	TRACE("%s()\n", __func__);
 	ssize_t byt = 0, msglen;
 	unsigned char *bitmap = NULL;
 	char buf[MTU_FIXED];
@@ -290,14 +291,14 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	uint32_t idx;
 	size_t blk, len, off;
 	size_t blocksz = mtree_blocksz(stree);
-	fprintf(stderr, "%s(): blocksz = %zu\n", __func__, blocksz);
+	DEBUG("%s(): blocksz = %zu\n", __func__, blocksz);
 	unsigned bits = howmany(blocksz, DATA_FIXED);
-	fprintf(stderr, "%s(): bits = %u\n", __func__, bits);
+	DEBUG("%s(): bits = %u\n", __func__, bits);
 	size_t maplen = howmany(mtree_base(stree), CHAR_BIT) * bits;
-	fprintf(stderr, "%s(): maplen = %zu\n", __func__, maplen);
+	DEBUG("%s(): maplen = %zu\n", __func__, maplen);
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
 	if (bitmap) {
-		fprintf(stderr, "packets required=%u\n", countmap(bitmap, maplen));
+		DEBUG("packets required=%u\n", countmap(bitmap, maplen));
 		printmap(bitmap, maplen * bits);
 	}
 	while (bitmap && countmap(bitmap, maplen)) {
@@ -306,25 +307,25 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 			byt = -1;
 			break;
 		}
-		fprintf(stderr, "%s(): recv %zi bytes\n", __func__, msglen);
+		DEBUG("%s(): recv %zi bytes\n", __func__, msglen);
 		hdr = (net_blockhead_t *)buf;
 		idx = be32toh(hdr->idx);
 		len = (size_t)be32toh(hdr->len);
 		blk = idx / bits;
 		if (isset(bitmap, idx)) {
 			off = (idx % bits) * DATA_FIXED;
-			fprintf(stderr, "recv'd a block I wanted idx=%u, blk=%zu\n", idx, blk);
+			DEBUG("recv'd a block I wanted idx=%u, blk=%zu\n", idx, blk);
 			memcpy(mtree_block(dtree, blk) + off, buf + sizeof (net_blockhead_t), len);
 			clrbit(bitmap, idx);
 		}
 		else {
-			fprintf(stderr, "recv'd a block I didn't want idx=%u, blk=%zu\n", idx, blk);
+			DEBUG("recv'd a block I didn't want idx=%u, blk=%zu\n", idx, blk);
 		}
 		byt += be32toh(hdr->len);
-		fprintf(stderr, "packets still required=%u\n", countmap(bitmap, maplen));
+		DEBUG("packets still required=%u\n", countmap(bitmap, maplen));
 		printmap(bitmap, maplen * bits);
 	}
-	fprintf(stderr, "receiver - all blocks received\n");
+	DEBUG("receiver - all blocks received\n");
 	free(bitmap);
 	return byt;
 }
@@ -343,7 +344,7 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 	/* TODO: first, ensure destination is big enough */
 	/* TODO: malloc, remap, update *len etc */
 
-	fprintf(stderr, "%s(): receiving subtree at root %zu\n", __func__, root);
+	DEBUG("%s(): receiving subtree at root %zu\n", __func__, root);
 
 	mtree_hexdump(stree, stderr);
 	byt = net_recv_subtree(s, stree, dtree, root);
@@ -379,18 +380,18 @@ static void *net_job_diff_tree(void *arg)
 	size_t n = data->n;
 	size_t child;
 
-	fprintf(stderr, "sz %zu\n", sz);
-	fprintf(stderr, "checking node %zu\n", n);
+	DEBUG("sz %zu\n", sz);
+	DEBUG("checking node %zu\n", n);
 	if (memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE)) {
-		fprintf(stderr, "node %zu is different, but that's not its fault\n", n);
+		DEBUG("node %zu is different, but that's not its fault\n", n);
 		if ((child = mtree_child(t1, n))) {
 			// FIXME: if level == channel, call net_sync_subtree()
 #if 0
 			data->n = child;
-			fprintf(stderr, "child of %zu is %zu\n", n, child);
+			DEBUG("child of %zu is %zu\n", n, child);
 			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
 			data->n = child + 1;
-			fprintf(stderr, "child of %zu is %zu\n", n, child + 1);
+			DEBUG("child of %zu is %zu\n", n, child + 1);
 			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
 #endif
 		}
@@ -398,19 +399,14 @@ static void *net_job_diff_tree(void *arg)
 	clrbit(data->map, n - 1);
 	printmap(data->map, howmany(data->chan, CHAR_BIT));
 	if (!countmap(data->map, data->chan - 1)) {
-		fprintf(stderr, "map is clear - all done\n");
+		DEBUG("map is clear - all done\n");
 		sem_post(&q->done);
-	}
-	else {
-		fprintf(stderr, "we have more work to do\n");
 	}
 	return NULL;
 }
 
 ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 {
-	fprintf(stderr, "%s()\n", __func__);
-
 	mtree_tree *stree = NULL, *dtree = NULL;
 	net_data_t *data;
 	job_t *job;
@@ -418,7 +414,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	size_t blocksz;
 	size_t vlen = 4;
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * vlen;
-
+	TRACE("%s()\n", __func__);
 	data = calloc(1, sz);
 	data->len = vlen;
 	data->alias = hash;
@@ -442,7 +438,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 		else {
 			data->map = calloc(1, howmany(data->chan, CHAR_BIT));
 			for (size_t i = 0; i < data->chan; i++) setbit(data->map, i);
-			fprintf(stderr, "starting map: \n");
+			DEBUG("starting map: \n");
 			printmap(data->map, howmany(data->chan, CHAR_BIT));
 
 			// TODO: diff trees, build maps
@@ -494,7 +490,6 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 		msgh.msg_iovlen = vlen;
 		iov[1].iov_len = sz;
 		iov[1].iov_base = ptr;
-		fprintf(stderr, "iov[1].iov_base = %p (len=%zu)\n", iov[1].iov_base, iov[1].iov_len);
 		hdr->len = htobe32(sz);
 		hdr->idx = htobe32(idx);
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
@@ -503,14 +498,14 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 		}
 		len -= sz;
 		ptr += sz;
-		fprintf(stderr, "%zi bytes sent (blk=%zu, idx = %zu)\n", byt, blk, idx);
+		DEBUG("%zi bytes sent (blk=%zu, idx = %zu)\n", byt, blk, idx);
 	}
 	return byt;
 }
 
 ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 {
-	fprintf(stderr, "%s()\n", __func__);
+	TRACE("%s()\n", __func__);
 	const int on = 1;
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
@@ -528,17 +523,14 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	size_t base = mtree_base(stree);
 	size_t min = mtree_subtree_data_min(base, root);
 	size_t max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
-	fprintf(stderr, "base: %zu, min: %zu, max: %zu\n", base, min, max);
+	DEBUG("base: %zu, min: %zu, max: %zu\n", base, min, max);
 	while (running) {
 		uint32_t idx = 0;
 		for (size_t blk = min; blk <= max; blk++, idx++) {
-			fprintf(stderr, "sending block %zu with idx=%u\n", blk, idx);
+			DEBUG("sending block %zu with idx=%u\n", blk, idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			char *ptr = mtree_blockn(stree, blk);
-			if (!ptr) {
-				fprintf(stderr, "no data for this block\n");
-				break;
-			}
+			if (!ptr) continue;
 			iov[1].iov_base = ptr; // FIXME
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
 			net_send_block(s, addr, 2, iov, idx);
@@ -573,14 +565,14 @@ void *net_job_send_subtree(void *arg)
 
 ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 {
-	fprintf(stderr, "%s()\n", __func__);
+	TRACE("%s()\n", __func__);
 	size_t channels = 1U << net_send_channels; // FIXME
 	net_data_t *data;
 	job_t *job_tree, *job_data;
 	mtree_tree *tree = mtree_create(len, blocksize);
 	job_queue_t *q = job_queue_create(channels);
 	mtree_build(tree, srcdata, q);
-	fprintf(stderr, "%s(): source tree built\n", __func__);
+	DEBUG("%s(): source tree built\n", __func__);
 	assert(!mtree_verify(tree, mtree_treelen(tree)));
 	data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
 	data->hash = mtree_root(tree);
@@ -604,7 +596,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 int net_recv(int *argc, char *argv[])
 {
 	(void) argc;
-	fprintf(stderr, "%s('%s', '%s')\n", __func__, argv[0], argv[1]);
+	TRACE("%s('%s', '%s')\n", __func__, argv[0], argv[1]);
 	// TODO: fetch tree
 	// TODO: verify tree
 	// TODO: build channel maps
@@ -627,14 +619,14 @@ int net_send(int *argc, char *argv[])
 	char *alias = basename(src);
 	char *smap = NULL;
 	unsigned char hash[HASHSIZE];
-	fprintf(stderr, "%s('%s')\n", __func__, argv[0]);
-	fprintf(stderr, "mapping src: %s\n", src);
+	TRACE("%s('%s')\n", __func__, argv[0]);
+	DEBUG("mapping src: %s\n", src);
 	if ((sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs)) == -1)
 		return -1;
 	sigaction(SIGINT, &sa_int, NULL);
 	crypto_generichash(hash, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
 	net_send_data(hash, smap, sz_s);
-	fprintf(stderr, "unmapping src: %s\n", src);
+	DEBUG("unmapping src: %s\n", src);
 	file_unmap(smap, sz_s, fds);
 	return 0;
 }
@@ -653,7 +645,7 @@ int net_sync(int *argc, char *argv[])
 	unsigned char hash[HASHSIZE];
 	mtree_tree *stree = NULL;
 	mtree_tree *dtree;
-	fprintf(stderr, "%s('%s')\n", __func__, argv[0]);
+	TRACE("%s('%s')\n", __func__, argv[0]);
 	sigaction(SIGINT, &sa_int, NULL);
 
 	/* fetch source tree */
@@ -661,7 +653,7 @@ int net_sync(int *argc, char *argv[])
 	if (net_fetch_tree(hash, &stree) == -1) return -1;
 
 	/* create & map destination file */
-	fprintf(stderr, "mapping dst: %s\n", dst);
+	DEBUG("mapping dst: %s\n", dst);
 	len = mtree_len(stree);
 	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // TODO - set from packet data
 	if ((sz_d = file_map(dst, &fdd, &dmap, len, PROT_READ|PROT_WRITE, &sbd)) == -1)

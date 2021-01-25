@@ -55,6 +55,7 @@ extern unsigned int loglevel;
 #define FAILMSG(err, fmt, ...) {LOG(LOG_ERROR, fmt ,##__VA_ARGS__);  return err;}
 #define INFO(fmt, ...) LOG(LOG_INFO, fmt ,##__VA_ARGS__)
 #define TRACE(fmt, ...) LOG(LOG_TRACE, fmt ,##__VA_ARGS__)
+#define WARN(fmt, ...) LOG(LOG_WARNING, fmt ,##__VA_ARGS__)
 
 void logmsg(unsigned int level, const char *fmt, ...)
 #ifdef __GNUC__

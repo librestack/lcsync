@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "job.h"
+#include "log.h"
 
 job_t *job_shift(job_queue_t *q)
 {
@@ -106,7 +107,7 @@ job_queue_t *job_queue_create(size_t nthreads)
 	sem_init(&q->lock, 0, 1);
 	q->nthreads = nthreads;
 	pthread_attr_init(&attr);
-	fprintf(stderr, "creating %zu threads\n", nthreads);
+	DEBUG("creating %zu threads\n", nthreads);
 	for (size_t z = 0; z < nthreads; z++) {
 		q->thread[z].id = z;
 		q->thread[z].q = q;
@@ -122,7 +123,7 @@ void job_queue_destroy(job_queue_t *q)
 	while ((job = job_shift(q))) {
 		free(job);
 	}
-	fprintf(stderr, "destroying %zu threads\n", q->nthreads);
+	DEBUG("destroying %zu threads\n", q->nthreads);
 	for (size_t z = 0; z < q->nthreads; z++) {
 		pthread_cancel(q->thread[z].thread);
 	}

@@ -6,10 +6,12 @@
 #include <stdlib.h>
 #include "arg.h"
 #include "file.h"
+#include "log.h"
 #include "globals.h"
 
 int main(int argc, char *argv[])
 {
+	DEBUG("loglevel=%u", loglevel);
 	if ((arg_parse(&argc, &argv)))
 		return EXIT_FAILURE;
 	if (sodium_init() == -1) {

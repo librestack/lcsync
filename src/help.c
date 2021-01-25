@@ -5,13 +5,14 @@
 #include <stdio.h>
 #include "globals.h"
 #include "help.h"
+#include "log.h"
 
 void help_usage(void)
 {
-	fprintf(stderr, "usage: '%s source destination'\n", basename(progname));
+	INFO("usage: '%s source destination'\n", basename(progname));
 }
 
 void help_usage_hex(void)
 {
-	fprintf(stderr, "usage: '%s --hex filename'\n", basename(progname));
+	INFO("usage: '%s --hex filename'\n", basename(progname));
 }
