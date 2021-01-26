@@ -23,6 +23,8 @@ not re-copying data.
 
 * test msync
 
+chunksz -> blocksz to fix inconsistency
+
 ----------------------------------------------------------------------
 * build without bsd/md5.h on Ubuntu
 * send file permissions - set in net_sync()

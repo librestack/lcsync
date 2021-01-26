@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <string.h>
+#include <sys/param.h>
 #include <unistd.h>
 #include "globals.h"
 #include "hash.h"
@@ -288,6 +289,7 @@ size_t mtree_data_last(size_t nchunks, size_t nthreads, size_t id)
 
 static void *mtree_hash_data(void *arg)
 {
+	TRACE("%s()", __func__);
 	struct mtree_thread *mt = (struct mtree_thread *)arg;
 	struct mtree_queue *q = mt->q;
 	size_t nthreads = (mt->nthreads > q->tree->base) ? q->tree->base : mt->nthreads;
@@ -337,8 +339,8 @@ static void *mtree_hash_data(void *arg)
 
 int mtree_build(mtree_tree *tree, char *data, job_queue_t *jq)
 {
-	size_t nthreads;
 	job_queue_t *jobq = jq;
+	size_t nthreads = MIN((jq) ? jq->nthreads : THREAD_MAX, tree->base);
 	struct mtree_queue q = {0};
 	struct mtree_thread *mt = NULL;
 	tree->data = data;
@@ -346,15 +348,8 @@ int mtree_build(mtree_tree *tree, char *data, job_queue_t *jq)
 	q.data = data; // FIXME: redundant - tree now has pointer to data
 	q.done = calloc(tree->nodes, sizeof(sem_t));
 	if (!q.done) return -1;
-	DEBUG("tree->nodes = %zu", tree->nodes);
 	for (size_t z = 0; z < tree->nodes; z++) sem_init(&q.done[z], 0, 0);
-	if (jq) {
-		nthreads = jq->nthreads;
-	}
-	else {
-		nthreads = (tree->base < THREAD_MAX) ? tree->base : THREAD_MAX;
-		jobq = job_queue_create(nthreads);
-	}
+	if (!jq) jobq = job_queue_create(nthreads);
 	if (nthreads) {
 		mt = calloc(nthreads, sizeof(struct mtree_thread));
 		if (!mt) goto err_nomem_0;
