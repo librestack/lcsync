@@ -20,5 +20,6 @@ int main(int argc, char *argv[])
 	}
 	DEBUG("loglevel=%u", loglevel);
 	DEBUG("blocksize=%zu", blocksize);
+	DEBUG("channels=%u", 1U << net_send_channels);
 	return action(&argc, argv);
 }

@@ -19,6 +19,7 @@ int arg_parse(int *argc, char **argv[])
 {
 	int rc = 0;
 	opt_t oblocksz = { .olong = "blocksz", .var = &blocksize, .type = OTYPE_INT };
+	opt_t ochannels = { .oshort = 'c', .olong = "channels", .var = &net_send_channels, .type = OTYPE_INT };
 	opt_t odelay = { .olong = "delay", .var = &DELAY, .type = OTYPE_INT };
 	opt_t odryrun = { .oshort = 'n', .olong = "dry-run", .var = &dryrun, .type = OTYPE_BOOL };
 	opt_t ohex = { .var = &hex, .olong = "hex" };
@@ -26,8 +27,9 @@ int arg_parse(int *argc, char **argv[])
 	opt_t opkts = { .olong = "pkts", .var = &PKTS, .type = OTYPE_INT };
 	opt_t oquiet = { .oshort = 'q', .olong = "quiet", .var = &quiet, .type = OTYPE_BOOL };
 	opt_t overbose = { .oshort = 'v', .olong = "verbose", .var = &verbose, .type = OTYPE_BOOL };
-	opt_parser_t *parser = opt_init(8);
+	opt_parser_t *parser = opt_init(9);
 	opt_new(parser, &oblocksz);
+	opt_new(parser, &ochannels);
 	opt_new(parser, &odelay);
 	opt_new(parser, &odryrun);
 	opt_new(parser, &ohex);
