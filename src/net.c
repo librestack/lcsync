@@ -431,6 +431,9 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 
 	/* if root nodes differ, perform bredth-first search */
 	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
+		DEBUG("root hashes differ:");
+		hash_hex_debug(mtree_root(stree), HASHSIZE);
+		hash_hex_debug(mtree_root(dtree), HASHSIZE);
 		data->chan = 1; // FIXME - temp
 		if (data->chan == 1) {
 			net_sync_subtree(stree, dtree, 0);
@@ -668,7 +671,10 @@ int net_sync(int *argc, char *argv[])
 
 	/* sync data */
 	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
-		net_sync_subtree(stree, dtree, 0);
+		DEBUG("root hashes differ:");
+		hash_hex_debug(mtree_root(stree), HASHSIZE);
+		hash_hex_debug(mtree_root(dtree), HASHSIZE);
+		if (!dryrun) net_sync_subtree(stree, dtree, 0);
 	}
 	mtree_free(stree);
 	mtree_free(dtree);

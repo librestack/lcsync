@@ -8,4 +8,6 @@
 #define HASHSIZE crypto_generichash_BYTES
 #define HEXLEN HASHSIZE * 2 + 1
 
+void hash_hex_debug(unsigned char *hash, size_t len);
+
 #endif /* _HASH_H */

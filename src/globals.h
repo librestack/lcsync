@@ -10,6 +10,7 @@
 #define THREAD_MAX 128
 
 extern int (*action)(int *argc, char *argv[]);
+extern int dryrun;
 extern int hex;
 extern int quiet;
 extern int verbose;
