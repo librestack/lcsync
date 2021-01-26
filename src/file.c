@@ -64,14 +64,12 @@ int file_dump(int *argc, char *argv[])
 	int fds;
 	char *src = argv[0];
 	char *smap = NULL;
-	size_t chunksz;
 	ssize_t sz_s;
 	struct stat sbs;
 	mtree_tree *stree;
 	if ((sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs)) == -1)
 		return -1;
-	chunksz = (size_t)file_chunksize();
-	stree = mtree_create(sz_s, chunksz);
+	stree = mtree_create(sz_s, blocksize);
 	mtree_build(stree, smap, NULL);
 	mtree_hexdump(stree, stderr);
 	mtree_free(stree);
