@@ -232,6 +232,7 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 			break;
 		}
 		DEBUG("%zi bytes sent", byt); 
+		if (DELAY) usleep(DELAY);
 	}
 	free(temp);
 	return byt;
@@ -277,7 +278,6 @@ void *net_job_send_tree(void *arg)
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
 		net_send_tree(s, addr, 2, iov);
-		if (DELAY) usleep(DELAY);
 	}
 	lc_channel_free(chan);
 	lc_socket_close(sock);
