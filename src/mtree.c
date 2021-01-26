@@ -518,7 +518,7 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root, u
 			else { /* leaf node, update bitmap */
 				n = mtree_node_offset_subtree(n, root);
 				for (unsigned i = 0; i < bits; i++) {
-					map[(n + i) / CHAR_BIT] |= 1U << ((n + i) % CHAR_BIT);
+					setbit(map, n * bits + i);
 				}
 			}
 		}

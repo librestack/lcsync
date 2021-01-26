@@ -68,6 +68,8 @@ struct net_data_s {
 	struct iovec	iov[];		/* scatter-gather array */
 };
 
+unsigned int countmap(unsigned char *map, size_t len);
+
 /* signal server threads to stop work/exit */
 void net_stop(int signo);
 
@@ -78,6 +80,10 @@ net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree);
  * return bytes received or -1 on error
 If iov is NULL, allocate the receive buffer. */
 ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz);
+
+/* fetch tree on channel hash. Returns number of bytes received or -1 on error.
+ * mtree_free(*tree) when done */
+ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree);
 
 /* send a data block or tree to a librecast channel
  * return bytes sent or -1 on error

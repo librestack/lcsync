@@ -21,7 +21,7 @@
 static int running = 1;
 
 /* return number of bits set in bitmap */
-static unsigned int countmap(unsigned char *map, size_t len)
+unsigned int countmap(unsigned char *map, size_t len)
 {
 	unsigned int c = 0;
 	while (len--) {
