@@ -13,7 +13,7 @@ extern int (*action)(int *argc, char *argv[]);
 extern int DELAY;
 extern int dryrun;
 extern int hex;
-extern int PKTS;
+extern size_t PKTS;
 extern int quiet;
 extern int verbose;
 extern char *progname;

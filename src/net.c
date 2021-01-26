@@ -229,7 +229,7 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 		len -= sz;
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
-			break;
+			//break;
 		}
 		DEBUG("%zi bytes sent", byt); 
 		if (DELAY) usleep(DELAY);
@@ -307,6 +307,9 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 		DEBUG("packets required=%u", countmap(bitmap, maplen));
 		printmap(bitmap, maplen * bits * CHAR_BIT);
 	}
+	DEBUG("dryrun=%i", dryrun);
+	DEBUG("bitmap=%p", bitmap);
+	DEBUG("PKTS=%zu", PKTS);
 	while (!dryrun && bitmap && countmap(bitmap, maplen) && PKTS) {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");
@@ -504,7 +507,7 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 		hdr->idx = htobe32(idx);
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
-			break;
+			//break;
 		}
 		len -= sz;
 		ptr += sz;
