@@ -65,15 +65,15 @@ void logmsg(unsigned int level, const char *fmt, ...)
 		mbuf = malloc(len + 1);
 		va_end(argp);
 		va_start(argp, fmt);
-		if (uselock) logwait();
 		vsprintf(mbuf, fmt, argp);
-		if (uselock) logdone();
 		b = mbuf;
 	}
 	va_end(argp);
+	if (uselock) logwait();
 	if (level == LOG_INFO)
 		fprintf(stdout, "%s\n", b);
 	else
 		fprintf(stderr, "%s\n", b);
+	if (uselock) logdone();
 	free(mbuf);
 }
