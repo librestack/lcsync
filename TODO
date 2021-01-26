@@ -1,11 +1,5 @@
 NEXT ACTIONS:
 
-Document the function calls and structures.
-
-Ensure trees are sent / received and validated properly.
-
-Update cli to show differences without syncing -n / --dry-run
-
 Now sync using multiple threads and bredth-first search.
 refactor net_recv_data()
 net_job_diff_tree()
@@ -15,7 +9,7 @@ missing tests:
 - net_send_block()
 - net_job_diff_tree()
 
-ensure for blocksz > 1024 that bit map is set correctly for last block. ie. it
+* ensure for blocksz > 1024 that bit map is set correctly for last block. ie. it
 may not be a full set of packets.
 
 * write test to sync, scribble and confirm exact countbits() to make sure we're
@@ -26,11 +20,9 @@ not re-copying data.
 chunksz -> blocksz to fix inconsistency
 
 ----------------------------------------------------------------------
+* net_dump() (implement --hex for network files)
 * build without bsd/md5.h on Ubuntu
 * send file permissions - set in net_sync()
-* --delay
-* -n / --dry-run
-* logging
 * multicast sync
 * MTU path discovery for block size
 * MLD triggering - don't send when noone listening
