@@ -36,7 +36,7 @@ static void printmap(unsigned char *map, size_t len)
 {
 	if (quiet) return;
 	logwait(); /* stop logger from scribbling until we're done */
-	for (size_t i = 0; i < len * CHAR_BIT; i++) {
+	for (size_t i = 0; i < len; i++) {
 		fprintf(stderr, "%d", !!isset(map, i));
 	}
 	fputc('\n', stderr);
@@ -304,7 +304,7 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
 	if (bitmap) {
 		DEBUG("packets required=%u", countmap(bitmap, maplen));
-		printmap(bitmap, maplen * bits);
+		printmap(bitmap, maplen * bits * CHAR_BIT);
 	}
 	while (!dryrun && bitmap && countmap(bitmap, maplen) && PKTS) {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
