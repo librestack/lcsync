@@ -9,3 +9,7 @@ Server doesn't stop without more than one SIGINT, or at all.
 -------------------------------------------------------------------------------
 Data being re-synced unnecessarily. Make sure tree compares working.
 -------------------------------------------------------------------------------
+default client/server modes are too verbose
+-------------------------------------------------------------------------------
+printmap() not printing full bitmap
+-------------------------------------------------------------------------------

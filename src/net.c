@@ -34,8 +34,9 @@ static unsigned int countmap(unsigned char *map, size_t len)
 
 static void printmap(unsigned char *map, size_t len)
 {
+	if (quiet) return;
 	logwait(); /* stop logger from scribbling until we're done */
-	for (size_t i = 0; i < len; i++) {
+	for (size_t i = 0; i < len * CHAR_BIT; i++) {
 		fprintf(stderr, "%d", !!isset(map, i));
 	}
 	fputc('\n', stderr);
@@ -293,17 +294,19 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	uint32_t idx;
 	size_t blk, len, off;
 	size_t blocksz = mtree_blocksz(stree);
+	DEBUG("%s(): blocks  = %zu", __func__, mtree_blocks(stree));
+	DEBUG("%s(): base    = %zu", __func__, mtree_base(stree));
 	DEBUG("%s(): blocksz = %zu", __func__, blocksz);
 	unsigned bits = howmany(blocksz, DATA_FIXED);
-	DEBUG("%s(): bits = %u", __func__, bits);
-	size_t maplen = howmany(mtree_base(stree), CHAR_BIT) * bits;
-	DEBUG("%s(): maplen = %zu", __func__, maplen);
+	DEBUG("%s(): bits    = %u", __func__, bits);
+	size_t maplen = howmany(mtree_base(stree) * bits, CHAR_BIT);
+	DEBUG("%s(): maplen  = %zu", __func__, maplen);
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
 	if (bitmap) {
 		DEBUG("packets required=%u", countmap(bitmap, maplen));
 		printmap(bitmap, maplen * bits);
 	}
-	while (bitmap && countmap(bitmap, maplen)) {
+	while (!dryrun && bitmap && countmap(bitmap, maplen) && PKTS) {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");
 			byt = -1;
@@ -319,6 +322,7 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 			DEBUG("recv'd a block I wanted idx=%u, blk=%zu", idx, blk);
 			memcpy(mtree_block(dtree, blk) + off, buf + sizeof (net_blockhead_t), len);
 			clrbit(bitmap, idx);
+			PKTS--;
 		}
 		else {
 			DEBUG("recv'd a block I didn't want idx=%u, blk=%zu", idx, blk);
@@ -674,7 +678,7 @@ int net_sync(int *argc, char *argv[])
 		DEBUG("root hashes differ:");
 		hash_hex_debug(mtree_root(stree), HASHSIZE);
 		hash_hex_debug(mtree_root(dtree), HASHSIZE);
-		if (!dryrun) net_sync_subtree(stree, dtree, 0);
+		net_sync_subtree(stree, dtree, 0);
 	}
 	mtree_free(stree);
 	mtree_free(dtree);

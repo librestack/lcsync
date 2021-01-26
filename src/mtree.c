@@ -289,7 +289,6 @@ size_t mtree_data_last(size_t nchunks, size_t nthreads, size_t id)
 
 static void *mtree_hash_data(void *arg)
 {
-	TRACE("%s()", __func__);
 	struct mtree_thread *mt = (struct mtree_thread *)arg;
 	struct mtree_queue *q = mt->q;
 	size_t nthreads = (mt->nthreads > q->tree->base) ? q->tree->base : mt->nthreads;

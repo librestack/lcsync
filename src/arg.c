@@ -22,13 +22,15 @@ int arg_parse(int *argc, char **argv[])
 	opt_t odryrun = { .oshort = 'n', .olong = "dry-run", .var = &dryrun, .type = OTYPE_BOOL };
 	opt_t ohex = { .var = &hex, .olong = "hex" };
 	opt_t ologlevel = { .olong = "loglevel", .var = &loglevel, .type = OTYPE_INT };
+	opt_t opkts = { .olong = "pkts", .var = &PKTS, .type = OTYPE_INT };
 	opt_t oquiet = { .oshort = 'q', .olong = "quiet", .var = &quiet, .type = OTYPE_BOOL };
 	opt_t overbose = { .oshort = 'v', .olong = "verbose", .var = &verbose, .type = OTYPE_BOOL };
-	opt_parser_t *parser = opt_init(6);
+	opt_parser_t *parser = opt_init(7);
 	opt_new(parser, &oblocksz);
 	opt_new(parser, &odryrun);
 	opt_new(parser, &ohex);
 	opt_new(parser, &ologlevel);
+	opt_new(parser, &opkts);
 	opt_new(parser, &oquiet);
 	opt_new(parser, &overbose);
 	rc = opt_parse(parser, argc, argv);
