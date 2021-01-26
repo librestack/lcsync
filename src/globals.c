@@ -4,6 +4,7 @@
 #include "globals.h"
 
 int (*action)(int *argc, char *argv[]) = &succeed;
+int DELAY = 0;
 int dryrun = 0;
 int hex = 0;
 int PKTS = 0;

@@ -19,14 +19,16 @@ int arg_parse(int *argc, char **argv[])
 {
 	int rc = 0;
 	opt_t oblocksz = { .olong = "blocksz", .var = &blocksize, .type = OTYPE_INT };
+	opt_t odelay = { .olong = "delay", .var = &DELAY, .type = OTYPE_INT };
 	opt_t odryrun = { .oshort = 'n', .olong = "dry-run", .var = &dryrun, .type = OTYPE_BOOL };
 	opt_t ohex = { .var = &hex, .olong = "hex" };
 	opt_t ologlevel = { .olong = "loglevel", .var = &loglevel, .type = OTYPE_INT };
 	opt_t opkts = { .olong = "pkts", .var = &PKTS, .type = OTYPE_INT };
 	opt_t oquiet = { .oshort = 'q', .olong = "quiet", .var = &quiet, .type = OTYPE_BOOL };
 	opt_t overbose = { .oshort = 'v', .olong = "verbose", .var = &verbose, .type = OTYPE_BOOL };
-	opt_parser_t *parser = opt_init(7);
+	opt_parser_t *parser = opt_init(8);
 	opt_new(parser, &oblocksz);
+	opt_new(parser, &odelay);
 	opt_new(parser, &odryrun);
 	opt_new(parser, &ohex);
 	opt_new(parser, &ologlevel);

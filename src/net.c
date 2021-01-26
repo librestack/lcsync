@@ -210,7 +210,7 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 	hdr->pkts = htobe32(howmany(iov[1].iov_len, DATA_FIXED));
 	char *temp = calloc(1, len);
 	memcpy(temp, iov[1].iov_base, len);
-	while (len) {
+	while (running && len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		DEBUG("len = %zu, sz=%zu, off = %zu", len, sz, off);
 		iov[1].iov_len = sz;
@@ -277,6 +277,7 @@ void *net_job_send_tree(void *arg)
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
 		net_send_tree(s, addr, 2, iov);
+		if (DELAY) usleep(DELAY);
 	}
 	lc_channel_free(chan);
 	lc_socket_close(sock);
@@ -491,7 +492,7 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 	net_blockhead_t *hdr = iov[0].iov_base;
 	unsigned bits = howmany(len, DATA_FIXED);
 	struct msghdr msgh = {0};
-	for (size_t idx = blk * bits; len; idx++) {
+	for (size_t idx = blk * bits; running && len; idx++) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		msgh.msg_name = addr->ai_addr;
 		msgh.msg_namelen = addr->ai_addrlen;
@@ -533,7 +534,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	DEBUG("base: %zu, min: %zu, max: %zu", base, min, max);
 	while (running) {
 		uint32_t idx = 0;
-		for (size_t blk = min; blk <= max; blk++, idx++) {
+		for (size_t blk = min; running && blk <= max; blk++, idx++) {
 			DEBUG("sending block %zu with idx=%u", blk, idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			char *ptr = mtree_blockn(stree, blk);
@@ -541,7 +542,10 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 			iov[1].iov_base = ptr; // FIXME
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
 			net_send_block(s, addr, 2, iov, idx);
-			usleep(100); // FIXME
+			if (DELAY) {
+				DEBUG("delay %i", DELAY);
+				usleep(DELAY);
+			}
 		}
 	}
 	mtree_hexdump(stree, stderr);
