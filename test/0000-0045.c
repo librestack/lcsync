@@ -18,7 +18,7 @@
 
 const int waits = 10; /* test timeout in s */
 const size_t blocks = 42;
-const size_t blocksz = 4096;
+const size_t blocksz = 1024;
 const size_t extra = 123; /* some extra bytes */
 const size_t sz = blocks * blocksz + extra;
 unsigned char hash[HASHSIZE];
@@ -56,16 +56,12 @@ void do_sync(size_t root)
 	free(data);
 }
 
-void gentestdata(char *srcdata, char *dstdata)
+void gentestdata(char *srcdata)
 {
 	/* build source data, make each block different */
 	for (size_t i = 0; i < blocks; i++) {
 		size_t off = i * blocksz;
 		memset(srcdata + off, i + 1, blocksz); /* set whole block */
-		/* copy a selection of blocks to destination, leaving some holes */
-		if ((i % 5) && (i % 7) && (i % 9)) {
-			memcpy(dstdata + off, srcdata + off, blocksz);
-		}
 	}
 	memset(srcdata + blocks * blocksz, ~0, extra);
 }
@@ -76,7 +72,7 @@ int main(void)
 	test_name("net_send_subtree() / net_sync_subtree() - non-root subtree");
 	char *srcdata = calloc(blocks, blocksz + extra);
 	char *dstdata = calloc(blocks, blocksz + extra);
-	gentestdata(srcdata, dstdata);
+	gentestdata(srcdata);
 	/* start where receiver already has the source tree */
 	stree = mtree_create(sz, blocksz);
 	dtree = mtree_create(sz, blocksz);
@@ -84,11 +80,11 @@ int main(void)
 	mtree_build(dtree, dstdata, NULL);
 	test_assert(memcmp(srcdata, dstdata, sz), "src and dst data differ before syncing");
 
-	do_sync(1);
-	do_sync(2);
-	//do_sync(4);
-	//do_sync(5);
-	//do_sync(6);
+	/* copy all subtrees at any level (this is level 2) */
+	do_sync(3);
+	do_sync(4);
+	do_sync(5);
+	do_sync(6);
 	test_assert(!memcmp(srcdata, dstdata, sz),
 			"src and dst data match after syncing (blocksz=%zu)", blocksz);
 

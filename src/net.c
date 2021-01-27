@@ -32,7 +32,7 @@ unsigned int countmap(unsigned char *map, size_t len)
 	return c;
 }
 
-static void printmap(unsigned char *map, size_t len)
+void printmap(unsigned char *map, size_t len)
 {
 	if (quiet) return;
 	logwait(); /* stop logger from scribbling until we're done */
@@ -327,9 +327,10 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 		len = (size_t)be32toh(hdr.len);
 		blk = idx / bits;
 		if (isset(bitmap, idx)) {
+			size_t min = mtree_subtree_data_min(mtree_base(stree), root);
 			off = (idx % bits) * DATA_FIXED;
 			DEBUG("recv'd a block I wanted idx=%u, blk=%zu", idx, blk);
-			memcpy(mtree_block(dtree, blk) + off, buf, len);
+			memcpy(mtree_blockn(dtree, blk + min) + off, buf, len);
 			clrbit(bitmap, idx);
 			PKTS--;
 		}
