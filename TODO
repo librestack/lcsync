@@ -4,17 +4,6 @@ Now sync using multiple threads and bredth-first search.
 refactor net_recv_data()
 net_job_diff_tree()
 
-missing tests:
-- net_recv_subtree()
-- net_send_block()
-- net_job_diff_tree()
-
-* ensure for blocksz > 1024 that bit map is set correctly for last block. ie. it
-may not be a full set of packets.
-
-* write test to sync, scribble and confirm exact countbits() to make sure we're
-not re-copying data.
-
 * test msync
 
 chunksz -> blocksz to fix inconsistency
