@@ -338,7 +338,7 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 		}
 		byt += be32toh(hdr.len);
 		DEBUG("packets still required=%u", countmap(bitmap, maplen));
-		printmap(bitmap, mtree_base(stree) * bits);
+		printmap(bitmap, mtree_base_subtree(stree, root) * bits);
 	}
 	DEBUG("receiver - all blocks received");
 	free(bitmap);
