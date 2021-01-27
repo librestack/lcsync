@@ -288,21 +288,22 @@ void *net_job_send_tree(void *arg)
 ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t root)
 {
 	TRACE("%s()", __func__);
-	ssize_t byt = 0, msglen;
-	unsigned char *bitmap = NULL;
 	char buf[DATA_FIXED];
-	net_blockhead_t hdr = {0};
-	struct iovec iov[2];
-	struct msghdr msgh = { .msg_iov = iov, .msg_iovlen = 2 };
+	unsigned char *bitmap = NULL;
 	uint32_t idx;
 	size_t blk, len, off;
 	size_t blocksz = mtree_blocksz(stree);
+	unsigned bits = howmany(blocksz, DATA_FIXED);
+	size_t maplen = howmany(mtree_base_subtree(stree, root) * bits, CHAR_BIT);
+	size_t min = mtree_subtree_data_min(mtree_base(stree), root);
+	ssize_t byt = 0, msglen;
+	net_blockhead_t hdr = {0};
+	struct iovec iov[2];
+	struct msghdr msgh = { .msg_iov = iov, .msg_iovlen = 2 };
 	DEBUG("%s(): blocks  = %zu", __func__, mtree_blocks(stree));
 	DEBUG("%s(): base    = %zu", __func__, mtree_base_subtree(stree, root));
 	DEBUG("%s(): blocksz = %zu", __func__, blocksz);
-	unsigned bits = howmany(blocksz, DATA_FIXED);
 	DEBUG("%s(): bits    = %u", __func__, bits);
-	size_t maplen = howmany(mtree_base_subtree(stree, root) * bits, CHAR_BIT);
 	DEBUG("%s(): maplen  = %zu", __func__, maplen);
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
 	if (bitmap) {
@@ -327,7 +328,6 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 		len = (size_t)be32toh(hdr.len);
 		blk = idx / bits;
 		if (isset(bitmap, idx)) {
-			size_t min = mtree_subtree_data_min(mtree_base(stree), root);
 			off = (idx % bits) * DATA_FIXED;
 			DEBUG("recv'd a block I wanted idx=%u, blk=%zu", idx, blk);
 			memcpy(mtree_blockn(dtree, blk + min) + off, buf, len);
