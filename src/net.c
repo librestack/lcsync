@@ -424,12 +424,13 @@ static void *net_job_diff_tree(void *arg)
 
 ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 {
+	unsigned channels = 1U << net_send_channels;
 	mtree_tree *stree = NULL, *dtree = NULL;
 	net_data_t *data;
-	job_t *job;
+	job_t *job[channels];
 	job_queue_t *q;
 	size_t blocksz;
-	size_t vlen = 4;
+	size_t vlen = 2;
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * vlen;
 	TRACE("%s()", __func__);
 	data = calloc(1, sz);
@@ -449,9 +450,19 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 		DEBUG("root hashes differ:");
 		hash_hex_debug(mtree_root(stree), HASHSIZE);
 		hash_hex_debug(mtree_root(dtree), HASHSIZE);
-		data->chan = 1; // FIXME - temp
-		if (data->chan == 1) {
-			net_sync_subtree(stree, dtree, data->n);
+		channels = 1; // FIXME - temp
+		data->byt = len;
+		data->iov[0].iov_len = mtree_treelen(stree);
+		data->iov[0].iov_base = stree;
+		data->iov[1].iov_len = mtree_treelen(dtree);
+		data->iov[1].iov_base = dtree;
+		for (unsigned chan = 0; chan < channels; chan++) {
+			data->n = channels - 1;
+			job[chan] = job_push_new(q, &net_job_sync_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
+		}
+		for (unsigned chan = 0; chan < channels; chan++) {
+			sem_wait(&job[chan]->done);
+			free(job[chan]);
 		}
 		// TODO: split this out into a function
 #if 0
@@ -589,27 +600,33 @@ void *net_job_send_subtree(void *arg)
 ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 {
 	TRACE("%s()", __func__);
-	size_t channels = 1U << net_send_channels; // FIXME
+	unsigned channels = 1U << net_send_channels;
+	size_t sz = sizeof(net_data_t) + sizeof(struct iovec);
 	net_data_t *data;
-	job_t *job_tree, *job_data;
+	job_t *job_tree, *job_data[channels];
 	mtree_tree *tree = mtree_create(len, blocksize);
 	job_queue_t *q = job_queue_create(channels);
 	mtree_build(tree, srcdata, q);
 	DEBUG("%s(): source tree built", __func__);
 	assert(!mtree_verify(tree, mtree_treelen(tree)));
-	data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
+	data = calloc(1, sz);
 	data->hash = mtree_root(tree);
 	data->alias = (hash) ? hash : data->hash;
 	data->byt = len;
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = tree;
-	job_tree = job_push_new(q, &net_job_send_tree, data, sizeof data, NULL, 0);
-	data->n = 0;
-	job_data = job_push_new(q, &net_job_send_subtree, data, sizeof data, NULL, 0);
+	job_tree = job_push_new(q, &net_job_send_tree, data, sz, NULL, 0);
+	channels = 1; // FIXME - temp
+	for (unsigned chan = 0; chan < channels; chan++) {
+		data->n = channels - 1;
+		job_data[chan] = job_push_new(q, &net_job_send_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
+	}
 	sem_wait(&job_tree->done);
-	sem_wait(&job_data->done);
+	for (unsigned chan = 0; chan < channels; chan++) {
+		sem_wait(&job_data[chan]->done);
+		free(job_data[chan]);
+	}
 	free(job_tree);
-	free(job_data);
 	mtree_free(tree);
 	job_queue_destroy(q);
 	free(data);
