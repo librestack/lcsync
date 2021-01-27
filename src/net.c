@@ -298,16 +298,16 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	size_t blk, len, off;
 	size_t blocksz = mtree_blocksz(stree);
 	DEBUG("%s(): blocks  = %zu", __func__, mtree_blocks(stree));
-	DEBUG("%s(): base    = %zu", __func__, mtree_base(stree));
+	DEBUG("%s(): base    = %zu", __func__, mtree_base_subtree(stree, root));
 	DEBUG("%s(): blocksz = %zu", __func__, blocksz);
 	unsigned bits = howmany(blocksz, DATA_FIXED);
 	DEBUG("%s(): bits    = %u", __func__, bits);
-	size_t maplen = howmany(mtree_base(stree) * bits, CHAR_BIT);
+	size_t maplen = howmany(mtree_base_subtree(stree, root) * bits, CHAR_BIT);
 	DEBUG("%s(): maplen  = %zu", __func__, maplen);
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
 	if (bitmap) {
 		DEBUG("packets required=%u", countmap(bitmap, maplen));
-		printmap(bitmap, mtree_base(stree) * bits);
+		printmap(bitmap, mtree_base_subtree(stree, root) * bits);
 	}
 	DEBUG("dryrun=%i", dryrun);
 	DEBUG("bitmap=%p", bitmap);
@@ -541,6 +541,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	size_t min = mtree_subtree_data_min(base, root);
 	size_t max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 	DEBUG("base: %zu, min: %zu, max: %zu", base, min, max);
+	running = 1;
 	while (running) {
 		uint32_t idx = 0;
 		for (size_t blk = min; running && blk <= max; blk++, idx++) {
