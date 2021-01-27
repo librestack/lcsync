@@ -430,24 +430,22 @@ int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * vlen;
 	net_data_t *data = calloc(1, sz);
 	data->len = vlen;
-	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
-		DEBUG("root hashes differ:");
-		hash_hex_debug(mtree_root(stree), HASHSIZE);
-		hash_hex_debug(mtree_root(dtree), HASHSIZE);
-		channels = 4; // FIXME - temp
-		data->byt = mtree_len(stree);
-		data->iov[0].iov_len = mtree_treelen(stree);
-		data->iov[0].iov_base = stree;
-		data->iov[1].iov_len = mtree_treelen(dtree);
-		data->iov[1].iov_base = dtree;
-		for (unsigned chan = 0; chan < channels; chan++) {
-			data->n = channels - 1 + chan;
-			job[chan] = job_push_new(q, &net_job_sync_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
-		}
-		for (unsigned chan = 0; chan < channels; chan++) {
-			sem_wait(&job[chan]->done);
-			free(job[chan]);
-		}
+	DEBUG("root hashes differ:");
+	hash_hex_debug(mtree_root(stree), HASHSIZE);
+	hash_hex_debug(mtree_root(dtree), HASHSIZE);
+	channels = 4; // FIXME - temp
+	data->byt = mtree_len(stree);
+	data->iov[0].iov_len = mtree_treelen(stree);
+	data->iov[0].iov_base = stree;
+	data->iov[1].iov_len = mtree_treelen(dtree);
+	data->iov[1].iov_base = dtree;
+	for (unsigned chan = 0; chan < channels; chan++) {
+		data->n = channels - 1 + chan;
+		job[chan] = job_push_new(q, &net_job_sync_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
+	}
+	for (unsigned chan = 0; chan < channels; chan++) {
+		sem_wait(&job[chan]->done);
+		free(job[chan]);
 	}
 	free(data->map);
 	free(data);
@@ -466,7 +464,9 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	*len = mtree_len(stree);
 	dtree = mtree_create(*len, blocksz);
 	mtree_build(dtree, dstdata, q);
-	net_sync_trees(stree, dtree, q);
+	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
+		net_sync_trees(stree, dtree, q);
+	}
 	job_queue_destroy(q);
 	mtree_free(stree);
 	mtree_free(dtree);
@@ -712,9 +712,6 @@ int net_sync(int *argc, char *argv[])
 
 	/* sync data */
 	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
-		DEBUG("root hashes differ:");
-		hash_hex_debug(mtree_root(stree), HASHSIZE);
-		hash_hex_debug(mtree_root(dtree), HASHSIZE);
 		net_sync_trees(stree, dtree, q);
 	}
 	job_queue_destroy(q);
