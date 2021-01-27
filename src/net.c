@@ -424,7 +424,7 @@ static void *net_job_diff_tree(void *arg)
 
 ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 {
-	unsigned channels = 1U << net_send_channels;
+	unsigned channels = 1U << net_send_channels; // FIXME - get this from tree
 	mtree_tree *stree = NULL, *dtree = NULL;
 	net_data_t *data;
 	job_t *job[channels];
@@ -450,14 +450,14 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 		DEBUG("root hashes differ:");
 		hash_hex_debug(mtree_root(stree), HASHSIZE);
 		hash_hex_debug(mtree_root(dtree), HASHSIZE);
-		channels = 1; // FIXME - temp
-		data->byt = len;
+		channels = 4; // FIXME - temp
+		data->byt = *len;
 		data->iov[0].iov_len = mtree_treelen(stree);
 		data->iov[0].iov_base = stree;
 		data->iov[1].iov_len = mtree_treelen(dtree);
 		data->iov[1].iov_base = dtree;
 		for (unsigned chan = 0; chan < channels; chan++) {
-			data->n = channels - 1;
+			data->n = channels - 1 + chan;
 			job[chan] = job_push_new(q, &net_job_sync_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
 		}
 		for (unsigned chan = 0; chan < channels; chan++) {
@@ -601,6 +601,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 {
 	TRACE("%s()", __func__);
 	unsigned channels = 1U << net_send_channels;
+	size_t blocks;
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec);
 	net_data_t *data;
 	job_t *job_tree, *job_data[channels];
@@ -609,6 +610,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	mtree_build(tree, srcdata, q);
 	DEBUG("%s(): source tree built", __func__);
 	assert(!mtree_verify(tree, mtree_treelen(tree)));
+	blocks = mtree_blocks(tree);
 	data = calloc(1, sz);
 	data->hash = mtree_root(tree);
 	data->alias = (hash) ? hash : data->hash;
@@ -616,13 +618,14 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = tree;
 	job_tree = job_push_new(q, &net_job_send_tree, data, sz, NULL, 0);
-	channels = 1; // FIXME - temp
-	for (unsigned chan = 0; chan < channels; chan++) {
-		data->n = channels - 1;
+	channels = 4; // FIXME - temp
+	DEBUG("I got me %zu blocks and %u channels - I gonna have myself a hoedown!", blocks, channels);
+	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
+		data->n = channels - 1 + chan;
 		job_data[chan] = job_push_new(q, &net_job_send_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
 	}
 	sem_wait(&job_tree->done);
-	for (unsigned chan = 0; chan < channels; chan++) {
+	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
 		sem_wait(&job_data[chan]->done);
 		free(job_data[chan]);
 	}
