@@ -290,8 +290,10 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	TRACE("%s()", __func__);
 	ssize_t byt = 0, msglen;
 	unsigned char *bitmap = NULL;
-	char buf[MTU_FIXED];
-	net_blockhead_t *hdr;
+	char buf[DATA_FIXED];
+	net_blockhead_t hdr = {0};
+	struct iovec iov[2];
+	struct msghdr msgh = { .msg_iov = iov, .msg_iovlen = 2 };
 	uint32_t idx;
 	size_t blk, len, off;
 	size_t blocksz = mtree_blocksz(stree);
@@ -310,28 +312,31 @@ ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t 
 	DEBUG("dryrun=%i", dryrun);
 	DEBUG("bitmap=%p", bitmap);
 	DEBUG("PKTS=%zu", PKTS);
+	iov[0].iov_base = &hdr;
+	iov[0].iov_len = sizeof hdr;
+	iov[1].iov_base = buf;
+	iov[1].iov_len = DATA_FIXED;
 	while (!dryrun && bitmap && countmap(bitmap, maplen) && PKTS) {
-		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
+		if ((msglen = recvmsg(sock, &msgh, 0)) == -1) {
 			perror("recv()");
 			byt = -1;
 			break;
 		}
 		DEBUG("%s(): recv %zi bytes", __func__, msglen);
-		hdr = (net_blockhead_t *)buf;
-		idx = be32toh(hdr->idx);
-		len = (size_t)be32toh(hdr->len);
+		idx = be32toh(hdr.idx);
+		len = (size_t)be32toh(hdr.len);
 		blk = idx / bits;
 		if (isset(bitmap, idx)) {
 			off = (idx % bits) * DATA_FIXED;
 			DEBUG("recv'd a block I wanted idx=%u, blk=%zu", idx, blk);
-			memcpy(mtree_block(dtree, blk) + off, buf + sizeof (net_blockhead_t), len);
+			memcpy(mtree_block(dtree, blk) + off, buf, len);
 			clrbit(bitmap, idx);
 			PKTS--;
 		}
 		else {
 			DEBUG("recv'd a block I didn't want idx=%u, blk=%zu", idx, blk);
 		}
-		byt += be32toh(hdr->len);
+		byt += be32toh(hdr.len);
 		DEBUG("packets still required=%u", countmap(bitmap, maplen));
 		printmap(bitmap, mtree_base(stree) * bits);
 	}
@@ -357,6 +362,7 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 	DEBUG("%s(): receiving subtree at root %zu", __func__, root);
 
 	mtree_hexdump(stree, stderr);
+	DEBUG("recving subtree with root %zu", root);
 	byt = net_recv_subtree(s, stree, dtree, root);
 
 	lc_channel_part(chan);
@@ -444,7 +450,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 		hash_hex_debug(mtree_root(dtree), HASHSIZE);
 		data->chan = 1; // FIXME - temp
 		if (data->chan == 1) {
-			net_sync_subtree(stree, dtree, 0);
+			net_sync_subtree(stree, dtree, data->n);
 		}
 		// TODO: split this out into a function
 #if 0
@@ -573,6 +579,7 @@ void *net_job_send_subtree(void *arg)
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *stree = data->iov[0].iov_base;
 	size_t root = data->n;
+	DEBUG("sending subtree with root %zu", root);
 	net_send_subtree(stree, root);
 	return arg;
 }
