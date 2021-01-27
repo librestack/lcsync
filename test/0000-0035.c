@@ -14,7 +14,7 @@
 #include <time.h>
 #include <unistd.h>
 
-const int waits = 10; /* test timeout in s */
+const int waits = 20; /* test timeout in s */
 const size_t blocks = 42;
 size_t blocksz;
 size_t sz;

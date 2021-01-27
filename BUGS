@@ -1,6 +1,4 @@
 -------------------------------------------------------------------------------
-test 0027 broken by multi-channel code
--------------------------------------------------------------------------------
 test 0035 (check mode)
 net.c:526 (again)
 Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)

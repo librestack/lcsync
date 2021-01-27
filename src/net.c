@@ -422,36 +422,20 @@ static void *net_job_diff_tree(void *arg)
 	return NULL;
 }
 
-ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
+int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 {
 	unsigned channels = 1U << net_send_channels; // FIXME - get this from tree
-	mtree_tree *stree = NULL, *dtree = NULL;
-	net_data_t *data;
 	job_t *job[channels];
-	job_queue_t *q;
-	size_t blocksz;
 	size_t vlen = 2;
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * vlen;
-	TRACE("%s()", __func__);
-	data = calloc(1, sz);
+	net_data_t *data = calloc(1, sz);
 	data->len = vlen;
-	data->alias = hash;
-	data->hash = hash;
-	q = job_queue_create(1);
-
-	if (net_fetch_tree(hash, &stree) == -1) return -1;
-	blocksz = mtree_blocksz(stree);
-	*len = mtree_len(stree);
-	dtree = mtree_create(*len, blocksz);
-	mtree_build(dtree, dstdata, q);
-
-	/* if root nodes differ, perform bredth-first search */
 	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
 		DEBUG("root hashes differ:");
 		hash_hex_debug(mtree_root(stree), HASHSIZE);
 		hash_hex_debug(mtree_root(dtree), HASHSIZE);
 		channels = 4; // FIXME - temp
-		data->byt = *len;
+		data->byt = mtree_len(stree);
 		data->iov[0].iov_len = mtree_treelen(stree);
 		data->iov[0].iov_base = stree;
 		data->iov[1].iov_len = mtree_treelen(dtree);
@@ -464,8 +448,33 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 			sem_wait(&job[chan]->done);
 			free(job[chan]);
 		}
-		// TODO: split this out into a function
+	}
+	free(data->map);
+	free(data);
+	return 0;
+}
+
+ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
+{
+	mtree_tree *stree = NULL, *dtree = NULL;
+	job_queue_t *q;
+	size_t blocksz;
+	TRACE("%s()", __func__);
+	q = job_queue_create(1U << net_send_channels);
+	if (net_fetch_tree(hash, &stree) == -1) return -1;
+	blocksz = mtree_blocksz(stree);
+	*len = mtree_len(stree);
+	dtree = mtree_create(*len, blocksz);
+	mtree_build(dtree, dstdata, q);
+	net_sync_trees(stree, dtree, q);
+	job_queue_destroy(q);
+	mtree_free(stree);
+	mtree_free(dtree);
+	return 0;
+}
 #if 0
+		// TODO: split this out into a function
+	/* if root nodes differ, perform bredth-first search */
 		else {
 			data->map = calloc(1, howmany(data->chan, CHAR_BIT));
 			for (size_t i = 0; i < data->chan; i++) setbit(data->map, i);
@@ -491,15 +500,6 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 		}
 		// TODO: recv data blocks - this will happen in net_job_diff_tree()
 #endif
-	}
-	/* clean up */
-	job_queue_destroy(q);
-	free(data->map);
-	free(data);
-	mtree_free(stree);
-	mtree_free(dtree);
-	return 0;
-}
 
 /* break a block into DATA_FIXED size pieces and send with header
  * header is in iov[0], data in iov[1] 
@@ -686,6 +686,7 @@ int net_sync(int *argc, char *argv[])
 	char *dmap = NULL;
 	struct sigaction sa_int = { .sa_handler = net_stop };
 	unsigned char hash[HASHSIZE];
+	job_queue_t *q = job_queue_create(1U << net_send_channels);
 	mtree_tree *stree = NULL;
 	mtree_tree *dtree;
 	TRACE("%s('%s')", __func__, argv[0]);
@@ -714,8 +715,9 @@ int net_sync(int *argc, char *argv[])
 		DEBUG("root hashes differ:");
 		hash_hex_debug(mtree_root(stree), HASHSIZE);
 		hash_hex_debug(mtree_root(dtree), HASHSIZE);
-		net_sync_subtree(stree, dtree, 0); // FIXME
+		net_sync_trees(stree, dtree, q);
 	}
+	job_queue_destroy(q);
 	mtree_free(stree);
 	mtree_free(dtree);
 	return 0;
