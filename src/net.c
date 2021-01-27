@@ -714,7 +714,7 @@ int net_sync(int *argc, char *argv[])
 		DEBUG("root hashes differ:");
 		hash_hex_debug(mtree_root(stree), HASHSIZE);
 		hash_hex_debug(mtree_root(dtree), HASHSIZE);
-		net_sync_subtree(stree, dtree, 0);
+		net_sync_subtree(stree, dtree, 0); // FIXME
 	}
 	mtree_free(stree);
 	mtree_free(dtree);
