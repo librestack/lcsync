@@ -3,6 +3,7 @@
 
 #include "test.h"
 #include "../src/globals.h"
+#include "../src/log.h"
 #include "../src/job.h"
 #include "../src/net.h"
 #include "../src/mtree.h"
@@ -78,6 +79,7 @@ void gentestdata(char *srcdata, char *dstdata)
 
 int main(void)
 {
+	loginit();
 	blocksz = blocksize;
 	sz = blocks * blocksz;
 	char *srcdata = calloc(blocks, blocksz);
