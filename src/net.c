@@ -538,28 +538,30 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 {
 	TRACE("%s()", __func__);
 	const int on = 1;
-	size_t vlen = 2;
+	int s;
+	char *ptr;
+	size_t vlen = 2, base, min, max;
 	struct iovec iov[vlen];
+	struct addrinfo *addr;
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
 	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
 	lc_channel_t *chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE);
 	lc_channel_bind(sock, chan);
-	int s = lc_channel_socket_raw(chan);
-	struct addrinfo *addr = lc_channel_addrinfo(chan);
+	s = lc_channel_socket_raw(chan);
+	addr = lc_channel_addrinfo(chan);
 	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
-	size_t base = mtree_base(stree);
-	size_t min = mtree_subtree_data_min(base, root);
-	size_t max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
+	base = mtree_base(stree);
+	min = mtree_subtree_data_min(base, root);
+	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 	DEBUG("base: %zu, min: %zu, max: %zu", base, min, max);
 	for (running = 1; running; ) {
-		uint32_t idx = 0;
-		for (size_t blk = min; running && blk <= max; blk++, idx++) {
-			DEBUG("sending block %zu with idx=%u", blk, idx);
+		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
+			DEBUG("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
-			char *ptr = mtree_blockn(stree, blk);
+			ptr = mtree_blockn(stree, blk);
 			if (!ptr) continue;
 			iov[1].iov_base = ptr; // FIXME
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
