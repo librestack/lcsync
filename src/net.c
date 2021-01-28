@@ -538,6 +538,8 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 {
 	TRACE("%s()", __func__);
 	const int on = 1;
+	size_t vlen = 2;
+	struct iovec iov[vlen];
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
 	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
@@ -545,8 +547,6 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	lc_channel_bind(sock, chan);
 	int s = lc_channel_socket_raw(chan);
 	struct addrinfo *addr = lc_channel_addrinfo(chan);
-	size_t vlen = 2;
-	struct iovec iov[vlen];
 	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
