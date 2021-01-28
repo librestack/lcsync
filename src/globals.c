@@ -12,7 +12,7 @@ int quiet = 0;
 int verbose = 0;
 char *progname;
 size_t blocksize = 1024;
-uint8_t net_send_channels = 3;
+uint8_t net_send_channels = 6;
 
 int succeed(int *argc, char *argv[])
 {

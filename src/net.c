@@ -433,7 +433,6 @@ int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 	DEBUG("root hashes differ:");
 	hash_hex_debug(mtree_root(stree), HASHSIZE);
 	hash_hex_debug(mtree_root(dtree), HASHSIZE);
-	channels = 4; // FIXME - temp
 	data->byt = mtree_len(stree);
 	data->iov[0].iov_len = mtree_treelen(stree);
 	data->iov[0].iov_base = stree;
@@ -606,7 +605,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	net_data_t *data;
 	job_t *job_tree, *job_data[channels];
 	mtree_tree *tree = mtree_create(len, blocksize);
-	job_queue_t *q = job_queue_create(channels);
+	job_queue_t *q = job_queue_create(channels + 1);
 	mtree_build(tree, srcdata, q);
 	DEBUG("%s(): source tree built", __func__);
 	assert(!mtree_verify(tree, mtree_treelen(tree)));
@@ -618,8 +617,6 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = tree;
 	job_tree = job_push_new(q, &net_job_send_tree, data, sz, NULL, 0);
-	channels = 4; // FIXME - temp
-	DEBUG("I got me %zu blocks and %u channels - I gonna have myself a hoedown!", blocks, channels);
 	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
 		data->n = channels - 1 + chan;
 		job_data[chan] = job_push_new(q, &net_job_send_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);

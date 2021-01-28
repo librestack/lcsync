@@ -3,6 +3,7 @@
 
 #include "test.h"
 #include "../src/globals.h"
+#include "../src/log.h"
 #include "../src/job.h"
 #include "../src/net.h"
 #include <errno.h>
@@ -109,6 +110,7 @@ static void gentestfiles(char *src, char *dst)
 
 int main(void)
 {
+	loginit();
 	char src[] = "0000-0027.src.tmp.XXXXXX";
 	char dst[] = "0000-0027.dst.tmp.XXXXXX";
 	test_name("net_send_data() / net_recv_data()");
