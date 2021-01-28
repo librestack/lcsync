@@ -518,7 +518,7 @@ ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iove
 	unsigned bits = howmany(len, DATA_FIXED);
 	struct msghdr msgh = {0};
 	for (size_t idx = blk * bits; running && len; idx++) {
-		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
+		sz = MIN(len, DATA_FIXED);
 		msgh.msg_name = addr->ai_addr;
 		msgh.msg_namelen = addr->ai_addrlen;
 		msgh.msg_iov = iov;
