@@ -1,8 +1,6 @@
 NEXT ACTIONS:
 
 Now sync using multiple threads and bredth-first search.
-refactor net_recv_data()
-net_job_diff_tree()
 
 * test msync
 
@@ -14,7 +12,7 @@ chunksz -> blocksz to fix inconsistency
 * send file permissions - set in net_sync()
 * multicast sync
 * MTU path discovery for block size
-* MLD triggering - don't send when noone listening
+* MLD triggering - don't send when noone listening (add MLD functions to librecast API)
 * flow control
 * FEC
 * resizing of merkle tree for changing data
