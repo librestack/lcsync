@@ -242,6 +242,8 @@ void *net_job_send_tree(void *arg)
 {
 	TRACE("%s()", __func__);
 	const int on = 1;
+	size_t vlen = 2;
+	struct iovec iov[vlen];
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *tree = (mtree_tree *)data->iov[0].iov_base;
 	void * base = mtree_data(tree, 0);
@@ -254,7 +256,6 @@ void *net_job_send_tree(void *arg)
 	lc_channel_bind(sock, chan);
 	int s = lc_channel_socket_raw(chan);
 	struct addrinfo *addr = lc_channel_addrinfo(chan);
-	struct iovec iov[2] = {0};
 	net_treehead_t hdr = {
 		.data = htobe64((uint64_t)data->byt),
 		.size = htobe64(data->iov[0].iov_len),
@@ -277,7 +278,7 @@ void *net_job_send_tree(void *arg)
 	while (running) {
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
-		net_send_tree(s, addr, 2, iov);
+		net_send_tree(s, addr, vlen, iov);
 	}
 	lc_channel_free(chan);
 	lc_socket_close(sock);
@@ -553,8 +554,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	size_t min = mtree_subtree_data_min(base, root);
 	size_t max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 	DEBUG("base: %zu, min: %zu, max: %zu", base, min, max);
-	running = 1;
-	while (running) {
+	for (running = 1; running; ) {
 		uint32_t idx = 0;
 		for (size_t blk = min; running && blk <= max; blk++, idx++) {
 			DEBUG("sending block %zu with idx=%u", blk, idx);
