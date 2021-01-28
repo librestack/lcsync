@@ -43,6 +43,10 @@ void printmap(unsigned char *map, size_t len)
 	logdone(); /* release lock */
 }
 
+void net_reset()
+{
+	running = 1;
+}
 
 void net_stop(int signo)
 {
@@ -557,7 +561,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	min = mtree_subtree_data_min(base, root);
 	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 	DEBUG("base: %zu, min: %zu, max: %zu", base, min, max);
-	for (running = 1; running; ) {
+	while (running) {
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
 			DEBUG("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_len = mtree_blockn_len(stree, blk);

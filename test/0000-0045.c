@@ -36,6 +36,7 @@ void do_sync(size_t root)
 	data->iov[1].iov_base = dtree;
 
 	/* queue up send / recv jobs */
+	net_reset();
 	jobq = job_queue_create(2);
 	job_send = job_push_new(jobq, &net_job_send_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
 	job_recv = job_push_new(jobq, &net_job_sync_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);

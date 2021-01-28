@@ -74,6 +74,9 @@ void printmap(unsigned char *map, size_t len);
 /* signal server threads to stop work/exit */
 void net_stop(int signo);
 
+/* reset running flag after net_stop() */
+void net_reset();
+
 /* pack tree header */
 net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree);
 
