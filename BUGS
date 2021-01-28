@@ -6,8 +6,6 @@ net.c:526 (again)
 Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)
 probably caused by a bug in the multi-channel sending code
 -------------------------------------------------------------------------------
-net_sync net.c:717 - hardcoded 0=root subtree sync
--------------------------------------------------------------------------------
 net_recv_data() incomplete - finish breadth-first search code
 -------------------------------------------------------------------------------
 net_send_block() - works without offset?  Works with ptr increment, but not
