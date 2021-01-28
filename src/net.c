@@ -390,6 +390,7 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 //	call mtree_diff_subtree() to build channel map
 //	sync data on that channel
 //	(this will be a separate function)
+#if 0
 static void *net_job_diff_tree(void *arg)
 {
 	net_data_t *data = (net_data_t *)arg;
@@ -426,6 +427,7 @@ static void *net_job_diff_tree(void *arg)
 	}
 	return NULL;
 }
+#endif
 
 static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 {
