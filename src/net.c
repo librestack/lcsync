@@ -43,7 +43,7 @@ void printmap(unsigned char *map, size_t len)
 	logdone(); /* release lock */
 }
 
-void net_reset()
+void net_reset(void)
 {
 	running = 1;
 }
@@ -290,7 +290,7 @@ void *net_job_send_tree(void *arg)
 	return NULL;
 }
 
-ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t root)
+static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, size_t root)
 {
 	TRACE("%s()", __func__);
 	char buf[DATA_FIXED];
@@ -427,7 +427,7 @@ static void *net_job_diff_tree(void *arg)
 	return NULL;
 }
 
-int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
+static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 {
 	unsigned channels = 1U << net_send_channels; // FIXME - get this from tree
 	job_t *job[channels];
@@ -508,7 +508,7 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 /* break a block into DATA_FIXED size pieces and send with header
  * header is in iov[0], data in iov[1] 
  * idx and len need updating */
-ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov, size_t blk)
+static ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov, size_t blk)
 {
 	ssize_t byt = 0;
 	size_t sz;
