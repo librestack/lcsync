@@ -544,7 +544,8 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	lc_channel_bind(sock, chan);
 	int s = lc_channel_socket_raw(chan);
 	struct addrinfo *addr = lc_channel_addrinfo(chan);
-	struct iovec iov[2] = {0};
+	size_t vlen = 2;
+	struct iovec iov[vlen];
 	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
@@ -562,7 +563,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 			if (!ptr) continue;
 			iov[1].iov_base = ptr; // FIXME
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
-			net_send_block(s, addr, 2, iov, idx);
+			net_send_block(s, addr, vlen, iov, idx);
 			if (DELAY) {
 				DEBUG("delay %i", DELAY);
 				usleep(DELAY);
