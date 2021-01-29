@@ -85,7 +85,7 @@ int file_sync(int *argc, char *argv[])
 	int c = 0;
 	int fds, fdd;
 	char *smap = NULL, *dmap = NULL;
-	size_t base, chunksz, n, nthreads, off, sz;
+	size_t base, blocksz, n, nthreads, off, sz;
 	ssize_t sz_s, sz_d;
 	struct stat sbs, sbd;
 	job_queue_t *jobq;
@@ -98,14 +98,14 @@ int file_sync(int *argc, char *argv[])
 	if ((sz_d = file_map(dst, &fdd, &dmap, sz_s, PROT_READ|PROT_WRITE, &sbd)) == -1)
 		return -1;
 	fchmod(fdd, sbs.st_mode);
-	chunksz = (size_t)file_chunksize();
+	blocksz = (size_t)file_chunksize();
 	if (sbs.st_size > sbd.st_size) {
 		sz = sbs.st_size - sbd.st_size;
 		memcpy(dmap + sbs.st_size - sz, smap + sbs.st_size - sz, sz);
 	}
 	if (sbd.st_size) {
-		stree = mtree_create(sz_s, chunksz);
-		dtree = mtree_create(sz_s, chunksz);
+		stree = mtree_create(sz_s, blocksz);
+		dtree = mtree_create(sz_s, blocksz);
 		base = mtree_base(stree);
 		DEBUG("source tree with %zu nodes (base = %zu, levels = %zu)",
 				mtree_nodes(stree), base, mtree_lvl(stree));
@@ -115,8 +115,8 @@ int file_sync(int *argc, char *argv[])
 		mtree_build(dtree, dmap, jobq);
 		while ((n = mtree_diff(stree, dtree))) {
 			n--;
-			sz = ((n + 1) * chunksz > (size_t)sz_s) ? sz_s % chunksz : chunksz;
-			off = n * chunksz;
+			sz = ((n + 1) * blocksz > (size_t)sz_s) ? sz_s % blocksz : blocksz;
+			off = n * blocksz;
 			DEBUG("syncing chunk %zu (offset=%zu)", n, off);
 			memcpy(dmap + off, smap + off, sz);
 			mtree_update(dtree, dmap, n);

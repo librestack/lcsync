@@ -11,25 +11,25 @@ int main()
 	mtree_tree *t2 = NULL;
 	size_t off;
 	const size_t sz = 17;
-	const size_t chunksz = 4096;
-	char *data = calloc(sz, chunksz);
-	char *copy = calloc(sz, chunksz);
+	const size_t blocksz = 4096;
+	char *data = calloc(sz, blocksz);
+	char *copy = calloc(sz, blocksz);
 
 	test_name("mtree_update()");
 
-	t1 = mtree_create(sz * chunksz, chunksz);
-	t2 = mtree_create(sz * chunksz, chunksz);
+	t1 = mtree_create(sz * blocksz, blocksz);
+	t2 = mtree_create(sz * blocksz, blocksz);
 	for (size_t i = 0; i < sz; i++) {
-		(data + i * chunksz)[0] = i;
+		(data + i * blocksz)[0] = i;
 	}
 
 	for (size_t i = 0; i < sz; i++) {
 		mtree_build(t1, data, NULL);
 		mtree_build(t2, data, NULL);
 		test_assert(mtree_diff     (t1, t2) == 0, "trees match");
-		memcpy(copy, data, sz * chunksz);
+		memcpy(copy, data, sz * blocksz);
 		fprintf(stderr, "scribbling on chunk %zu\n", i);
-		off = i * chunksz;
+		off = i * blocksz;
 		(copy + off)[0] = !(data + off)[0];
 		mtree_build(t2, copy, NULL);
 		test_assert(mtree_cmp(t1, t2) != 0, "mtree_cmp()");

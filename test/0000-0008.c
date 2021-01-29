@@ -33,9 +33,9 @@ int main()
 	mtree_free(tree);
 	free(data);
 
-	size_t chunksz = 4096;
-	data = calloc(17, chunksz);
-	tree = mtree_create(17 * chunksz, chunksz);
+	size_t blocksz = 4096;
+	data = calloc(17, blocksz);
+	tree = mtree_create(17 * blocksz, blocksz);
 	mtree_build(tree, data, NULL);
 	test_assert(!mtree_verify(tree, mtree_treelen(tree)), "valid tree");
 	mtree_node(tree, 4, 2)[31] = !(mtree_node(tree, 4, 2)[31]); /* damage tree */

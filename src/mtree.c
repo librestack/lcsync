@@ -19,7 +19,7 @@
 
 struct mtree_tree {
 	size_t base;		/* size of base of tree (pow of 2) */
-	size_t chunksz;		/* size of block */
+	size_t blocksz;		/* size of block */
 	size_t nchunks;		/* number of blocks (<= base)) */
 	size_t len;		/* total size of base (file) data */
 	size_t lvls;		/* count of levels in tree */
@@ -127,7 +127,7 @@ size_t mtree_size(size_t base)
 
 size_t mtree_blocksz(mtree_tree *tree)
 {
-	return tree->chunksz;
+	return tree->blocksz;
 }
 
 size_t mtree_len(mtree_tree *tree)
@@ -218,8 +218,8 @@ size_t mtree_block_len(mtree_tree *tree, size_t n)
 {
 	size_t mod;
 	if (n > tree->nchunks) return 0;
-	mod = tree->len % tree->chunksz;
-	return ((mod) && n == tree->nchunks) ? mod : tree->chunksz;
+	mod = tree->len % tree->blocksz;
+	return ((mod) && n == tree->nchunks) ? mod : tree->blocksz;
 }
 
 size_t mtree_blockn_len(mtree_tree *tree, size_t n)
@@ -229,14 +229,14 @@ size_t mtree_blockn_len(mtree_tree *tree, size_t n)
 	size_t max = mtree_subtree_data_max(mtree_base(tree), 0);
 	max = MIN(max, min + tree->nchunks);
 	if (n < min || n > max || n > min + tree->nchunks) return 0;
-	mod = tree->len % tree->chunksz;
-	return ((mod) && (n == max)) ? mod : tree->chunksz;
+	mod = tree->len % tree->blocksz;
+	return ((mod) && (n == max)) ? mod : tree->blocksz;
 }
 
 char *mtree_block(mtree_tree *tree, size_t n)
 {
 	if (n > tree->nchunks) return NULL;
-	return tree->data + tree->chunksz * n;
+	return tree->data + tree->blocksz * n;
 }
 
 char *mtree_blockn(mtree_tree *tree, size_t n)
@@ -244,7 +244,7 @@ char *mtree_blockn(mtree_tree *tree, size_t n)
 	size_t min = mtree_subtree_data_min(mtree_base(tree), 0);
 	size_t max = mtree_subtree_data_max(mtree_base(tree), 0);
 	if (n < min || n > max || n > min + tree->nchunks) return NULL;
-	return tree->data + tree->chunksz * (n - min);
+	return tree->data + tree->blocksz * (n - min);
 }
 
 static int mtree_resize(mtree_tree *tree)
@@ -303,10 +303,10 @@ static void *mtree_hash_data(void *arg)
 	last = mtree_data_last(q->tree->base, nthreads, mt->id);
 	for (size_t z = first; z <= last; z++) {
 		if (z < q->tree->nchunks) {
-			len = q->tree->len - q->tree->chunksz * z;
-			sz = (len < q->tree->chunksz) ? len : q->tree->chunksz;
+			len = q->tree->len - q->tree->blocksz * z;
+			sz = (len < q->tree->blocksz) ? len : q->tree->blocksz;
 			wptr = mtree_data(q->tree, z);
-			rptr = (unsigned char *)q->data + z * q->tree->chunksz;
+			rptr = (unsigned char *)q->data + z * q->tree->blocksz;
 			crypto_generichash(wptr, HASHSIZE, rptr, sz, NULL, 0);
 		}
 		sem_post(&q->done[mtree_node_num(q->tree, 0, z)]);
@@ -388,16 +388,16 @@ void mtree_setdata(mtree_tree *tree, unsigned char *data)
 	tree->tree = data;
 }
 
-mtree_tree *mtree_create(size_t len, size_t chunksz)
+mtree_tree *mtree_create(size_t len, size_t blocksz)
 {
 	mtree_tree *tree = calloc(1, sizeof(mtree_tree));
 	if (!tree) {
 		perror("calloc()");
 		return NULL;
 	}
-	tree->chunksz = chunksz;
+	tree->blocksz = blocksz;
 	tree->len = len;
-	tree->nchunks = len / chunksz + !!(len % chunksz);
+	tree->nchunks = len / blocksz + !!(len % blocksz);
 	tree->base = next_pow2(tree->nchunks);
 	tree->lvls = mtree_levels(tree->base);
 	tree->nodes = mtree_size(tree->base);
@@ -532,11 +532,11 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root, u
 void mtree_update(mtree_tree *tree, char *data, size_t n)
 {
 	unsigned char *parent, *child1, *child2;
-	size_t sz = ((n + 1) * tree->chunksz > tree->len) ? tree->len % tree->chunksz : tree->chunksz;
+	size_t sz = ((n + 1) * tree->blocksz > tree->len) ? tree->len % tree->blocksz : tree->blocksz;
 	crypto_generichash_state state;
 
 	/* rehash changed data chunk */
-	child1 = (unsigned char *)data + tree->chunksz * n;
+	child1 = (unsigned char *)data + tree->blocksz * n;
 	crypto_generichash(mtree_data(tree, n), HASHSIZE, child1, sz, NULL, 0);
 
 	/* update parent nodes */

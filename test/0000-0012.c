@@ -12,7 +12,7 @@ int main()
 	test_name("file_sync()");
 
 	const size_t nchunks = 127;
-	const size_t chunksz = file_chunksize();
+	const size_t blocksz = file_chunksize();
 	FILE *fds, *fdd;
 	char src[] = "0000-0012.src.tmp.XXXXXX";
 	char dst[] = "0000-0012.dst.tmp.XXXXXX";
@@ -23,10 +23,10 @@ int main()
 
 	/* write some data chunks */
 	fds = fopen(src, "w");
-	char *data = calloc(1, chunksz);
+	char *data = calloc(1, blocksz);
 	for (size_t i = 1; i <= nchunks; i++) {
 		data[0] = (char)i;
-		fwrite(data, 1, chunksz, fds);
+		fwrite(data, 1, blocksz, fds);
 	}
 	fwrite(data, 1, 17, fds); /* write a few extra bytes */
 	fclose(fds);
@@ -41,8 +41,8 @@ int main()
 	test_assert(fdd != NULL, "destination file '%s' does not exist", dst);
 	if (fdd) {
 		for (size_t i = 1; i <= nchunks; i++) {
-			byt = fread(data, 1, chunksz, fdd);
-			test_assert(byt == chunksz, "%zu/%zu bytes read", byt, chunksz);
+			byt = fread(data, 1, blocksz, fdd);
+			test_assert(byt == blocksz, "%zu/%zu bytes read", byt, blocksz);
 			test_assert(data[0] == (char)i, "reading chunk %zu", i);
 		}
 		byt = fread(data, 1, 17, fdd);
@@ -51,11 +51,11 @@ int main()
 
 		/* scribble on the destination */
 		fdd = fopen(dst, "r+");
-		test_assert(fseek(fdd, chunksz * 7, SEEK_SET) != -1, "fseek()");
+		test_assert(fseek(fdd, blocksz * 7, SEEK_SET) != -1, "fseek()");
 		test_assert(fputc('x', fdd) == 'x', "fputc()");
-		test_assert(fseek(fdd, chunksz * 3, SEEK_SET) != -1, "fseek()");
+		test_assert(fseek(fdd, blocksz * 3, SEEK_SET) != -1, "fseek()");
 		test_assert(fputc('x', fdd) == 'x', "fputc()");
-		test_assert(fseek(fdd, chunksz * 11, SEEK_SET) != -1, "fseek()");
+		test_assert(fseek(fdd, blocksz * 11, SEEK_SET) != -1, "fseek()");
 		test_assert(fputc('x', fdd) == 'x', "fputc()");
 		test_assert(fputc('y', fdd) == 'y', "fputc()");
 		test_assert(fputc('z', fdd) == 'z', "fputc()");
@@ -67,8 +67,8 @@ int main()
 		/* check matched */
 		fdd = fopen(dst, "r");
 		for (size_t i = 1; i <= nchunks; i++) {
-			byt = fread(data, 1, chunksz, fdd);
-			test_assert(byt == chunksz, "%zu/%zu bytes read", byt, chunksz);
+			byt = fread(data, 1, blocksz, fdd);
+			test_assert(byt == blocksz, "%zu/%zu bytes read", byt, blocksz);
 			test_assert(data[0] == (char)i, "reading chunk %zu", i);
 		}
 		byt = fread(data, 1, 17, fdd);

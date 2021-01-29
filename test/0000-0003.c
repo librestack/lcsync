@@ -10,22 +10,22 @@ int main()
 	mtree_tree *tree = NULL;
 	char *data;
 	size_t len;
-	size_t chunksz;
+	size_t blocksz;
 	unsigned char hash[HASHSIZE] = "";
 	unsigned char *ptr;
 
 	test_name("mtree_create() - single node");
 
 	/* write data */
-	chunksz = 4096;
-	len = chunksz;
+	blocksz = 4096;
+	len = blocksz;
 	data = calloc(1, len);
 	snprintf(data, len, "%i", 1);
 
 	fprintf(stderr, "'%s'\n", data);
 
 	/* build tree */
-	tree = mtree_create(len, chunksz);
+	tree = mtree_create(len, blocksz);
 	test_assert(tree != NULL, "tree alloc'd");
 	test_assert(mtree_base(tree) == 1, "mtree_base()");
 	test_assert(mtree_lvl(tree) == 1, "mtree_levels()");

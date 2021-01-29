@@ -4,8 +4,6 @@ Now sync using multiple threads and bredth-first search.
 
 * test msync
 
-chunksz -> blocksz to fix inconsistency
-
 ----------------------------------------------------------------------
 * net_dump() (implement --hex for network files)
 * build without bsd/md5.h on Ubuntu

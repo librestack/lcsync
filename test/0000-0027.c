@@ -92,16 +92,16 @@ static void do_sync(char *src, char *dst)
 static void gentestfiles(char *src, char *dst)
 {
 	const size_t nchunks = 127;
-	const size_t chunksz = blocksize;
+	const size_t blocksz = blocksize;
 	FILE *fds;
 	test_assert(mkstemp(src) != -1, "mkstemp()");
 	size_t off = strlen(src) - 6;
 	memcpy(dst + off, src + off, 6);
 	fds = fopen(src, "w");
-	char *data = calloc(1, chunksz);
+	char *data = calloc(1, blocksz);
 	for (size_t i = 1; i <= nchunks; i++) {
 		data[0] = (char)i;
-		fwrite(data, 1, chunksz, fds);
+		fwrite(data, 1, blocksz, fds);
 	}
 	fwrite(data, 1, 17, fds); /* write a few extra bytes */
 	fclose(fds);

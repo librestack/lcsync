@@ -43,12 +43,12 @@ int main()
 	mtree_free(t2);
 
 	const size_t sz = 17;
-	const size_t chunksz = 4096;
-	char *data = calloc(sz, chunksz);
-	t1 = mtree_create(sz * chunksz, chunksz);
-	t2 = mtree_create(sz * chunksz, chunksz);
+	const size_t blocksz = 4096;
+	char *data = calloc(sz, blocksz);
+	t1 = mtree_create(sz * blocksz, blocksz);
+	t2 = mtree_create(sz * blocksz, blocksz);
 	for (size_t i = 0; i < sz; i++) {
-		(data + i * chunksz)[0] = i;
+		(data + i * blocksz)[0] = i;
 	}
 	mtree_build(t1, data, NULL);
 	mtree_build(t2, data, NULL);

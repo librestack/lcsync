@@ -5,7 +5,7 @@
 #include "../src/mtree.h"
 #include <unistd.h>
 
-size_t chunksz = 4096;
+size_t blocksz = 4096;
 
 int main()
 {
@@ -19,13 +19,13 @@ int main()
 
 	for (size_t i = 2; i < 17; i++) {
 		/* write data */
-		len = chunksz * i;
-		data = calloc(i, chunksz);
+		len = blocksz * i;
+		data = calloc(i, blocksz);
 		for (size_t z = 0; z < i; z++)
-			snprintf(data + z * chunksz, len, "%zu", z + 1);
+			snprintf(data + z * blocksz, len, "%zu", z + 1);
 
 		/* build tree */
-		tree = mtree_create(len, chunksz);
+		tree = mtree_create(len, blocksz);
 		test_assert(tree != NULL, "tree alloc'd");
 		test_assert(mtree_base(tree) == next_pow2(i), "mtree_base()");
 		test_assert(mtree_lvl(tree) == mtree_levels(i), "mtree_levels()");
@@ -40,8 +40,8 @@ int main()
 
 		/* check data hashes */
 		for (size_t z = 0; z < i; z++) {
-			rptr = (unsigned char *)data + z * chunksz;
-			crypto_generichash(hash, HASHSIZE, rptr, chunksz, NULL, 0);
+			rptr = (unsigned char *)data + z * blocksz;
+			crypto_generichash(hash, HASHSIZE, rptr, blocksz, NULL, 0);
 			test_assert(memcmp(hash, mtree_data(tree, z), HASHSIZE) == 0,
 					"%zu: checking data hash %zu", i, z);
 		}

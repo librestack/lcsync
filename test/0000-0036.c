@@ -11,13 +11,13 @@ void cmp_tree(size_t sz, size_t blk, size_t n, uint8_t bin)
 	mtree_tree *t1 = NULL;
 	mtree_tree *t2 = NULL;
 	size_t off;
-	const size_t chunksz = 4096;
-	char *data = calloc(sz, chunksz);
-	char *copy = calloc(sz, chunksz);
-	t1 = mtree_create(sz * chunksz, chunksz);
-	t2 = mtree_create(sz * chunksz, chunksz);
+	const size_t blocksz = 4096;
+	char *data = calloc(sz, blocksz);
+	char *copy = calloc(sz, blocksz);
+	t1 = mtree_create(sz * blocksz, blocksz);
+	t2 = mtree_create(sz * blocksz, blocksz);
 	for (size_t i = 0; i < sz; i++) {
-		(data + i * chunksz)[0] = i;
+		(data + i * blocksz)[0] = i;
 	}
 	mtree_build(t1, data, NULL);
 	mtree_build(t2, data, NULL);
@@ -26,9 +26,9 @@ void cmp_tree(size_t sz, size_t blk, size_t n, uint8_t bin)
 	map = mtree_diff_subtree(t1, t2, n, 1);
 	test_assert(map == NULL, "mtree_diff_subtree() - trees match");
 
-	memcpy(copy, data, sz * chunksz);
+	memcpy(copy, data, sz * blocksz);
 	fprintf(stderr, "scribbling on chunk %zu\n", blk);
-	off = blk * chunksz;
+	off = blk * blocksz;
 	(copy + off)[0] = !(data + off)[0];
 	mtree_build(t2, copy, NULL);
 	test_assert(mtree_diff(t1, t2) == blk + 1, "%02zu: trees differ (tree)", blk);
