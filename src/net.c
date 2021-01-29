@@ -50,24 +50,6 @@ void net_stop(int signo)
 	running = 0;
 	DEBUG("stopping on signal");
 }
-#if 0
-static size_t net_chunksize(void)
-{
-	return DATA_FIXED;
-}
-#endif
-#if 0
-static unsigned char *net_hash_flag(unsigned char *hash, int flags)
-{
-	unsigned char *new = malloc(HASHSIZE);
-	crypto_generichash_state state;
-	crypto_generichash_init(&state, NULL, 0, HASHSIZE);
-	crypto_generichash_update(&state, hash, HASHSIZE);
-	crypto_generichash_update(&state, (unsigned char *)&flags, sizeof flags);
-	crypto_generichash_final(&state, new, HASHSIZE);
-	return new;
-}
-#endif
 
 net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
 {
