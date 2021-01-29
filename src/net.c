@@ -51,15 +51,6 @@ void net_stop(int signo)
 	DEBUG("stopping on signal");
 }
 
-net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree)
-{
-	memset(hdr, 0, sizeof *hdr);
-	hdr->pkts = htobe32(howmany(mtree_len(tree), DATA_FIXED));
-	hdr->chan = net_send_channels;
-	memcpy(hdr->hash, mtree_root(tree), HASHSIZE);
-	return hdr;
-}
-
 ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 {
 	TRACE("%s()", __func__);

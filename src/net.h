@@ -77,9 +77,6 @@ void net_stop(int signo);
 /* reset running flag after net_stop() */
 void net_reset();
 
-/* pack tree header */
-net_treehead_t *net_hdr_tree(net_treehead_t *hdr, mtree_tree *tree);
-
 /* blocking receive of tree from a librecast socket
  * return bytes received or -1 on error
 If iov is NULL, allocate the receive buffer. */
