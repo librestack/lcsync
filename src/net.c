@@ -20,8 +20,8 @@
 
 static int running = 1;
 
-/* return number of bits set in bitmap */
-unsigned int countmap(unsigned char *map, size_t len)
+/* return number of bits set in bitmap (Hamming Weight) */
+unsigned int hamm(unsigned char *map, size_t len)
 {
 	unsigned int c = 0;
 	while (len--) {
@@ -137,9 +137,9 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 		}
 		byt += be32toh(hdr->len);
 		printmap(bitmap, pkts);
-		DEBUG("packets still required=%u", countmap(bitmap, maplen));
+		DEBUG("packets still required=%u", hamm(bitmap, maplen));
 	}
-	while (countmap(bitmap, maplen));
+	while (hamm(bitmap, maplen));
 	// TODO verify tree (check hashes, mark bitmap with any that don't
 	// match, go again
 	free(bitmap);
@@ -307,7 +307,7 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	DEBUG("%s(): maplen  = %zu", __func__, maplen);
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
 	if (bitmap) {
-		DEBUG("packets required=%u", countmap(bitmap, maplen));
+		DEBUG("packets required=%u", hamm(bitmap, maplen));
 		printmap(bitmap, mtree_base_subtree(stree, root) * bits);
 	}
 	DEBUG("dryrun=%i", dryrun);
@@ -317,7 +317,7 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	iov[0].iov_len = sizeof hdr;
 	iov[1].iov_base = buf;
 	iov[1].iov_len = DATA_FIXED;
-	while (!dryrun && bitmap && countmap(bitmap, maplen) && PKTS) {
+	if (!dryrun) while (bitmap && hamm(bitmap, maplen) && PKTS) {
 		if ((msglen = recvmsg(sock, &msgh, 0)) == -1) {
 			perror("recv()");
 			byt = -1;
@@ -338,7 +338,7 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 			DEBUG("recv'd a block I didn't want idx=%u, blk=%zu", idx, blk);
 		}
 		byt += be32toh(hdr.len);
-		DEBUG("packets still required=%u", countmap(bitmap, maplen));
+		DEBUG("packets still required=%u", hamm(bitmap, maplen));
 		printmap(bitmap, mtree_base_subtree(stree, root) * bits);
 	}
 	DEBUG("receiver - all blocks received");
@@ -416,7 +416,7 @@ static void *net_job_diff_tree(void *arg)
 	}
 	clrbit(data->map, n - 1);
 	printmap(data->map, howmany(data->chan, CHAR_BIT));
-	if (!countmap(data->map, data->chan - 1)) {
+	if (!hamm(data->map, data->chan - 1)) {
 		DEBUG("map is clear - all done");
 		sem_post(&q->done);
 	}
