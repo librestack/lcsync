@@ -527,6 +527,7 @@ static ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, stru
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
 			//break;
+			// TODO: what to do on error here?
 		}
 		len -= sz;
 		ptr += sz;
@@ -540,7 +541,6 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	TRACE("%s()", __func__);
 	const int on = 1;
 	int s;
-	char *ptr;
 	size_t vlen = 2, base, min, max;
 	struct iovec iov[vlen];
 	struct addrinfo *addr;
@@ -561,16 +561,12 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	while (running) {
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
 			DEBUG("sending block %zu with idx=%zu", blk, idx);
+			iov[1].iov_base = mtree_blockn(stree, blk);
+			if (!iov[1].iov_base) continue;
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
-			ptr = mtree_blockn(stree, blk);
-			if (!ptr) continue;
-			iov[1].iov_base = ptr; // FIXME
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
 			net_send_block(s, addr, vlen, iov, idx);
-			if (DELAY) {
-				DEBUG("delay %i", DELAY);
-				usleep(DELAY);
-			}
+			if (DELAY) usleep(DELAY);
 		}
 	}
 	mtree_hexdump(stree, stderr);

@@ -19,3 +19,9 @@ Now sync using multiple threads and bredth-first search.
 * flow control
 * (Linux) eBPF
 * channel interleaving
+* verify tree when received, update map and continue receiving if tree invalid
+* remove unneeded DEBUG
+* ratelimit kbps
+* work out network saturation %
+* stats - calculate transfer speed bps etc.
+
