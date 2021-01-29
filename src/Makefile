@@ -12,7 +12,7 @@ exec_prefix := $(prefix)
 bindir := $(exec_prefix)/bin
 CFLAGS +=
 LDFLAGS += -lsodium -lm -pthread -llibrecast -llcdb -llsdb
-OBJS = $(PROGRAM).o arg.o file.o globals.o hash.o help.o job.o log.o mtree.o misc.o net.o opt.o
+OBJS = $(PROGRAM).o arg.o file.o globals.o hash.o help.o job.o log.o misc.o mld.o mtree.o net.o opt.o
 
 all:		$(PROGRAM)
 
