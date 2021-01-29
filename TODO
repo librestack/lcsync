@@ -24,4 +24,3 @@ Now sync using multiple threads and bredth-first search.
 * ratelimit kbps
 * work out network saturation %
 * stats - calculate transfer speed bps etc.
-

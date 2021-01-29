@@ -24,11 +24,7 @@ static int running = 1;
 unsigned int hamm(unsigned char *map, size_t len)
 {
 	unsigned int c = 0;
-	while (len--) {
-		for (char v = map[len]; v; c++) {
-			v &= v - 1;
-		}
-	}
+	while (len--) for (char v = map[len]; v; c++) v &= v - 1;
 	return c;
 }
 
@@ -228,7 +224,7 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 		len -= sz;
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
-			//break;
+			break;
 		}
 		DEBUG("%zi bytes sent", byt); 
 		if (DELAY) usleep(DELAY);
@@ -526,8 +522,7 @@ static ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, stru
 		hdr->idx = htobe32(idx);
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
-			//break;
-			// TODO: what to do on error here?
+			break;
 		}
 		len -= sz;
 		ptr += sz;
