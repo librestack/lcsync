@@ -2,25 +2,20 @@ NEXT ACTIONS:
 
 Now sync using multiple threads and bredth-first search.
 
-* test msync
-
 ----------------------------------------------------------------------
+* sharding
+* indexing
+* improve / extend librecast API with supporting functions
+* MLD triggering - don't send when noone listening (add MLD functions to librecast API)
+* directory syncing
 * net_dump() (implement --hex for network files)
 * build without bsd/md5.h on Ubuntu
 * send file permissions - set in net_sync()
-* multicast sync
-* MTU path discovery for block size
-* MLD triggering - don't send when noone listening (add MLD functions to librecast API)
-* flow control
-* FEC
-* resizing of merkle tree for changing data
-* file sharding
 * man page - output from help
+* resizing of merkle tree for changing data
 * handle -- in options
 * handle - to input from stdin
-* improve / extend librecast API with supporting functions
+* FEC
+* flow control
 * (Linux) eBPF
-* directory syncing
-* sharding
-* indexing
 * channel interleaving
