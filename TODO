@@ -1,8 +1,12 @@
 NEXT ACTIONS:
 
-Now sync using multiple threads and bredth-first search.
+* MLD trigger
+* fix 0035 bug
 
 ----------------------------------------------------------------------
+* bredth-first search.
+* # channels should be set by sender - receiver gets channel info with tree
+* reduce verbosity of sender/receiver modes
 * sharding
 * indexing
 * improve / extend librecast API with supporting functions

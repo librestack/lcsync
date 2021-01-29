@@ -1,19 +1,14 @@
 -------------------------------------------------------------------------------
-channels should be set by sender - receiver gets channel info with tree
--------------------------------------------------------------------------------
 test 0035 (check mode)
 net.c:526 (again)
 Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)
 probably caused by a bug in the multi-channel sending code
 -------------------------------------------------------------------------------
-net_recv_data() incomplete - finish breadth-first search code
--------------------------------------------------------------------------------
 net_send_block() - works without offset?  Works with ptr increment, but not
 offset?  Something fishy here.  Needs better tests - are we checking all bytes
 in a multi-packet block?
 -------------------------------------------------------------------------------
-default client/server modes are too verbose
--------------------------------------------------------------------------------
 test 0035 (intermittent):
 "Unexpected error 9 on netlink descriptor 0."
+possibly in net_recv_tree()
 -------------------------------------------------------------------------------
