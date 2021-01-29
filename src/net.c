@@ -228,7 +228,7 @@ void *net_job_send_tree(void *arg)
 	assert(!mtree_verify(tree, len));
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
-	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
+	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof on);
 	lc_channel_t *chan = lc_channel_nnew(lctx, data->alias, HASHSIZE);
 	lc_channel_bind(sock, chan);
 	int s = lc_channel_socket_raw(chan);
