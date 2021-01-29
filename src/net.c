@@ -362,7 +362,7 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 
 	DEBUG("%s(): receiving subtree at root %zu", __func__, root);
 
-	mtree_hexdump(stree, stderr);
+	if (hex) mtree_hexdump(stree, stderr);
 	DEBUG("recving subtree with root %zu", root);
 	byt = net_recv_subtree(s, stree, dtree, root);
 
@@ -569,7 +569,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 			if (DELAY) usleep(DELAY);
 		}
 	}
-	mtree_hexdump(stree, stderr);
+	if (hex) mtree_hexdump(stree, stderr);
 	lc_channel_free(chan);
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
