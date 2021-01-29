@@ -91,6 +91,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 	net_treehead_t *hdr;
 	char buf[MTU_FIXED];
 	unsigned char *bitmap = NULL;
+	uint8_t mod;
 	do {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");
@@ -111,15 +112,9 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 				perror("malloc()");
 				return -1;
 			}
-			memset(bitmap, 0, maplen);
-			for (uint32_t i=0; i < pkts; i++) setbit(bitmap, i);
-			// FIXME
-#if 0
-			printmap(bitmap, pkts);
-			memset(bitmap, ~0, maplen - 1);
-			printmap(bitmap, pkts);
-			bitmap[maplen - 1] = (1UL << (pkts % CHAR_BIT)) - 1;
-#endif
+			memset(bitmap, ~0, maplen);
+			mod = pkts % CHAR_BIT;
+			if (mod) bitmap[maplen - 1] = (1U << (mod)) - 1;
 			printmap(bitmap, pkts);
 		}
 		sz = (size_t)be64toh(hdr->size);
@@ -428,6 +423,34 @@ static void *net_job_diff_tree(void *arg)
 	return NULL;
 }
 #endif
+#if 0
+		// TODO: split this out into a function
+	/* if root nodes differ, perform bredth-first search */
+		else {
+			data->map = calloc(1, howmany(data->chan, CHAR_BIT));
+			for (size_t i = 0; i < data->chan; i++) setbit(data->map, i);
+			DEBUG("starting map: ");
+			printmap(data->map, howmany(data->chan, CHAR_BIT));
+
+			// TODO: diff trees, build maps
+			// TODO: bredth search of tree, then mtree_diff_subtree() once at channel level
+
+			data->iov[0].iov_base = q;
+			data->iov[0].iov_len = sz;
+			data->iov[1].iov_base = stree;
+			data->iov[2].iov_base = dtree;
+			data->iov[3].iov_len = *len;
+			data->iov[3].iov_base = dstdata;
+
+			/* push on first two children */
+			data->n = 1;
+			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
+			data->n = 2;
+			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
+			sem_wait(&q->done);
+		}
+		// TODO: recv data blocks - this will happen in net_job_diff_tree()
+#endif
 
 static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 {
@@ -478,34 +501,6 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	mtree_free(dtree);
 	return 0;
 }
-#if 0
-		// TODO: split this out into a function
-	/* if root nodes differ, perform bredth-first search */
-		else {
-			data->map = calloc(1, howmany(data->chan, CHAR_BIT));
-			for (size_t i = 0; i < data->chan; i++) setbit(data->map, i);
-			DEBUG("starting map: ");
-			printmap(data->map, howmany(data->chan, CHAR_BIT));
-
-			// TODO: diff trees, build maps
-			// TODO: bredth search of tree, then mtree_diff_subtree() once at channel level
-
-			data->iov[0].iov_base = q;
-			data->iov[0].iov_len = sz;
-			data->iov[1].iov_base = stree;
-			data->iov[2].iov_base = dtree;
-			data->iov[3].iov_len = *len;
-			data->iov[3].iov_base = dstdata;
-
-			/* push on first two children */
-			data->n = 1;
-			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
-			data->n = 2;
-			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
-			sem_wait(&q->done);
-		}
-		// TODO: recv data blocks - this will happen in net_job_diff_tree()
-#endif
 
 /* break a block into DATA_FIXED size pieces and send with header
  * header is in iov[0], data in iov[1] 
