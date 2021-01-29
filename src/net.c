@@ -298,8 +298,7 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	if (!dryrun) while (bitmap && hamm(bitmap, maplen) && PKTS) {
 		if ((msglen = recvmsg(sock, &msgh, 0)) == -1) {
 			perror("recv()");
-			byt = -1;
-			break;
+			byt = -1; break;
 		}
 		DEBUG("%s(): recv %zi bytes", __func__, msglen);
 		idx = be32toh(hdr.idx);
@@ -550,7 +549,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	lc_channel_free(chan);
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
-	return 0;
+	return 0; // TODO: return bytes or -1
 }
 
 void *net_job_sync_subtree(void *arg)
@@ -558,8 +557,7 @@ void *net_job_sync_subtree(void *arg)
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *stree = data->iov[0].iov_base;
 	mtree_tree *dtree = data->iov[1].iov_base;
-	size_t root = data->n;
-	net_sync_subtree(stree, dtree, root);
+	net_sync_subtree(stree, dtree, data->n);
 	return arg;
 }
 
@@ -567,9 +565,7 @@ void *net_job_send_subtree(void *arg)
 {
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *stree = data->iov[0].iov_base;
-	size_t root = data->n;
-	DEBUG("sending subtree with root %zu", root);
-	net_send_subtree(stree, root);
+	net_send_subtree(stree, data->n);
 	return arg;
 }
 
@@ -607,7 +603,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	mtree_free(tree);
 	job_queue_destroy(q);
 	free(data);
-	return 0;
+	return 0; // TODO: return bytes or -1
 }
 
 int net_recv(int *argc, char *argv[])
@@ -638,8 +634,7 @@ int net_send(int *argc, char *argv[])
 	unsigned char hash[HASHSIZE];
 	TRACE("%s('%s')", __func__, argv[0]);
 	DEBUG("mapping src: %s", src);
-	if ((sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs)) == -1)
-		return -1;
+	if ((sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs)) == -1) return -1;
 	sigaction(SIGINT, &sa_int, NULL);
 	crypto_generichash(hash, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
 	net_send_data(hash, smap, sz_s);

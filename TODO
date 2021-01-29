@@ -24,3 +24,4 @@ Now sync using multiple threads and bredth-first search.
 * ratelimit kbps
 * work out network saturation %
 * stats - calculate transfer speed bps etc.
+* net_send_subtree() / net_send_data() - return bytes or -1
