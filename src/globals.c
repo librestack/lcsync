@@ -1,7 +1,10 @@
-/* global defaults */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
 #include <stddef.h>
 #include "globals.h"
+
+/* global defaults */
 
 int (*action)(int *argc, char *argv[]) = &succeed;
 int DELAY = 0;
