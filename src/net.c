@@ -674,6 +674,7 @@ int net_send(int *argc, char *argv[])
 int net_sync(int *argc, char *argv[])
 {
 	(void) argc; /* unused */
+	int rc = 0;
 	int fdd;
 	size_t blocksz, len;
 	ssize_t sz_d;
@@ -688,31 +689,30 @@ int net_sync(int *argc, char *argv[])
 	mtree_tree *dtree;
 	TRACE("%s('%s')", __func__, argv[0]);
 	sigaction(SIGINT, &sa_int, NULL);
-
-	/* fetch source tree */
 	crypto_generichash(hash, HASHSIZE, (unsigned char *)src, strlen(src), NULL, 0);
-	if (net_fetch_tree(hash, &stree) == -1) return -1;
-
-	/* create & map destination file */
+	if ((net_fetch_tree(hash, &stree) == -1) || (mtree_verify(stree, mtree_treelen(stree)))) {
+		rc = -1; goto exit_err_0;
+	}
 	DEBUG("mapping dst: %s", dst);
 	len = mtree_len(stree);
 	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // TODO - set from packet data
-	if ((sz_d = file_map(dst, &fdd, &dmap, len, PROT_READ|PROT_WRITE, &sbd)) == -1)
-		return -1; // FIXME - clean up here
-	
+	if ((sz_d = file_map(dst, &fdd, &dmap, len, PROT_READ|PROT_WRITE, &sbd)) == -1) {
+		rc = -1; goto exit_err_0;
+	}
 	blocksz = mtree_blocksz(stree);
 	len = mtree_len(stree);
 	dtree = mtree_create(len, blocksz);
 	mtree_build(dtree, dmap, NULL);
-	assert(!mtree_verify(stree, mtree_treelen(stree)));
-	assert(!mtree_verify(dtree, mtree_treelen(dtree)));
-
-	/* sync data */
+	if (mtree_verify(dtree, mtree_treelen(dtree))) {
+		rc = -1; goto exit_err_1;
+	}
 	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
 		net_sync_trees(stree, dtree, q);
 	}
-	job_queue_destroy(q);
-	mtree_free(stree);
+exit_err_1:
 	mtree_free(dtree);
-	return 0;
+exit_err_0:
+	mtree_free(stree);
+	job_queue_destroy(q);
+	return rc;
 }
