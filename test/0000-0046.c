@@ -9,6 +9,7 @@
 #include "../src/net.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <semaphore.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -18,6 +19,12 @@
 
 static const time_t waits = 1;
 static int events;
+static sem_t sem;
+
+void *do_join(void *arg)
+{
+	lc_channel_join((lc_channel_t *)arg);
+}
 
 void *do_mld_watch(void *arg)
 {
@@ -25,6 +32,7 @@ void *do_mld_watch(void *arg)
 	char straddr[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, addr, straddr, INET6_ADDRSTRLEN);
 	test_log("watching %s\n", straddr);
+	sem_post(&sem);
 	if (!mld_wait(addr)) events++;
 	return arg;
 }
@@ -56,14 +64,18 @@ int main(void)
 	sock = lc_socket_new(lctx);
 	chan[0] = lc_channel_new(lctx, "we will join this channel");
 	chan[1] = lc_channel_new(lctx, "but not this one");
-	q = job_queue_create(2);
+	sem_init(&sem, 0, 0);
+	q = job_queue_create(3);
 	job[0] = push_job(q, chan[0]);
 	job[1] = push_job(q, chan[1]);
 
-	usleep(1000); /* make sure threads are ready before issuing the join */
-
+	/* make sure threads are ready before issuing the join.
+	 * we have a race condition with the threads, but if we make sure the
+	 * semaphore is posted by both threads and wait a bit extra, it'll
+	 * probably be fine, won't it? This is only a concern in the test env. */
+	sem_wait(&sem); sem_wait(&sem); usleep(200);
 	lc_channel_bind(sock, chan[0]);
-	lc_channel_join(chan[0]);
+	job_push_new(q, &do_join, chan[0], 0, &free, 0);
 
 	/* set test timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
