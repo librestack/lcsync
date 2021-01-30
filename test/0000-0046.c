@@ -73,11 +73,13 @@ int main(void)
 	free(job[0]);
 	/* second channel will timeout, we ignored it */
 	test_assert(sem_timedwait(&job[1]->done, &timeout), "timeout - mld_watch() channel 1");
+	free(job[1]->arg);
 	free(job[1]);
 
 	test_assert(events == 1, "received %i/1 event notifications", events);
 
 	lc_channel_part(chan[0]);
+	lc_channel_free(chan[1]);
 	lc_channel_free(chan[0]);
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
