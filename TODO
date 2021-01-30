@@ -2,6 +2,7 @@ NEXT ACTIONS:
 
 * MLD trigger
 * fix 0035 bug
+* run tests in separate namespace
 
 ----------------------------------------------------------------------
 * bredth-first search.

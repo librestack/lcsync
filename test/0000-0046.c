@@ -4,98 +4,82 @@
 #include "test.h"
 #include "../src/globals.h"
 #include "../src/job.h"
-#include "../src/net.h"
-#include "../src/mtree.h"
 #include "../src/log.h"
-#include <assert.h>
-#include <errno.h>
-#include <math.h>
-#include <pthread.h>
-#include <signal.h>
-#include <sys/param.h>
+#include "../src/mld.h"
+#include "../src/net.h"
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <time.h>
 #include <unistd.h>
 
-const int waits = 1; /* test timeout in s */
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
-void do_sync(size_t root)
+static const time_t waits = 1;
+static int events;
+
+void *do_mld_watch(void *arg)
 {
-	struct timespec timeout;
-	job_queue_t *jobq;
-	job_t *job_send, *job_recv;
-	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * 2;
-	net_data_t *data = calloc(1, sz);
-	data->n = root;
-	data->iov[0].iov_base = stree;
-	data->iov[1].iov_base = dtree;
-
-	/* queue up send / recv jobs */
-	net_reset();
-	jobq = job_queue_create(2);
-	job_send = job_push_new(jobq, &net_job_send_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
-	job_recv = job_push_new(jobq, &net_job_sync_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
-
-	/* wait for recv job to finish, check for timeout */
-	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
-	timeout.tv_sec += waits;
-	test_assert(!sem_timedwait(&job_recv->done, &timeout), "timeout - recv");
-	free(job_recv);
-
-	/* stop send job */
-	net_stop(SIGINT);
-	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
-	timeout.tv_sec += waits;
-	test_assert(!sem_timedwait(&job_send->done, &timeout), "timeout - send");
-	free(job_send);
-	job_queue_destroy(jobq);
-	free(data);
-}
-
-void gentestdata(char *srcdata)
-{
-	/* build source data, make each block different */
-	for (size_t i = 0; i < blocks; i++) {
-		size_t off = i * blocksz;
-		memset(srcdata + off, i + 1, blocksz); /* set whole block */
-	}
-	memset(srcdata + blocks * blocksz, ~0, extra);
+	struct in6_addr *addr = (struct in6_addr *)arg;
+	char straddr[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, addr, straddr, INET6_ADDRSTRLEN);
+	test_log("watching %s\n", straddr);
+	if (!mld_wait(addr)) events++;
+	return arg;
 }
 
 int main(void)
 {
+	struct timespec timeout;
+	struct in6_addr *addr[2];
+	struct sockaddr_in6 *sad[2];
+	struct addrinfo *p[2];
+	job_queue_t *q;
+	job_t *job[2] = {0};
+	lc_ctx_t *lctx;
+	lc_socket_t *sock;
+	lc_channel_t *chan[2];
+
 	loginit();
-	test_name("net_send_subtree() / net_sync_subtree() - non-root subtree");
-	char *srcdata = calloc(blocks, blocksz + extra);
-	char *dstdata = calloc(blocks, blocksz + extra);
-	gentestdata(srcdata);
-	/* start where receiver already has the source tree */
-	stree = mtree_create(sz, blocksz);
-	dtree = mtree_create(sz, blocksz);
-	mtree_build(stree, srcdata, NULL);
-	mtree_build(dtree, dstdata, NULL);
-	test_assert(memcmp(srcdata, dstdata, sz), "src and dst data differ before syncing");
+	test_name("mld_wait()");
 
-	/* copy all subtrees at any level (this is level 2) */
-	do_sync(3);
-	do_sync(4);
-	do_sync(5);
-	do_sync(6);
-	test_assert(!memcmp(srcdata, dstdata, sz),
-			"src and dst data match after syncing (blocksz=%zu)", blocksz);
+	/* TODO spawn child in new network namespace */
 
-	/* rebuild dsttree, diff, and check bitmap is zero */
-	mtree_free(dtree);
-	dtree = mtree_create(sz, blocksz);
-	mtree_build(dtree, dstdata, NULL);
-	unsigned char *bitmap;
-	unsigned bits = howmany(blocksz, DATA_FIXED);
-	bitmap = mtree_diff_subtree(stree, dtree, 0, bits);
-	test_assert(bitmap == NULL, "bitmap - no differences");
-	free(bitmap);
+	lctx = lc_ctx_new();
+	sock = lc_socket_new(lctx);
+	chan[0] = lc_channel_new(lctx, "we will join this channel");
+	chan[1] = lc_channel_new(lctx, "but not this one");
+	for (int i = 0; i < 2; i++) {
+		p[i] = lc_channel_addrinfo(chan[i]);
+		sad[i] = (struct sockaddr_in6 *)p[i]->ai_addr;
+		addr[i] = &(sad[i]->sin6_addr);
+	}
 
-	free(srcdata);
-	free(dstdata);
-	mtree_free(stree);
-	mtree_free(dtree);
+	/* wait on two channels, one we'll join, and one we won't */
+	q = job_queue_create(2);
+	job[0] = job_push_new(q, &do_mld_watch, addr[0], sizeof(struct in6_addr), NULL, JOB_COPY|JOB_FREE);
+	job[1] = job_push_new(q, &do_mld_watch, addr[1], sizeof(struct in6_addr), NULL, JOB_COPY|JOB_FREE);
+
+	lc_channel_bind(sock, chan[0]);
+	lc_channel_join(chan[0]);
+
+	/* set test timeout */
+	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
+	timeout.tv_sec += waits;
+	/* first job should return, we joined its channel */
+	test_assert(!sem_timedwait(&job[0]->done, &timeout), "timeout - mld_watch() channel 0");
+	/* second channel will timeout, we ignored it */
+	test_assert(sem_timedwait(&job[1]->done, &timeout), "timeout - mld_watch() channel 1");
+	free(job[0]);
+	free(job[1]);
+
+	test_assert(events == 1, "received %i/1 event notifications", events);
+
+	lc_channel_part(chan[0]);
+	lc_channel_free(chan[0]);
+	lc_socket_close(sock);
+	lc_ctx_free(lctx);
+	job_queue_destroy(q);
 	return fails;
 }

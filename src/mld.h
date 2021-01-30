@@ -4,6 +4,8 @@
 #ifndef _MLD_H
 #define _MLD_H 1
 
-/* define some function here */
+#include <netinet/in.h>
+
+int mld_wait(struct in6_addr *addr);
 
 #endif /* _MLD_H */

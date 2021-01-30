@@ -2,6 +2,7 @@
 # Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net>
 
 SHELL := /bin/bash
+#SHELL := capsh --user=bacs --
 CFLAGS += -Wall -g
 NOTOBJS := ../src/$(PROGRAM).o
 OBJS := test.o $(filter-out $(NOTOBJS), $(wildcard ../src/*.o))
@@ -33,6 +34,8 @@ build:
 	@echo -e "\nRunning tests"
 
 0000-0027.test: LDFLAGS += -lbsd
+
+0000-0046.test: SHELL = capsh --caps=cap_net_raw+eip -- -c
 
 %.test: %.c $(OBJS)
 	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
