@@ -61,6 +61,8 @@ int main(void)
 	job[0] = job_push_new(q, &do_mld_watch, addr[0], sizeof(struct in6_addr), NULL, JOB_COPY|JOB_FREE);
 	job[1] = job_push_new(q, &do_mld_watch, addr[1], sizeof(struct in6_addr), NULL, JOB_COPY|JOB_FREE);
 
+	usleep(1000); /* make sure threads are ready before issuing the join */
+
 	lc_channel_bind(sock, chan[0]);
 	lc_channel_join(chan[0]);
 

@@ -70,7 +70,6 @@ int mld_wait(struct in6_addr *addr)
 	char buf_ctrl[BUFSIZE];
 	char buf_name[BUFSIZE];
 	char straddr[INET6_ADDRSTRLEN];
-
 	sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
 	assert(sock);
 	if (sock == -1) {
@@ -94,16 +93,6 @@ int mld_wait(struct in6_addr *addr)
 		ERROR("Unable to join on any interfaces");
 		return -1;
 	}
-#if 0
-	struct ipv6_mreq req;
-	struct iovec iov[1];
-	struct icmp6_hdr *icmp6;
-	struct ifaddrs *ifaddr, *ifa;
-	struct mar *mrec;
-	struct sigaction sa = {0};
-	struct sigevent sev = {0};
-	uint16_t rec;
-#endif
 	iov[0].iov_base = &icmpv6;
 	iov[0].iov_len = sizeof icmpv6;
 	iov[1].iov_base = &mrec;
@@ -123,13 +112,11 @@ int mld_wait(struct in6_addr *addr)
 		ifidx = interface_index(msg);
 		if (icmpv6.icmp6_type == MLD2_LISTEN_REPORT) {
 			uint16_t rec = ntohs(icmpv6.icmp6_data16[1]);
-			// TODO: check if this msg matches requested addr
 			DEBUG("got a MLD2_LISTEN_REPORT with %u records", rec);
 			for (int i = 0; i < rec; i++) {
 				if (!memcmp(addr, &mrec.mar_address, sizeof(struct in6_addr))) {
 					inet_ntop(AF_INET6, (&mrec.mar_address)->s6_addr, straddr, INET6_ADDRSTRLEN);
-					DEBUG("mar_address: %s", straddr);
-					DEBUG("MATCH FOUND");
+					DEBUG("MATCH FOUND: %s", straddr);
 					return 0;
 				}
 			}
