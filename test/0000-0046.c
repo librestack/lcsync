@@ -29,12 +29,20 @@ void *do_mld_watch(void *arg)
 	return arg;
 }
 
+job_t *push_job(job_queue_t *q, lc_channel_t *chan)
+{
+	struct in6_addr *addr;
+	struct sockaddr_in6 *sad;
+	struct addrinfo *p;
+	p = lc_channel_addrinfo(chan);
+	sad = (struct sockaddr_in6 *)p->ai_addr;
+	addr = &(sad->sin6_addr);
+	return job_push_new(q, &do_mld_watch, addr, sizeof(struct in6_addr), NULL, JOB_COPY|JOB_FREE);
+}
+
 int main(void)
 {
 	struct timespec timeout;
-	struct in6_addr *addr[2];
-	struct sockaddr_in6 *sad[2];
-	struct addrinfo *p[2];
 	job_queue_t *q;
 	job_t *job[2] = {0};
 	lc_ctx_t *lctx;
@@ -44,22 +52,13 @@ int main(void)
 	loginit();
 	test_name("mld_wait()");
 
-	/* TODO spawn child in new network namespace */
-
 	lctx = lc_ctx_new();
 	sock = lc_socket_new(lctx);
 	chan[0] = lc_channel_new(lctx, "we will join this channel");
 	chan[1] = lc_channel_new(lctx, "but not this one");
-	for (int i = 0; i < 2; i++) {
-		p[i] = lc_channel_addrinfo(chan[i]);
-		sad[i] = (struct sockaddr_in6 *)p[i]->ai_addr;
-		addr[i] = &(sad[i]->sin6_addr);
-	}
-
-	/* wait on two channels, one we'll join, and one we won't */
 	q = job_queue_create(2);
-	job[0] = job_push_new(q, &do_mld_watch, addr[0], sizeof(struct in6_addr), NULL, JOB_COPY|JOB_FREE);
-	job[1] = job_push_new(q, &do_mld_watch, addr[1], sizeof(struct in6_addr), NULL, JOB_COPY|JOB_FREE);
+	job[0] = push_job(q, chan[0]);
+	job[1] = push_job(q, chan[1]);
 
 	usleep(1000); /* make sure threads are ready before issuing the join */
 
@@ -71,9 +70,9 @@ int main(void)
 	timeout.tv_sec += waits;
 	/* first job should return, we joined its channel */
 	test_assert(!sem_timedwait(&job[0]->done, &timeout), "timeout - mld_watch() channel 0");
+	free(job[0]);
 	/* second channel will timeout, we ignored it */
 	test_assert(sem_timedwait(&job[1]->done, &timeout), "timeout - mld_watch() channel 1");
-	free(job[0]);
 	free(job[1]);
 
 	test_assert(events == 1, "received %i/1 event notifications", events);
