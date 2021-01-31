@@ -2,7 +2,7 @@
 # Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net>
 
 SHELL := /bin/bash
-#SHELL := capsh --user=bacs --
+CAPS = ""
 CFLAGS += -Wall -g
 NOTOBJS := ../src/$(PROGRAM).o
 OBJS := test.o $(filter-out $(NOTOBJS), $(wildcard ../src/*.o))
@@ -10,6 +10,7 @@ LDFLAGS := -llmdb -lsodium -lm -pthread -llibrecast -llsdb -llcdb
 BOLD := "\\e[0m\\e[2m"
 RESET := "\\e[0m"
 PASS = "\\e[0m\\e[32mOK\\e[0m" # end bold, green text
+SKIP = "----- requires capabilities \(skipping\) -----\\e[0m"
 FAIL = "\\e[0m\\e[31mFAIL\\e[0m" # end bold, red text
 LEAK = "\\e[0m\\e[31mFAIL \| LEAK\\e[0m\\n\\tSee $@.valgrind"
 LASTLOG := lastlog.log
@@ -35,13 +36,15 @@ build:
 
 0000-0027.test: LDFLAGS += -lbsd
 
-0000-0046.test: SHELL = capsh --caps=cap_net_raw+eip -- -c
+#0000-0046.test: SHELL = capsh --is-uid=0 --caps=cap_net_raw+eip -- -c
+0000-0046.test: CAPS = cap_net_raw=eip
 
 %.test: %.c $(OBJS)
 	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	@if [[ $EUID -eq 0 && -n $(CAPS) ]]; then setcap $(CAPS) $@; fi
 	@echo -ne "\e[2m" $* " "
 	@echo -ne "\n== $@" >> $(LOGFILE)
-	@$(MEMCHECK) ./$@ 2>> $(LOGFILE) && echo -e " $(PASS)" || echo -e " $(FAIL)"
+	@if [[ -n $(CAPS) && $EUID -ne 0 ]]; then echo -e "$(SKIP)"; else $(MEMCHECK) ./$@ 2>> $(LOGFILE) && echo -e " $(PASS)" || echo -e " $(FAIL)"; fi
 	@ln -sf $(LOGFILE) $(LASTLOG)
 	@$(eval tests_run=$(shell echo $$(($(tests_run)+1))))
 
