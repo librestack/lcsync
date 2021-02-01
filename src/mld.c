@@ -17,8 +17,14 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+/* See RFC 3810 */
+
+/* MALI = Multicast Address Listening Interval */
+/* LLQT = Last Listener Query Time */
+
+#define MLD2_ROBUSTNESS 2		/* 9.14.1.  Robustness Variable */
 #define MLD2_CAPABLE_ROUTERS "ff02::16" /* all MLDv2-capable routers */
-#define MLD2_LISTEN_REPORT 143 /* Multicast Listener Report messages */
+#define MLD2_LISTEN_REPORT 143		/* Multicast Listener Report messages */
 #define BUFSIZE 1500
 
 #if !__USE_KERNEL_IPV6_DEFS
@@ -30,12 +36,45 @@ struct in6_pktinfo
 };
 #endif
 
+typedef enum {
+	FILTER_MODE_INCLUDE = 1,
+	FILTER_MODE_EXCLUDE,
+} mld_mode_t;
+
+struct mld_filter_s {
+	__m128i	bloom;
+	__m128i	timer;
+	__m128i	src;
+};
+
+struct mld_s {
+	/* number of interfaces allocated */
+	int len;
+	/* counted bloom filter for groups gives us O(1) for insert/query/delete 
+	 * combied with a bloom timer (is that a thing, or did I just make it
+	 * up?) - basically a counted bloom filter where the max is set to the
+	 * time in seconds, and we count it down using SIMD instructions
+	 */
+	/* variable-length array of filters */
+	mld_filter_t filter[];
+};
+
 /* Multicast Address Record */
 struct mar {
 	uint8_t         mar_type;       /* Record Type */
 	uint8_t         mar_auxlen;     /* Aux Data Len */
 	uint16_t        mar_sources;    /* Number of Sources */
 	struct in6_addr mar_address;    /* Multicast Address */
+} __attribute__((__packed__));
+
+/* Version 2 Multicast Listener Report Message */
+struct mld2 {
+	uint8_t         mld2_type;      /* type field */
+	uint8_t         mld2_res1;      /* reserved */
+	uint16_t        mld2_cksum;     /* checksum field */
+	uint16_t        mld2_res2;      /* reserved */
+	uint16_t        mld2_rec;       /* Nr of Mcast Address Records */
+	struct mar      mld2_mar;       /* First MCast Address Record */
 } __attribute__((__packed__));
 
 /* extract interface number from ancillary control data */
@@ -53,6 +92,11 @@ int interface_index(struct msghdr msg)
 	return ifidx;
 }
 
+/* 
+ * This whole thing needs re-writing so that it is simply an enquiry as to
+ * current state. The state machine for updating that state is a separate
+ * concern.
+ */
 int mld_wait(struct in6_addr *addr)
 {
 	int ret = 0;
@@ -124,4 +168,44 @@ int mld_wait(struct in6_addr *addr)
 	}
 	close(sock);
 	return 0;
+}
+
+mld_t *mld_init(void)
+{
+	mld_t *mld = NULL;
+	int ret = 0;
+	int sock;
+	int opt = 1;
+	int joins = 0;
+	struct ifaddrs *ifaddr, *ifa;
+	struct ipv6_mreq req;
+	sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+	if (sock == -1) {
+		perror("socket()");
+		return NULL;
+	}
+	setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &opt, sizeof(opt));
+	getifaddrs(&ifaddr);
+	for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+		if (ifa->ifa_addr->sa_family !=AF_INET6) continue; /* ipv6 only */
+		inet_pton(AF_INET6, MLD2_CAPABLE_ROUTERS, &(req.ipv6mr_multiaddr));
+		req.ipv6mr_interface = if_nametoindex(ifa->ifa_name);
+		ret = setsockopt(sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req));
+		if (ret != -1) {
+			DEBUG("listening on interface %s", ifa->ifa_name);
+			joins++;
+		}
+	}
+	freeifaddrs(ifaddr);
+	if (!joins) {
+		ERROR("Unable to join on any interfaces");
+		return NULL;
+	}
+	mld = malloc(sizeof(mld_t) + joins * sizeof(mld_filter_t));
+	return mld;
+}
+
+void mld_free(mld_t *mld)
+{
+	free(mld);
 }

@@ -24,6 +24,7 @@ static sem_t sem;
 void *do_join(void *arg)
 {
 	lc_channel_join((lc_channel_t *)arg);
+	return arg;
 }
 
 void *do_mld_watch(void *arg)

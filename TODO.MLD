@@ -1,0 +1,47 @@
+NEXT STEP: build state machine for MLD to track subscriptions. We want a yes/no
+answer for each interface as to whether a group address is active (subscribed).
+
+This is a whole separate test/set of tests for MLD state.
+
+Need to build fake MLD packets and pass them in.
+
+See 7.2.  MLD State Maintained by Multicast Routers of RFC 3810:
+	  https://tools.ietf.org/html/rfc3810#section-7.2
+
+Keep a group list per interface
+
+Counted bloom filter + bloom timer
+
+NEXT: work on converting binary value into vectors
+
+--------------------------------------------------------------------------------
+
+* subscribe to notifications for mld events
+int mld_subscribe(struct in6_addr addr, int iface);
+
+* blocking call for mld events - mld_recvmsg()
+
+* blocking call that only returns when group hash subscribers - mld_wait()
+
+* set a watch for MLD events.  Call f() with arg when event of type is
+detected for group addr on iface.  If addr is NULL, trigger is set for all groups
+if type is 0, trigger is set for all event types.
+if iface is 0, the default interface is used
+
+* callback to f() when MLD event detected. function must have specific
+signature which accepts the info need to pass.  Pass all MLD info we can get
+our hands on
+int mld_watch(struct in6_addr *addr, int iface, int event, void*(*f)(void *TODO-FIXME));
+
+* trigger callback f() with arg when MLD event detected:
+int mld_trigger(struct in6_addr *addr, int iface, int event, void*(*f)(void *), void *arg);
+
+* on mld event, queue job:
+int mld_job(struct in6_addr *addr, int iface, int event, void*(*f)(void *), void *arg);
+
+* on mld event, set sem:
+int mld_wait(sem_t *sem); // FIXME - need more args as above
+int mld_post(sem_t *sem);
+
+* how do I cancel an event?  Return a handle */
+* need a mld_cancel_watch(mld_watch_t) function
