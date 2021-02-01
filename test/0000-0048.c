@@ -7,9 +7,9 @@
 int main(void)
 {
 	mld_t *mld;
-	test_name("mld_start() / mld_stop()");
-	mld = mld_start();
+	test_name("mld_init() / mld_free()");
+	mld = mld_init(1);
 	test_assert(mld != NULL, "mld_t allocated");
-	mld_stop(mld);
+	mld_free(mld);
 	return fails;
 }

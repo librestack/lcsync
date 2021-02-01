@@ -5,14 +5,35 @@
 #define _MLD_H 1
 
 #include <netinet/in.h>
-#include <emmintrin.h>
+#include <immintrin.h>
 
+#define VECTOR_SZ 16
+
+typedef unsigned char u8x16 __attribute__ ((vector_size (VECTOR_SZ)));
+typedef union { __m128i v; u8x16 u8; } vec_t;
 typedef struct mld_s mld_t;
 typedef struct mld_filter_s mld_filter_t;
 
 /* initialize / free state machine */
-mld_t *mld_init(void);
+mld_t *mld_init(int ifaces);
+
+/* free MLD objects */
 void mld_free(mld_t *mld);
+
+/* start MLD snooping */
+mld_t *mld_start(void);
+
+/* stop MLD snooping */
+void mld_stop(mld_t *mld);
+
+/* add group address to interface bloom filter */
+void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *addr);
+
+/* return true (-1) if filter contains addr, false (0) if not */
+int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *addr);
+
+/* remove group address from interface bloom filter */
+void mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *addr);
 
 /* manage state */
 void mld_is_in(unsigned int ifidx, struct in6_addr *addr); /* MODE_IS_INCLUDE */

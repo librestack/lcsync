@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/param.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -42,12 +43,17 @@ typedef enum {
 } mld_mode_t;
 
 struct mld_filter_s {
-	__m128i	bloom;
-	__m128i	timer;
-	__m128i	src;
+	/* counted bloom filter for multicast group addresses */
+	vec_t	grp[8];
+	/* counted bloom filter for multicast source addresses */
+	vec_t	src[8];
+	/* bloom timer with 8 bit timer values */
+	vec_t	t[8];
 };
 
 struct mld_s {
+	/* raw socket for MLD snooping */
+	int sock;
 	/* number of interfaces allocated */
 	int len;
 	/* counted bloom filter for groups gives us O(1) for insert/query/delete 
@@ -103,7 +109,7 @@ int mld_wait(struct in6_addr *addr)
 	int opt = 1;
 	int joins = 0;
 	int sock;
-	int ifidx;
+	//int ifidx;
 	ssize_t byt;
 	struct ipv6_mreq req;
 	struct ifaddrs *ifaddr, *ifa;
@@ -153,7 +159,7 @@ int mld_wait(struct in6_addr *addr)
 			perror("recvmsg()");
 			return -1;
 		}
-		ifidx = interface_index(msg);
+		//ifidx = interface_index(msg);
 		if (icmpv6.icmp6_type == MLD2_LISTEN_REPORT) {
 			uint16_t rec = ntohs(icmpv6.icmp6_data16[1]);
 			DEBUG("got a MLD2_LISTEN_REPORT with %u records", rec);
@@ -170,7 +176,102 @@ int mld_wait(struct in6_addr *addr)
 	return 0;
 }
 
-mld_t *mld_init(void)
+//static void vec_load_8(__m128i *v, unsigned char *p, int len)
+static void vec_load_8(vec_t *v, unsigned char *p, int len)
+{
+	for (int i = 0; i < len; i++) {
+		v[i].v = _mm_set_epi8 (
+			!!isset(p, 0xf + i*16), !!isset(p, 0xe + i*16),
+			!!isset(p, 0xe + i*16), !!isset(p, 0xc + i*16),
+			!!isset(p, 0xb + i*16), !!isset(p, 0xa + i*16),
+			!!isset(p, 0x9 + i*16), !!isset(p, 0x8 + i*16),
+			!!isset(p, 0x7 + i*16), !!isset(p, 0x6 + i*16),
+			!!isset(p, 0x5 + i*16), !!isset(p, 0x4 + i*16),
+			!!isset(p, 0x3 + i*16), !!isset(p, 0x2 + i*16),
+			!!isset(p, 0x0 + i*16), !!isset(p, 0x0 + i*16)
+		);
+	}
+}
+#if 0
+static void vec_mask_gt_8(vec_t *res, vec_t *v, int len, char val)
+{
+	for (int i = 0; i < len; i++) {
+		res[i].u8 = v[i].u8 > val;
+	}
+}
+#endif
+int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
+{
+	unsigned char *addr = saddr->s6_addr;
+	vec_t *grp = mld->filter[iface].grp;
+	vec_t vgrp[8];
+	vec_t mask[8];
+	vec_t cmp;
+	//vec_load_8(&vgrp->v, addr, 8);
+	vec_load_8(vgrp, addr, 8);
+
+
+	for (int i = 0; i < 8; i++) {
+		fprintf(stderr, "vgrp\n");
+		for (int j = 0; j < 16; j++) {
+			fprintf(stderr, "%u ", (uint8_t)vgrp[i].u8[j]);
+		}
+		putc('\n', stderr);
+		mask[i].u8 = grp[i].u8 > 0;
+		fprintf(stderr, "mask\n");
+		for (int j = 0; j < 16; j++) {
+			fprintf(stderr, "%u ", (uint8_t)mask[i].u8[j]);
+		}
+		putc('\n', stderr);
+		cmp.u8 = mask[i].u8 + vgrp[i].u8;
+		fprintf(stderr, "cmp\n");
+		for (int j = 0; j < 16; j++) {
+			fprintf(stderr, "%u ", (uint8_t)cmp.u8[j]);
+		}
+		putc('\n', stderr);
+		fprintf(stderr, "checking...\n");
+		for (int j = 0; j < 16; j++) {
+			if (cmp.u8[j]) return 0;
+			fprintf(stderr, "%u ", (uint8_t)cmp.u8[j]);
+		}
+		putc('\n', stderr);
+		fprintf(stderr, "i = %i\n", i);
+	}
+	fprintf(stderr, "returning TRUE\n");
+	return -1;
+}
+
+void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
+{
+	unsigned char *addr = saddr->s6_addr;
+	vec_t *grp = mld->filter[iface].grp;
+	vec_t mask[8];
+	//vec_load_8(&mask->v, addr, 8);
+	vec_load_8(mask, addr, 8);
+	for (int i = 0; i < 8; i++) {
+		grp[i].v = _mm_add_epi8(grp[i].v, mask[i].v);
+	}
+}
+
+mld_t *mld_init(int ifaces)
+{
+	return calloc(1, sizeof(mld_t) + ifaces * sizeof(mld_filter_t));
+}
+
+void mld_free(mld_t *mld)
+{
+	free(mld);
+}
+
+void mld_stop(mld_t *mld)
+{
+	struct ipv6_mreq req;
+	setsockopt(mld->sock, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &req, sizeof(req));
+	close(mld->sock);
+	mld_free(mld);
+}
+
+mld_t *mld_start(void)
 {
 	mld_t *mld = NULL;
 	int ret = 0;
@@ -201,11 +302,7 @@ mld_t *mld_init(void)
 		ERROR("Unable to join on any interfaces");
 		return NULL;
 	}
-	mld = malloc(sizeof(mld_t) + joins * sizeof(mld_filter_t));
+	mld = mld_init(joins);
+	if (mld) mld->sock = sock;
 	return mld;
-}
-
-void mld_free(mld_t *mld)
-{
-	free(mld);
 }
