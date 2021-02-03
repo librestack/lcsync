@@ -176,7 +176,15 @@ int mld_wait(struct in6_addr *addr)
 	return 0;
 }
 
-//static void vec_load_8(__m128i *v, unsigned char *p, int len)
+static void vec_dump(vec_t v, char *label)
+{
+	fprintf(stderr, "%s\n", label);
+	for (int j = 0; j < 16; j++) {
+		fprintf(stderr, "%u ", (uint8_t)v.u8[j]);
+	}
+	putc('\n', stderr);
+}
+
 static void vec_load_8(vec_t *v, unsigned char *p, int len)
 {
 	for (int i = 0; i < len; i++) {
@@ -192,52 +200,29 @@ static void vec_load_8(vec_t *v, unsigned char *p, int len)
 		);
 	}
 }
-#if 0
-static void vec_mask_gt_8(vec_t *res, vec_t *v, int len, char val)
-{
-	for (int i = 0; i < len; i++) {
-		res[i].u8 = v[i].u8 > val;
-	}
-}
-#endif
+
+// TODO need to compare source address too for SSM
 int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
 {
 	unsigned char *addr = saddr->s6_addr;
 	vec_t *grp = mld->filter[iface].grp;
-	vec_t vgrp[8];
-	vec_t mask[8];
-	vec_t cmp;
-	//vec_load_8(&vgrp->v, addr, 8);
+	vec_t vgrp[8], mask[8], cmp;
+	// TODO hash address
+	// TODO addr[0] => EXCLUDE/INCLUDE mode + router id
+	// TODO test EXCLUDE/INCLUDE modes
 	vec_load_8(vgrp, addr, 8);
-
-
 	for (int i = 0; i < 8; i++) {
-		fprintf(stderr, "vgrp\n");
-		for (int j = 0; j < 16; j++) {
-			fprintf(stderr, "%u ", (uint8_t)vgrp[i].u8[j]);
-		}
-		putc('\n', stderr);
 		mask[i].u8 = grp[i].u8 > 0;
-		fprintf(stderr, "mask\n");
-		for (int j = 0; j < 16; j++) {
-			fprintf(stderr, "%u ", (uint8_t)mask[i].u8[j]);
-		}
-		putc('\n', stderr);
 		cmp.u8 = mask[i].u8 + vgrp[i].u8;
-		fprintf(stderr, "cmp\n");
+		vec_dump(vgrp[i], "vgrp"); // FIXME temp */
+		vec_dump(mask[i], "mask"); // FIXME temp */
+		vec_dump(cmp, "cmp");   // FIXME temp */
+		fputc('\n', stderr);
 		for (int j = 0; j < 16; j++) {
-			fprintf(stderr, "%u ", (uint8_t)cmp.u8[j]);
+			// FIXME - don't compare fields that are not set in vgrp
+			if (cmp.u8[j] == 1) return 0;
 		}
-		putc('\n', stderr);
-		fprintf(stderr, "checking...\n");
-		for (int j = 0; j < 16; j++) {
-			if (cmp.u8[j]) return 0;
-			fprintf(stderr, "%u ", (uint8_t)cmp.u8[j]);
-		}
-		putc('\n', stderr);
-		fprintf(stderr, "i = %i\n", i);
 	}
-	fprintf(stderr, "returning TRUE\n");
 	return -1;
 }
 
@@ -246,11 +231,17 @@ void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 	unsigned char *addr = saddr->s6_addr;
 	vec_t *grp = mld->filter[iface].grp;
 	vec_t mask[8];
-	//vec_load_8(&mask->v, addr, 8);
 	vec_load_8(mask, addr, 8);
 	for (int i = 0; i < 8; i++) {
-		grp[i].v = _mm_add_epi8(grp[i].v, mask[i].v);
+		// TODO check if group already in filter
+		// TODO check for overflow
+		//grp[i].v = _mm_add_epi8(grp[i].v, mask[i].v);
+		grp[i].u8 += mask[i].u8;
 	}
+	// TODO hash address
+	// TODO addr[0] => EXCLUDE/INCLUDE mode + router id
+	// TODO timer
+	// TODO source addresses
 }
 
 mld_t *mld_init(int ifaces)

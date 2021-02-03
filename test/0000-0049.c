@@ -10,29 +10,42 @@
 
 int main(void)
 {
+	const int limit = 8;
 	mld_t *mld;
-	struct in6_addr *addr;
+	struct in6_addr *addr[limit];
 	struct sockaddr_in6 *sad;
 	struct addrinfo *ai;
+	char channame[16] = "";
 	lc_ctx_t *lctx;
 	lc_channel_t *chan;
-	test_name("mld_filter_grp_add()");
+	test_name("mld_filter_grp_add() / mld_filter_grp_cmp()");
 	lctx = lc_ctx_new();
-	chan = lc_channel_new(lctx, "black");
-	ai = lc_channel_addrinfo(chan);
-	sad = (struct sockaddr_in6 *)ai->ai_addr;
-	addr = &(sad->sin6_addr);
+
 	mld = mld_init(1);
-	mld_filter_grp_add(mld, 0, addr);
+	// FIXME - multiple channels not working
+	for (int i = 0; i < limit; i++) {
+		snprintf(channame, 16, "channel %i", i);
+		chan = lc_channel_new(lctx, channame);
+		ai = lc_channel_addrinfo(chan);
+		sad = (struct sockaddr_in6 *)ai->ai_addr;
+		addr[i] = &(sad->sin6_addr);
+		/* test false before adding */
+		test_log("testing '%s' (false)\n", channame);
+		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - false");
+		test_log("adding '%s'\n", channame);
+		mld_filter_grp_add(mld, 0, addr[i]);
+		/* test positive after adding */
+		test_log("testing '%s' (true)\n", channame);
+		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - true");
+	}
 
-	/* read back from filter */
-	test_log("testing true\n");
-	test_assert(mld_filter_grp_cmp(mld, 0, addr), "mld_filter_grp_cmp() - true");
+	/* TODO test timer */
 
-	/* now try reading false address */
-	test_log("testing false\n");
-	addr->s6_addr[0] = 0;
-	test_assert(!mld_filter_grp_cmp(mld, 0, addr), "mld_filter_grp_cmp() - false");
+	/* TODO timer tick with SIGTIMER ? */
+
+	// TODO work through state machine
+	//
+	// TODO test cmp with source address
 
 	mld_free(mld);
 	lc_ctx_free(lctx);
