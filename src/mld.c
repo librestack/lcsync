@@ -12,10 +12,12 @@
 #include <netdb.h>
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -64,6 +66,9 @@ struct mld_s {
 	job_queue_t *timerq;
 	/* number of interfaces allocated */
 	int len;
+	/* clock tick semaphores */
+	sem_t ticks;  /* clock ticks to process */
+	sem_t ticker; /* wake the job creation thread */
 	/* counted bloom filter for groups gives us O(1) for insert/query/delete 
 	 * combied with a bloom timer (is that a thing, or did I just make it
 	 * up?) - basically a counted bloom filter where the max is set to the
@@ -192,10 +197,19 @@ void *mld_timer_set(void *arg)
 	return NULL;
 }
 
+void mld_timer_tick(mld_t *mld, int iface, size_t idx)
+{
+	DEBUG("%s()", __func__);
+	while (!sem_wait(&mld->ticks)) {
+		// TODO process clock tick
+	}
+}
+
 void mld_timer_refresh(mld_t *mld, int iface, size_t idx)
 {
 	vec_t *t = mld->filter[iface].t;
 	vec_set_epi8(t, idx, MLD_TIMEOUT);
+	DEBUG("timer refreshed (%zu)", idx);
 }
 
 void *mld_timer_job(void *arg)
@@ -205,10 +219,34 @@ void *mld_timer_job(void *arg)
 	return arg;
 }
 
+/* this thread handles the clock ticks, creating a job for the timer thread */
+void mld_timer_ticker(mld_t *mld, int iface, size_t idx)
+{
+	mld_timerjob_t tj = { .mld = mld, .iface = iface, .idx = idx, .f = &mld_timer_tick };
+	while (!sem_wait(&mld->ticker)) {
+		job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
+	}
+}
+
+/* Signal handler for clock ticks.
+ * Needs to be signal-safe, so just punch semaphore for clock ticker which will
+ * create the job for the timer thread */
+void mld_timer_alrm(int i, siginfo_t *si, void *arg)
+{
+	(void)i; (void)si;
+	mld_t *mld = (mld_t *)arg;
+	sem_post(&mld->ticks);
+}
+
 void mld_timer_init(mld_t *mld, int iface, size_t idx)
 {
-	/* TODO set SIGTIMER */
-	fprintf(stderr, "just a on ol' timer doing it's job");
+	(void)mld; (void)iface; (void)idx; /* unused */
+	const struct timeval tv = { .tv_sec = MLD_TIMER_INTERVAL };
+	const struct itimerval itv = { .it_interval = tv };
+	const struct sigaction sa = { .sa_sigaction = &mld_timer_alrm };
+	sigaction(SIGALRM, &sa, NULL);
+	setitimer(ITIMER_REAL, &itv, NULL);
+	DEBUG("%s()", __func__);
 }
 
 int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr)
@@ -237,14 +275,12 @@ void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 	uint32_t hash[BLOOM_HASHES];
 	mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_refresh };
 	vec_t *grp = mld->filter[iface].grp;
-	vec_t *t = mld->filter[iface].t;
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
 	for (int i = 0; i < BLOOM_HASHES; i++) {
 		size_t idx = hash[i] % BLOOM_SZ;
 		if (vec_get_epi8(grp, idx) != CHAR_MAX) vec_inc_epi8(grp, idx);
-		vec_set_epi8(t, idx, MLD_TIMEOUT); // FIXME - set timer job
 		tj.idx = idx;
-		//job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, NULL, JOB_COPY|JOB_FREE);
+		job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	}
 }
 
@@ -264,8 +300,8 @@ mld_t *mld_init(int ifaces)
 	mld_t *mld = calloc(1, sizeof(mld_t) + ifaces * sizeof(mld_filter_t));
 	mld_timerjob_t tj = { .mld = mld, .f = &mld_timer_init };
 	if (!mld) return NULL;
-	/* create FIFO queue with timer thread */
-	mld->timerq = job_queue_create(1);
+	/* create FIFO queue with timer writer thread + ticker */
+	mld->timerq = job_queue_create(2);
 	/* initialize timer queue */
 	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	return mld;
@@ -288,6 +324,7 @@ void mld_stop(mld_t *mld)
 mld_t *mld_start(void)
 {
 	mld_t *mld = NULL;
+	mld_timerjob_t tj = { .mld = mld, .f = &mld_timer_ticker };
 	int ret = 0;
 	int sock;
 	int opt = 1;
@@ -318,5 +355,6 @@ mld_t *mld_start(void)
 	}
 	mld = mld_init(joins);
 	if (mld) mld->sock = sock;
+	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	return mld;
 }

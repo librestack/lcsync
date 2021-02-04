@@ -11,7 +11,7 @@
 
 int main(void)
 {
-	const int limit = 1; /* a modest number for normal test runs */
+	const int limit = 128; /* a modest number for normal test runs */
 	mld_t *mld;
 	struct in6_addr *addr[limit];
 	struct sockaddr_in6 *sad;
@@ -41,11 +41,13 @@ int main(void)
 		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]),
 				"mld_filter_grp_cmp() - added (%i)", i);
 		/* ensure timer set */
+		usleep(20); /* give it a moment to set */
 		t = mld_filter_timer_get(mld, 0, addr[i]);
 		test_assert(t == MLD_TIMEOUT, "timer set to %i", t);
 	}
 
 	/* timer ticks down */
+	usleep(20); /* give it a moment to set */
 	t = mld_filter_timer_get(mld, 0, addr[42]);
 	usleep(2000);
 	test_assert(t < MLD_TIMEOUT, "timer ticking %i", t);
