@@ -10,7 +10,7 @@
 
 int main(void)
 {
-	const int limit = 32;
+	const int limit = 4096;
 	mld_t *mld;
 	struct in6_addr *addr[limit];
 	struct sockaddr_in6 *sad;
@@ -22,7 +22,6 @@ int main(void)
 	lctx = lc_ctx_new();
 
 	mld = mld_init(1);
-	// FIXME - multiple channels not working
 	for (int i = 0; i < limit; i++) {
 		snprintf(channame, 16, "channel %i", i);
 		chan = lc_channel_new(lctx, channame);

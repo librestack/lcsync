@@ -2,11 +2,10 @@
 /* Copyright (c) 2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "test.h"
-#include "../src/mld.h"
-#include <librecast.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
+#include "../src/vec.h"
+
+#define BLOOM_SZ 1024
+#define BLOOM_VECTORS BLOOM_SZ / VECTOR_BITS
 
 int main(void)
 {
