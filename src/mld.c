@@ -4,6 +4,7 @@
 #include "mld.h"
 #include "hash.h"
 #include "log.h"
+#include "job.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ifaddrs.h>
@@ -43,6 +44,13 @@ typedef enum {
 	FILTER_MODE_EXCLUDE,
 } mld_mode_t;
 
+struct mld_timerjob_s {
+	mld_t *mld;
+	void (*f)(mld_t *, int iface, size_t idx);
+	size_t idx;
+	int iface;
+};
+
 struct mld_filter_s {
 	/* counted bloom filter for multicast group addresses */
 	vec_t	grp[BLOOM_VECTORS];
@@ -53,6 +61,7 @@ struct mld_filter_s {
 struct mld_s {
 	/* raw socket for MLD snooping */
 	int sock;
+	job_queue_t *timerq;
 	/* number of interfaces allocated */
 	int len;
 	/* counted bloom filter for groups gives us O(1) for insert/query/delete 
@@ -175,6 +184,33 @@ int mld_wait(struct in6_addr *addr)
 	return 0;
 }
 
+/* job for timer */
+void *mld_timer_set(void *arg)
+{
+	if (!arg) return NULL;
+	int s = *(int *)arg;
+	return NULL;
+}
+
+void mld_timer_refresh(mld_t *mld, int iface, size_t idx)
+{
+	vec_t *t = mld->filter[iface].t;
+	vec_set_epi8(t, idx, MLD_TIMEOUT);
+}
+
+void *mld_timer_job(void *arg)
+{
+	mld_timerjob_t *tj = (mld_timerjob_t *)arg;
+	tj->f(tj->mld, tj->iface, tj->idx);
+	return arg;
+}
+
+void mld_timer_init(mld_t *mld, int iface, size_t idx)
+{
+	/* TODO set SIGTIMER */
+	fprintf(stderr, "just a on ol' timer doing it's job");
+}
+
 int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr)
 {
 	uint32_t hash[BLOOM_HASHES];
@@ -199,13 +235,16 @@ int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
 void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 {
 	uint32_t hash[BLOOM_HASHES];
+	mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_refresh };
 	vec_t *grp = mld->filter[iface].grp;
 	vec_t *t = mld->filter[iface].t;
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
 	for (int i = 0; i < BLOOM_HASHES; i++) {
 		size_t idx = hash[i] % BLOOM_SZ;
 		if (vec_get_epi8(grp, idx) != CHAR_MAX) vec_inc_epi8(grp, idx);
-		vec_set_epi8(t, idx, MLD_TIMEOUT);
+		vec_set_epi8(t, idx, MLD_TIMEOUT); // FIXME - set timer job
+		tj.idx = idx;
+		//job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, NULL, JOB_COPY|JOB_FREE);
 	}
 }
 
@@ -222,11 +261,19 @@ void mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
 
 mld_t *mld_init(int ifaces)
 {
-	return calloc(1, sizeof(mld_t) + ifaces * sizeof(mld_filter_t));
+	mld_t *mld = calloc(1, sizeof(mld_t) + ifaces * sizeof(mld_filter_t));
+	mld_timerjob_t tj = { .mld = mld, .f = &mld_timer_init };
+	if (!mld) return NULL;
+	/* create FIFO queue with timer thread */
+	mld->timerq = job_queue_create(1);
+	/* initialize timer queue */
+	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
+	return mld;
 }
 
 void mld_free(mld_t *mld)
 {
+	job_queue_destroy(mld->timerq);
 	free(mld);
 }
 

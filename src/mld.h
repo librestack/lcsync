@@ -17,6 +17,7 @@
 
 typedef struct mld_s mld_t;
 typedef struct mld_filter_s mld_filter_t;
+typedef struct mld_timerjob_s mld_timerjob_t;
 
 /* initialize / free state machine */
 mld_t *mld_init(int ifaces);
