@@ -29,7 +29,6 @@ int main(void)
 	lc_channel_t *chan;
 	test_name("mld_filter_grp_add() / mld_filter_grp_cmp()");
 	lctx = lc_ctx_new();
-
 	mld = mld_init(1);
 	for (int i = 0; i < limit; i++) {
 		snprintf(channame, 16, "channel %i", i);
@@ -51,7 +50,6 @@ int main(void)
 		int t = mld_filter_timer_get(mld, 0, addr[i]);
 		test_assert(t == MLD_TIMEOUT, "timer set to %i", t);
 	}
-
 	/* test we can remove groups too */
 	for (int i = 0; i < limit; i++) {
 		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - true (%i)", i);
@@ -59,13 +57,6 @@ int main(void)
 		mld_filter_grp_del(mld, 0, addr[i]);
 		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - false (%i)", i);
 	}
-
-	/* TODO timer tick with SIGTIMER ? */
-
-	// TODO work through state machine
-	//
-	// TODO test cmp with source address
-
 	mld_free(mld);
 	lc_ctx_free(lctx);
 	return fails;
