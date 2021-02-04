@@ -177,7 +177,7 @@ int mld_wait(struct in6_addr *addr)
 
 int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
 {
-	uint64_t hash[BLOOM_HASHES];
+	uint32_t hash[BLOOM_HASHES];
 	vec_t *grp = mld->filter[iface].grp;
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
 	for (int i = 0; i < BLOOM_HASHES; i++) {
@@ -189,7 +189,7 @@ int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
 
 void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 {
-	uint64_t hash[BLOOM_HASHES];
+	uint32_t hash[BLOOM_HASHES];
 	vec_t *grp = mld->filter[iface].grp;
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
 	for (int i = 0; i < BLOOM_HASHES; i++) {

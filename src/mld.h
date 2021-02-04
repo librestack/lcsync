@@ -11,7 +11,7 @@
 
 #define BLOOM_SZ 16777216
 #define BLOOM_VECTORS BLOOM_SZ / VECTOR_BITS
-#define BLOOM_HASHES 2
+#define BLOOM_HASHES 8
 #define MLD_TIMEOUT 120 /* seconds before MLD record expires */
 #define IPV6_BYTES 16
 

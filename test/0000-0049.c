@@ -10,7 +10,16 @@
 
 int main(void)
 {
-	const int limit = 4096;
+	/* we can add 65535 hashes to our filter of size 16.7 million
+	 * with only two false positives using 2 hashes
+	 * with 3 hashes we get no false positives
+	 * log2(16777216/65535) suggests 8 hashes is optimal
+	 * There's no extra cost to this, as we generate enough bits in a single
+	 * pass of blake2b => 256 bits / 32 bits = 8 hashes
+	 * with this many hashes we no longer get collisions, even with 131072
+	 * entries */
+	//const int limit = 65535;
+	const int limit = 4096; /* a modest number for normal test runs */
 	mld_t *mld;
 	struct in6_addr *addr[limit];
 	struct sockaddr_in6 *sad;
