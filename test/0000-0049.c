@@ -10,7 +10,7 @@
 
 int main(void)
 {
-	const int limit = 8;
+	const int limit = 32;
 	mld_t *mld;
 	struct in6_addr *addr[limit];
 	struct sockaddr_in6 *sad;
@@ -31,12 +31,12 @@ int main(void)
 		addr[i] = &(sad->sin6_addr);
 		/* test false before adding */
 		test_log("testing '%s' (false)\n", channame);
-		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - false");
+		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - false (%i)", i);
 		test_log("adding '%s'\n", channame);
 		mld_filter_grp_add(mld, 0, addr[i]);
 		/* test positive after adding */
 		test_log("testing '%s' (true)\n", channame);
-		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - true");
+		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - true (%i)", i);
 	}
 
 	/* TODO test timer */

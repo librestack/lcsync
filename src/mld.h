@@ -4,15 +4,28 @@
 #ifndef _MLD_H
 #define _MLD_H 1
 
+#include <limits.h>
 #include <netinet/in.h>
 #include <immintrin.h>
 
 #define VECTOR_SZ 16
+#define VECTOR_BITS VECTOR_SZ * CHAR_BIT
+#define BLOOM_SZ 1024
+#define BLOOM_VECTORS BLOOM_SZ / VECTOR_BITS
+#define BLOOM_HASHES 2
+#define MLD_TIMEOUT 120 /* seconds before MLD record expires */
+#define IPV6_BYTES 16
 
 typedef unsigned char u8x16 __attribute__ ((vector_size (VECTOR_SZ)));
 typedef union { __m128i v; u8x16 u8; } vec_t;
 typedef struct mld_s mld_t;
 typedef struct mld_filter_s mld_filter_t;
+
+/* vector functions */
+void vec_inc_epi8(vec_t *v, size_t idx);
+void vec_dec_epi8(vec_t *v, size_t idx);
+uint8_t vec_get_epi8(vec_t *v, size_t idx);
+void vec_set_epi8(vec_t *v, size_t idx, uint8_t val);
 
 /* initialize / free state machine */
 mld_t *mld_init(int ifaces);
