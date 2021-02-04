@@ -2,11 +2,6 @@
 /* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "vec.h"
-#include "hash.h"
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 /* set one element of a vector to value */
 void vec_inc_epi8(vec_t *v, size_t idx)
