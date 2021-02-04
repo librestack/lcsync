@@ -30,6 +30,9 @@ mld_t *mld_start(void);
 /* stop MLD snooping */
 void mld_stop(mld_t *mld);
 
+/* inspect timer for group address */
+int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr);
+
 /* add group address to interface bloom filter */
 void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *addr);
 

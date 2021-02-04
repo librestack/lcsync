@@ -175,6 +175,15 @@ int mld_wait(struct in6_addr *addr)
 	return 0;
 }
 
+int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr)
+{
+	uint32_t hash[BLOOM_HASHES];
+	vec_t *t = mld->filter[iface].t;
+	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
+	size_t idx = hash[0] % BLOOM_SZ;
+	return vec_get_epi8(t, idx);
+}
+
 int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
 {
 	uint32_t hash[BLOOM_HASHES];
@@ -191,11 +200,23 @@ void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 {
 	uint32_t hash[BLOOM_HASHES];
 	vec_t *grp = mld->filter[iface].grp;
+	vec_t *t = mld->filter[iface].t;
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
 	for (int i = 0; i < BLOOM_HASHES; i++) {
 		size_t idx = hash[i] % BLOOM_SZ;
-		vec_inc_epi8(grp, idx);
-		vec_set_epi8(grp, idx, MLD_TIMEOUT);
+		if (vec_get_epi8(grp, idx) != CHAR_MAX) vec_inc_epi8(grp, idx);
+		vec_set_epi8(t, idx, MLD_TIMEOUT);
+	}
+}
+
+void mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
+{
+	uint32_t hash[BLOOM_HASHES];
+	vec_t *grp = mld->filter[iface].grp;
+	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
+	for (int i = 0; i < BLOOM_HASHES; i++) {
+		size_t idx = hash[i] % BLOOM_SZ;
+		if (vec_get_epi8(grp, idx)) vec_dec_epi8(grp, idx);
 	}
 }
 

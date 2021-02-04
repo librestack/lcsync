@@ -11,7 +11,7 @@ void vec_inc_epi8(vec_t *v, size_t idx)
 
 void vec_dec_epi8(vec_t *v, size_t idx)
 {
-	v[idx / VECTOR_BITS].u8[idx % VECTOR_BITS]--;
+	(v[idx / VECTOR_BITS].u8[idx % VECTOR_BITS])--;
 }
 
 uint8_t vec_get_epi8(vec_t *v, size_t idx)

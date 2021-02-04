@@ -39,15 +39,26 @@ int main(void)
 		addr[i] = &(sad->sin6_addr);
 		/* test false before adding */
 		test_log("testing '%s' (false)\n", channame);
-		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - false (%i)", i);
+		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]),
+				"mld_filter_grp_cmp() - before adding (%i)", i);
 		test_log("adding '%s'\n", channame);
 		mld_filter_grp_add(mld, 0, addr[i]);
 		/* test positive after adding */
 		test_log("testing '%s' (true)\n", channame);
-		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - true (%i)", i);
+		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]),
+				"mld_filter_grp_cmp() - added (%i)", i);
+		/* ensure timer set */
+		int t = mld_filter_timer_get(mld, 0, addr[i]);
+		test_assert(t == MLD_TIMEOUT, "timer set to %i", t);
 	}
 
-	/* TODO test timer */
+	/* test we can remove groups too */
+	for (int i = 0; i < limit; i++) {
+		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - true (%i)", i);
+		/* remove group and check again */
+		mld_filter_grp_del(mld, 0, addr[i]);
+		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - false (%i)", i);
+	}
 
 	/* TODO timer tick with SIGTIMER ? */
 
