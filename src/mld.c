@@ -67,8 +67,6 @@ struct mld_s {
 	/* number of interfaces allocated */
 	int len;
 	/* clock tick semaphores */
-	sem_t ticks;  /* clock ticks to process */
-	sem_t ticker; /* wake the job creation thread */
 	/* counted bloom filter for groups gives us O(1) for insert/query/delete 
 	 * combied with a bloom timer (is that a thing, or did I just make it
 	 * up?) - basically a counted bloom filter where the max is set to the
@@ -190,19 +188,38 @@ int mld_wait(struct in6_addr *addr)
 }
 
 /* job for timer */
+#if 0
 void *mld_timer_set(void *arg)
 {
 	if (!arg) return NULL;
 	int s = *(int *)arg;
 	return NULL;
 }
+#endif
 
+void vec_dump(vec_t *vec, int idx)
+{
+	for (int j = 0; j < 16; j++) {
+		fprintf(stderr, "%u ", (uint8_t)vec[idx / VECTOR_BITS].u8[j]);
+	}
+	putc('\n', stderr);
+}
+
+/* decrement all the counters. There are 16.7 million of them, use SIMD */
 void mld_timer_tick(mld_t *mld, int iface, size_t idx)
 {
 	DEBUG("%s()", __func__);
-	while (!sem_wait(&mld->ticks)) {
-		// TODO process clock tick
+	(void)iface; (void)idx;
+	vec_t *t;
+	vec_t mask = {0};
+	for (int i = 0; i < mld->len; i++) {
+		t = mld->filter[i].t;
+		for (size_t z = 0; z < BLOOM_VECTORS; z++) {
+			mask.u8 = t[z].u8 > 0;
+			t[z].u8 += mask.u8;
+		}
 	}
+	DEBUG("%s() - update complete", __func__);
 }
 
 void mld_timer_refresh(mld_t *mld, int iface, size_t idx)
@@ -222,8 +239,16 @@ void *mld_timer_job(void *arg)
 /* this thread handles the clock ticks, creating a job for the timer thread */
 void mld_timer_ticker(mld_t *mld, int iface, size_t idx)
 {
+	DEBUG("%s()", __func__);
 	mld_timerjob_t tj = { .mld = mld, .iface = iface, .idx = idx, .f = &mld_timer_tick };
-	while (!sem_wait(&mld->ticker)) {
+	sem_t sem;
+	struct timespec ts;
+	sem_init(&sem, 0, 0);
+	clock_gettime(CLOCK_REALTIME, &ts);
+	for (;;) {
+		ts.tv_sec += MLD_TIMER_INTERVAL;
+		sem_timedwait(&sem, &ts);
+		DEBUG("%s() ticked", __func__);
 		job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	}
 }
@@ -231,23 +256,27 @@ void mld_timer_ticker(mld_t *mld, int iface, size_t idx)
 /* Signal handler for clock ticks.
  * Needs to be signal-safe, so just punch semaphore for clock ticker which will
  * create the job for the timer thread */
+#if 0
 void mld_timer_alrm(int i, siginfo_t *si, void *arg)
 {
 	(void)i; (void)si;
 	mld_t *mld = (mld_t *)arg;
-	sem_post(&mld->ticks);
+	for (int i = 0; i < si->si_overrun; i++) sem_post(&ticks);
+	sem_post(&ticker);
 }
-
+#endif
+#if 0
 void mld_timer_init(mld_t *mld, int iface, size_t idx)
 {
+	DEBUG("%s()", __func__);
 	(void)mld; (void)iface; (void)idx; /* unused */
 	const struct timeval tv = { .tv_sec = MLD_TIMER_INTERVAL };
-	const struct itimerval itv = { .it_interval = tv };
+	const struct itimerval itv = { .it_interval = tv, .it_value = tv };
 	const struct sigaction sa = { .sa_sigaction = &mld_timer_alrm };
 	sigaction(SIGALRM, &sa, NULL);
 	setitimer(ITIMER_REAL, &itv, NULL);
-	DEBUG("%s()", __func__);
 }
+#endif
 
 int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr)
 {
@@ -278,7 +307,8 @@ void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
 	for (int i = 0; i < BLOOM_HASHES; i++) {
 		size_t idx = hash[i] % BLOOM_SZ;
-		if (vec_get_epi8(grp, idx) != CHAR_MAX) vec_inc_epi8(grp, idx);
+		if (vec_get_epi8(grp, idx) != CHAR_MAX)
+			vec_inc_epi8(grp, idx);
 		tj.idx = idx;
 		job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	}
@@ -298,12 +328,10 @@ void mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
 mld_t *mld_init(int ifaces)
 {
 	mld_t *mld = calloc(1, sizeof(mld_t) + ifaces * sizeof(mld_filter_t));
-	mld_timerjob_t tj = { .mld = mld, .f = &mld_timer_init };
 	if (!mld) return NULL;
+	mld->len = ifaces;
 	/* create FIFO queue with timer writer thread + ticker */
 	mld->timerq = job_queue_create(2);
-	/* initialize timer queue */
-	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	return mld;
 }
 
@@ -324,13 +352,13 @@ void mld_stop(mld_t *mld)
 mld_t *mld_start(void)
 {
 	mld_t *mld = NULL;
-	mld_timerjob_t tj = { .mld = mld, .f = &mld_timer_ticker };
 	int ret = 0;
 	int sock;
 	int opt = 1;
 	int joins = 0;
 	struct ifaddrs *ifaddr, *ifa;
 	struct ipv6_mreq req;
+	goto temp_skip;
 	sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
 	if (sock == -1) {
 		perror("socket()");
@@ -353,8 +381,11 @@ mld_t *mld_start(void)
 		ERROR("Unable to join on any interfaces");
 		return NULL;
 	}
-	mld = mld_init(joins);
+temp_skip:
+	//mld = mld_init(joins);
+	mld = mld_init(1);
 	if (mld) mld->sock = sock;
+	mld_timerjob_t tj = { .mld = mld, .f = &mld_timer_ticker };
 	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	return mld;
 }

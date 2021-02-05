@@ -11,7 +11,7 @@
 
 int main(void)
 {
-	const int limit = 128; /* a modest number for normal test runs */
+	const int limit = 1; /* a modest number for normal test runs */
 	mld_t *mld;
 	struct in6_addr *addr[limit];
 	struct sockaddr_in6 *sad;
@@ -23,7 +23,7 @@ int main(void)
 	test_name("mld_filter_grp_add() / mld_filter_grp_cmp()");
 	lctx = lc_ctx_new();
 
-	mld = mld_init(1);
+	mld = mld_start();
 	for (int i = 0; i < limit; i++) {
 		snprintf(channame, 16, "channel %i", i);
 		chan = lc_channel_new(lctx, channame);
@@ -40,23 +40,18 @@ int main(void)
 		test_log("testing '%s' (true)\n", channame);
 		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]),
 				"mld_filter_grp_cmp() - added (%i)", i);
-		/* ensure timer set */
-		usleep(20); /* give it a moment to set */
-		t = mld_filter_timer_get(mld, 0, addr[i]);
-		test_assert(t == MLD_TIMEOUT, "timer set to %i", t);
 	}
 
 	/* timer ticks down */
-	usleep(20); /* give it a moment to set */
-	t = mld_filter_timer_get(mld, 0, addr[42]);
-	usleep(2000);
+	usleep(1500000);
+	t = mld_filter_timer_get(mld, 0, addr[0]);
 	test_assert(t < MLD_TIMEOUT, "timer ticking %i", t);
 
 	// TODO work through state machine
 	//
 	// TODO test cmp with source address
 
-	mld_free(mld);
+	mld_free(mld); // FIXME mld_stop()
 	lc_ctx_free(lctx);
 	return fails;
 }

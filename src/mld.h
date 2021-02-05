@@ -32,6 +32,12 @@ mld_t *mld_start(void);
 /* stop MLD snooping */
 void mld_stop(mld_t *mld);
 
+/* decrement all the counters. */
+void mld_timer_tick(mld_t *mld, int iface, size_t idx);
+
+/* reset specific timer to MLD_TIMEOUT */
+void mld_timer_refresh(mld_t *mld, int iface, size_t idx);
+
 /* inspect timer for group address */
 int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr);
 
