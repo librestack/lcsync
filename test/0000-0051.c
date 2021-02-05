@@ -43,15 +43,13 @@ int main(void)
 	}
 
 	/* timer ticks down */
+	t = mld_filter_timer_get(mld, 0, addr[0]);
+	test_assert(t > MLD_TIMEOUT - 1, "timer set %i", t);
 	usleep(1500000);
 	t = mld_filter_timer_get(mld, 0, addr[0]);
 	test_assert(t < MLD_TIMEOUT, "timer ticking %i", t);
 
-	// TODO work through state machine
-	//
-	// TODO test cmp with source address
-
-	mld_free(mld); // FIXME mld_stop()
+	mld_stop(mld);
 	lc_ctx_free(lctx);
 	return fails;
 }
