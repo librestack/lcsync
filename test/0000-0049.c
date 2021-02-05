@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <unistd.h>
 
 int main(void)
 {
@@ -47,6 +48,7 @@ int main(void)
 		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]),
 				"mld_filter_grp_cmp() - added (%i)", i);
 		/* ensure timer set */
+		usleep(100);
 		int t = mld_filter_timer_get(mld, 0, addr[i]);
 		test_assert(t == MLD_TIMEOUT, "timer set to %i", t);
 	}

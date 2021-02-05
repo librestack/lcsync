@@ -358,7 +358,6 @@ mld_t *mld_start(void)
 	int joins = 0;
 	struct ifaddrs *ifaddr, *ifa;
 	struct ipv6_mreq req;
-	goto temp_skip;
 	sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
 	if (sock == -1) {
 		perror("socket()");
@@ -381,10 +380,9 @@ mld_t *mld_start(void)
 		ERROR("Unable to join on any interfaces");
 		return NULL;
 	}
-temp_skip:
-	//mld = mld_init(joins);
-	mld = mld_init(1);
-	if (mld) mld->sock = sock;
+	mld = mld_init(joins);
+	if (!mld) return NULL;
+	mld->sock = sock;
 	mld_timerjob_t tj = { .mld = mld, .f = &mld_timer_ticker };
 	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	return mld;
