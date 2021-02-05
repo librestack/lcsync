@@ -1,4 +1,9 @@
-NEXT STEP: build state machine for MLD to track subscriptions. We want a yes/no
+MLD events -> insert into bloom filter
+MLD events -> notify subscribers
+MLD timer stop ticking when all zero
+MLD timer start ticking when reset
+
+build state machine for MLD to track subscriptions. We want a yes/no
 answer for each interface as to whether a group address is active (subscribed).
 
 This is a whole separate test/set of tests for MLD state.
@@ -9,10 +14,6 @@ See 7.2.  MLD State Maintained by Multicast Routers of RFC 3810:
 	  https://tools.ietf.org/html/rfc3810#section-7.2
 
 Keep a group list per interface
-
-Counted bloom filter + bloom timer
-
-NEXT: work on converting binary value into vectors
 
 --------------------------------------------------------------------------------
 

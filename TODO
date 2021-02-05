@@ -1,6 +1,7 @@
 NEXT ACTIONS:
 
-* MLD trigger
+* MLD trigger - > index lookup & send (check subscription each loop)
+* file indexing -> lmdb
 * fix 0035 bug
 * run tests in separate namespace
 
