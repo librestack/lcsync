@@ -187,16 +187,6 @@ int mld_wait(struct in6_addr *addr)
 	return 0;
 }
 
-/* job for timer */
-#if 0
-void *mld_timer_set(void *arg)
-{
-	if (!arg) return NULL;
-	int s = *(int *)arg;
-	return NULL;
-}
-#endif
-
 void vec_dump(vec_t *vec, int idx)
 {
 	for (int j = 0; j < 16; j++) {
@@ -208,7 +198,6 @@ void vec_dump(vec_t *vec, int idx)
 /* decrement all the counters. There are 16.7 million of them, use SIMD */
 void mld_timer_tick(mld_t *mld, int iface, size_t idx)
 {
-	DEBUG("%s()", __func__);
 	(void)iface; (void)idx;
 	vec_t *t;
 	vec_t mask = {0};
@@ -239,44 +228,17 @@ void *mld_timer_job(void *arg)
 /* this thread handles the clock ticks, creating a job for the timer thread */
 void mld_timer_ticker(mld_t *mld, int iface, size_t idx)
 {
-	DEBUG("%s()", __func__);
-	mld_timerjob_t tj = { .mld = mld, .iface = iface, .idx = idx, .f = &mld_timer_tick };
-	sem_t sem;
 	struct timespec ts;
+	sem_t sem;
+	mld_timerjob_t tj = { .mld = mld, .iface = iface, .idx = idx, .f = &mld_timer_tick };
 	sem_init(&sem, 0, 0);
 	clock_gettime(CLOCK_REALTIME, &ts);
 	for (;;) {
 		ts.tv_sec += MLD_TIMER_INTERVAL;
 		sem_timedwait(&sem, &ts);
-		DEBUG("%s() ticked", __func__);
 		job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	}
 }
-
-/* Signal handler for clock ticks.
- * Needs to be signal-safe, so just punch semaphore for clock ticker which will
- * create the job for the timer thread */
-#if 0
-void mld_timer_alrm(int i, siginfo_t *si, void *arg)
-{
-	(void)i; (void)si;
-	mld_t *mld = (mld_t *)arg;
-	for (int i = 0; i < si->si_overrun; i++) sem_post(&ticks);
-	sem_post(&ticker);
-}
-#endif
-#if 0
-void mld_timer_init(mld_t *mld, int iface, size_t idx)
-{
-	DEBUG("%s()", __func__);
-	(void)mld; (void)iface; (void)idx; /* unused */
-	const struct timeval tv = { .tv_sec = MLD_TIMER_INTERVAL };
-	const struct itimerval itv = { .it_interval = tv, .it_value = tv };
-	const struct sigaction sa = { .sa_sigaction = &mld_timer_alrm };
-	sigaction(SIGALRM, &sa, NULL);
-	setitimer(ITIMER_REAL, &itv, NULL);
-}
-#endif
 
 int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr)
 {
@@ -299,6 +261,17 @@ int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
 	return 1;
 }
 
+void mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
+{
+	uint32_t hash[BLOOM_HASHES];
+	vec_t *grp = mld->filter[iface].grp;
+	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
+	for (int i = 0; i < BLOOM_HASHES; i++) {
+		size_t idx = hash[i] % BLOOM_SZ;
+		if (vec_get_epi8(grp, idx)) vec_dec_epi8(grp, idx);
+	}
+}
+
 void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 {
 	uint32_t hash[BLOOM_HASHES];
@@ -314,15 +287,10 @@ void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 	}
 }
 
-void mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
+void mld_free(mld_t *mld)
 {
-	uint32_t hash[BLOOM_HASHES];
-	vec_t *grp = mld->filter[iface].grp;
-	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
-	for (int i = 0; i < BLOOM_HASHES; i++) {
-		size_t idx = hash[i] % BLOOM_SZ;
-		if (vec_get_epi8(grp, idx)) vec_dec_epi8(grp, idx);
-	}
+	job_queue_destroy(mld->timerq);
+	free(mld);
 }
 
 mld_t *mld_init(int ifaces)
@@ -333,12 +301,6 @@ mld_t *mld_init(int ifaces)
 	/* create FIFO queue with timer writer thread + ticker */
 	mld->timerq = job_queue_create(2);
 	return mld;
-}
-
-void mld_free(mld_t *mld)
-{
-	job_queue_destroy(mld->timerq);
-	free(mld);
 }
 
 void mld_stop(mld_t *mld)
