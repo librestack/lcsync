@@ -323,14 +323,19 @@ int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 	return 0;
 }
 
-void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec)
+void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
 {
 	struct in6_addr addr = rec->addr;
 	// TODO check type and source of record
-	mld_filter_grp_add(mld, iface, &addr);
-	//rec->mar_type
-	//if (!memcmp(addr, &mrec.mar_address, sizeof(struct in6_addr))) {
-	//	inet_ntop(AF_INET6, (&mrec.mar_address)->s6_addr, straddr, INET6_ADDRSTRLEN);
+	// For ASM:
+	//	EXCLUDE(NULL) => subscribe
+	//	INCLUDE(NULL) => unsubscribe
+	switch (rec->type) {
+		case MODE_IS_EXCLUDE:
+			mld_filter_grp_add(mld, iface, &addr); break;
+		case MODE_IS_INCLUDE:
+			mld_filter_grp_del(mld, iface, &addr); break;
+	}
 }
 #if 0
 void mld_listen_report(mld_t *mld, struct msghdr *msg)

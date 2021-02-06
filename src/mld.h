@@ -76,17 +76,19 @@ int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *addr);
 int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *addr);
 
 /* manage state */
-void mld_is_in(unsigned int ifidx, struct in6_addr *addr); /* MODE_IS_INCLUDE */
-void mld_is_ex(unsigned int ifidx, struct in6_addr *addr); /* MODE_IS_EXCLUDE */
-void mld_to_in(unsigned int ifidx, struct in6_addr *addr); /* CHANGE_TO_INCLUDE_MODE */
-void mld_to_ex(unsigned int ifidx, struct in6_addr *addr); /* CHANGE_TO_EXCLUDE_MODE */
-void mld_allow(unsigned int ifidx, struct in6_addr *addr); /* ALLOW_NEW_SOURCES */
-void mld_block(unsigned int ifidx, struct in6_addr *addr); /* BLOCK_OLD_SOURCES */
+#if 0
+void mld_is_in(int iface, struct in6_addr *addr); /* MODE_IS_INCLUDE */
+void mld_is_ex(int iface, struct in6_addr *addr); /* MODE_IS_EXCLUDE */
+void mld_to_in(int iface, struct in6_addr *addr); /* CHANGE_TO_INCLUDE_MODE */
+void mld_to_ex(int iface, struct in6_addr *addr); /* CHANGE_TO_EXCLUDE_MODE */
+void mld_allow(int iface, struct in6_addr *addr); /* ALLOW_NEW_SOURCES */
+void mld_block(int iface, struct in6_addr *addr); /* BLOCK_OLD_SOURCES */
+#endif
 
 //void mld_msg_handle(mld_t *mld, struct icmp6_hdr *hdr, mld_mar_t *mar);
 
 /* handle MLD2 router msgs */
-void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec);
+void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec);
 //void mld_msg_handle(mld_t *mld, struct msghdr *msg);
 //void mld_listen(mld_t *mld);
 

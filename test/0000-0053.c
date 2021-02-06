@@ -33,17 +33,23 @@ int main(void)
 	char channame[16] = "";
 	lctx = lc_ctx_new();
 	mld_t *mld;
-	mld_addr_rec_t rec = { .type = MODE_IS_EXCLUDE };
+	mld_addr_rec_t rec = {0};
 	struct in6_addr addr = {0};
 
-	test_name("mld_address_record() - MODE_IS_EXCLUDE");
+	test_name("mld_address_record()");
 
 	create_channel(&addr, channame);
 	mld = mld_init(interfaces);
 
 	test_assert(!mld_filter_grp_cmp(mld, 0, &addr), "test filter before adding any records");
-	mld_address_record(mld, 0, &rec);
-	test_assert(mld_filter_grp_cmp(mld, 0, &addr), "test filter after adding record");
+
+	rec.type = MODE_IS_EXCLUDE;
+	mld_address_record(mld, 0, &rec); /* EXCLUDE(NULL) => ASM join */
+	test_assert(mld_filter_grp_cmp(mld, 0, &addr), "test filter after EXCLUDE(NULL) => join");
+
+	rec.type = MODE_IS_INCLUDE;
+	mld_address_record(mld, 0, &rec); /* INCLUDE(NULL) => ASM leave */
+	test_assert(!mld_filter_grp_cmp(mld, 0, &addr), "test filter after INCLUDE(NULL) => leave");
 
 	mld_free(mld);
 	lc_ctx_free(lctx);

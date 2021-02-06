@@ -8,12 +8,8 @@ answer for each interface as to whether a group address is active (subscribed).
 
 This is a whole separate test/set of tests for MLD state.
 
-Need to build fake MLD packets and pass them in.
-
 See 7.2.  MLD State Maintained by Multicast Routers of RFC 3810:
 	  https://tools.ietf.org/html/rfc3810#section-7.2
-
-Keep a group list per interface
 
 TODO: add src arg to mld_filter_grp_*()
 
