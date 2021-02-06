@@ -323,18 +323,38 @@ int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 	return 0;
 }
 
+// FIXME: cache this in another bloom filter
+int mld_thatsme(struct in6_addr *addr)
+{
+	int ret = 1;
+	struct ifaddrs *ifaddr, *ifa;
+	getifaddrs(&ifaddr);
+	for (ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
+		if (!ifa->ifa_addr) continue;
+		if (ifa->ifa_addr->sa_family != AF_INET6) continue;
+		if (!memcmp(ifa->ifa_addr, addr, sizeof (struct in6_addr))) {
+			ret = 0; break;
+		}
+	}
+	freeifaddrs(ifaddr);
+	return ret;
+}
+
 void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
 {
 	struct in6_addr addr = rec->addr;
-	// TODO check type and source of record
 	// For ASM:
 	//	EXCLUDE(NULL) => subscribe
 	//	INCLUDE(NULL) => unsubscribe
 	switch (rec->type) {
+		case MODE_IS_INCLUDE:
+			if (!rec->srcs)
+				mld_filter_grp_del(mld, iface, &addr); break;
+			// TODO check source of record
+			// if src != self break;
+			/* fallthru */
 		case MODE_IS_EXCLUDE:
 			mld_filter_grp_add(mld, iface, &addr); break;
-		case MODE_IS_INCLUDE:
-			mld_filter_grp_del(mld, iface, &addr); break;
 	}
 }
 #if 0

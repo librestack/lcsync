@@ -87,6 +87,9 @@ void mld_block(int iface, struct in6_addr *addr); /* BLOCK_OLD_SOURCES */
 
 //void mld_msg_handle(mld_t *mld, struct icmp6_hdr *hdr, mld_mar_t *mar);
 
+/* return 0 if addr is valid for iface, 1 if not, -1 on error */
+int mld_thatsme(struct in6_addr *addr);
+
 /* handle MLD2 router msgs */
 void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec);
 //void mld_msg_handle(mld_t *mld, struct msghdr *msg);
