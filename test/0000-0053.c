@@ -36,7 +36,7 @@ int main(void)
 	mld_addr_rec_t rec = {0};
 	struct in6_addr addr = {0};
 
-	test_name("mld_address_record()");
+	test_name("mld_address_record() - ASM");
 
 	create_channel(&addr, channame);
 	mld = mld_init(interfaces);

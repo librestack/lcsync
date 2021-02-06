@@ -59,6 +59,14 @@ int main(void)
 		mld_filter_grp_del(mld, 0, addr[i]);
 		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - false (%i)", i);
 	}
+	/* add same group twice and remove - should have only been added once */
+	mld_filter_grp_add(mld, 0, addr[17]);
+	test_assert(mld_filter_grp_cmp(mld, 0, addr[17]), "mld_filter_grp_cmp() - add twice");
+	mld_filter_grp_add(mld, 0, addr[17]);
+	test_assert(mld_filter_grp_cmp(mld, 0, addr[17]), "mld_filter_grp_cmp() - add twice");
+	mld_filter_grp_del(mld, 0, addr[17]);
+	test_assert(!mld_filter_grp_cmp(mld, 0, addr[17]), "mld_filter_grp_cmp() - remove once");
+
 	mld_free(mld);
 	lc_ctx_free(lctx);
 	return fails;

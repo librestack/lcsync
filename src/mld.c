@@ -79,16 +79,17 @@ struct mld_addr_rec_s {
 	uint8_t         auxl;    /* Aux Data Len */
 	uint16_t        srcs;    /* Number of Sources */
 	struct in6_addr addr;    /* Multicast Address */
+	struct in6_addr src[];   /* Source Address */
 } __attribute__((__packed__));
 
 /* Version 2 Multicast Listener Report Message */
 struct mld2 {
-	uint8_t         mld2_type;      /* type field */
-	uint8_t         mld2_res1;      /* reserved */
-	uint16_t        mld2_cksum;     /* checksum field */
-	uint16_t        mld2_res2;      /* reserved */
-	uint16_t        mld2_rec;       /* Nr of Mcast Address Records */
-	mld_addr_rec_t  mld2_mar;       /* First MCast Address Record */
+	uint8_t         type;	/* type field */
+	uint8_t         res1;   /* reserved */
+	uint16_t        cksm;   /* checksum field */
+	uint16_t        res2;   /* reserved */
+	uint16_t        recs;   /* Nr of Mcast Address Records */
+	char *		mrec;   /* First MCast Address Record */
 } __attribute__((__packed__));
 
 /* extract interface number from ancillary control data */
@@ -310,6 +311,7 @@ int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 		errno = EINVAL;
 		return -1;
 	}
+	if (mld_filter_grp_cmp(mld, iface, saddr)) return 0; /* exists */
 	mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_refresh };
 	vec_t *grp = mld->filter[iface].grp;
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
@@ -342,19 +344,32 @@ int mld_thatsme(struct in6_addr *addr)
 
 void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
 {
-	struct in6_addr addr = rec->addr;
+	struct in6_addr grp = rec->addr;
+	struct in6_addr src[rec->srcs];
+	int idx = -1;
 	// For ASM:
 	//	EXCLUDE(NULL) => subscribe
 	//	INCLUDE(NULL) => unsubscribe
 	switch (rec->type) {
 		case MODE_IS_INCLUDE:
-			if (!rec->srcs)
-				mld_filter_grp_del(mld, iface, &addr); break;
-			// TODO check source of record
-			// if src != self break;
+			if (!rec->srcs) {
+				mld_filter_grp_del(mld, iface, &grp);
+				break;
+			}
+			fprintf(stderr, "possible SSM join in progress\n");
+			memcpy(src, rec->src, sizeof(struct in6_addr) * rec->srcs);
+			for (int i = 0; i < rec->srcs; i++) {
+				if (!mld_thatsme(&src[i])) {
+					idx = i;
+					break;
+				}
+			}
+			if (idx < 0) break;
+			fprintf(stderr, "SSM source matches local interface address, proceeding\n");
 			/* fallthru */
 		case MODE_IS_EXCLUDE:
-			mld_filter_grp_add(mld, iface, &addr); break;
+			mld_filter_grp_add(mld, iface, &grp);
+			break;
 	}
 }
 #if 0
@@ -380,7 +395,7 @@ void mld_listen(mld_t *mld)
 {
 	ssize_t byt = 0;
 	char buf_ctrl[BUFSIZE];
-	char buf_name[BUFSIZE];
+	char buf_name[IPV6_BYTES];
 	struct iovec iov[2] = {0};
 	struct icmp6_hdr icmpv6 = {0};
 	struct mar mrec = {0};
@@ -389,10 +404,10 @@ void mld_listen(mld_t *mld)
 	iov[0].iov_len = sizeof icmpv6;
 	iov[1].iov_base = &mrec;
 	iov[1].iov_len = sizeof mrec;
+	msg.msg_name = buf_name;
+	msg.msg_namelen = IPV6_BYTES;
 	msg.msg_control = buf_ctrl;
 	msg.msg_controllen = BUFSIZE;
-	msg.msg_name = buf_name;
-	msg.msg_namelen = BUFSIZE;
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 2;
 	msg.msg_flags = 0;
