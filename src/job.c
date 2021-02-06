@@ -82,8 +82,7 @@ static void *job_seek(void *arg)
 	void(*callback)(void *);
 	while((job = job_wait(jt->q))) {
 		if (job->f) job->ret = job->f(job->arg);
-		if ((job->flags & JOB_FREE) == JOB_FREE)
-			free(job->arg);
+		if (job->flags & JOB_FREE) free(job->arg);
 		callback = job->callback; /* avoid race */
 		sem_post(&job->done);
 		if (callback) callback(job);
@@ -121,6 +120,7 @@ void job_queue_destroy(job_queue_t *q)
 {
 	job_t *job;
 	while ((job = job_shift(q))) {
+		if (job->flags & JOB_FREE) free(job->arg);
 		free(job);
 	}
 	DEBUG("destroying %zu threads", q->nthreads);
