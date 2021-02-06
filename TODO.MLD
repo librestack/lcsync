@@ -13,6 +13,9 @@ See 7.2.  MLD State Maintained by Multicast Routers of RFC 3810:
 
 TODO: add src arg to mld_filter_grp_*()
 
+* more work todo in test 0054, testing mld_address_record() with different combos
+
+
 --------------------------------------------------------------------------------
 
 * subscribe to notifications for mld events

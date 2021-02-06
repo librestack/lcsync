@@ -83,7 +83,8 @@ struct mld_addr_rec_s {
 } __attribute__((__packed__));
 
 /* Version 2 Multicast Listener Report Message */
-struct mld2 {
+#if 0
+struct mld_lrm_t {
 	uint8_t         type;	/* type field */
 	uint8_t         res1;   /* reserved */
 	uint16_t        cksm;   /* checksum field */
@@ -91,6 +92,7 @@ struct mld2 {
 	uint16_t        recs;   /* Nr of Mcast Address Records */
 	char *		mrec;   /* First MCast Address Record */
 } __attribute__((__packed__));
+#endif
 
 /* extract interface number from ancillary control data */
 static int interface_index(struct msghdr *msg)
@@ -367,17 +369,18 @@ void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
 			break;
 	}
 }
-#if 0
+
 void mld_listen_report(mld_t *mld, struct msghdr *msg)
 {
-	int ifidx = interface_index(msg);
+	int iface = interface_index(msg);
 	struct icmp6_hdr *icmpv6 = msg->msg_iov[0].iov_base;
-	uint16_t rec = ntohs(icmpv6->icmp6_data16[1]);
-	for (int i = 0; i < rec; i++) {
-		mld_address_record(mld, msg);
+	mld_addr_rec_t *mrec = msg->msg_iov[1].iov_base;
+	uint16_t recs = ntohs(icmpv6->icmp6_data16[1]);
+	for (int i = 0; i < recs; i++) {
+		mld_address_record(mld, iface, &mrec[i]);
 	}
 }
-
+#if 0
 void mld_msg_handle(mld_t *mld, struct msghdr *msg)
 {
 	struct icmp6_hdr *icmpv6 = msg->msg_iov[0].iov_base;
