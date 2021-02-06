@@ -6,6 +6,7 @@ NEXT ACTIONS:
 * run tests in separate namespace
 
 ----------------------------------------------------------------------
+* AVX2 dispatcher, function pointers etc.
 * bredth-first search.
 * # channels should be set by sender - receiver gets channel info with tree
 * reduce verbosity of sender/receiver modes

@@ -6,6 +6,7 @@
 
 #include <sodium.h>
 #define HASHSIZE crypto_generichash_BYTES
+#define HASHMAXBYTES crypto_generichash_BYTES_MAX
 #define HEXLEN HASHSIZE * 2 + 1
 
 void hash_hex_debug(unsigned char *hash, size_t len);

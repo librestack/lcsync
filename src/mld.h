@@ -16,9 +16,34 @@
 #define MLD_TIMER_INTERVAL 1 /* length of timer tick in seconds */
 #define IPV6_BYTES 16
 
+/* See RFC 3810 */
+
+/* MALI = Multicast Address Listening Interval */
+/* LLQT = Last Listener Query Time */
+
+#define MLD2_ROBUSTNESS 2               /* 9.14.1.  Robustness Variable */
+#define MLD2_CAPABLE_ROUTERS "ff02::16" /* all MLDv2-capable routers */
+#define MLD2_LISTEN_REPORT 143          /* Multicast Listener Report messages */
+
+/* Current State Record */
+#define MODE_IS_INCLUDE 1
+#define MODE_IS_EXCLUDE 2
+
+/* Filter Mode Change Record */
+#define CHANGE_TO_INCLUDE_MODE 3
+#define CHANGE_TO_EXCLUDE_MODE 4
+
+/* Source List Change Record */
+#define ALLOW_NEW_SOURCES 5
+#define BLOCK_OLD_SOURCES 6
+
+/* 9.14.1.  Robustness Variable */
+#define MLD2_ROBUSTNESS 2
+
 typedef struct mld_s mld_t;
 typedef struct mld_filter_s mld_filter_t;
 typedef struct mld_timerjob_s mld_timerjob_t;
+typedef struct mld_addr_rec_s mld_addr_rec_t;
 
 /* initialize / free state machine */
 mld_t *mld_init(int ifaces);
@@ -57,6 +82,13 @@ void mld_to_in(unsigned int ifidx, struct in6_addr *addr); /* CHANGE_TO_INCLUDE_
 void mld_to_ex(unsigned int ifidx, struct in6_addr *addr); /* CHANGE_TO_EXCLUDE_MODE */
 void mld_allow(unsigned int ifidx, struct in6_addr *addr); /* ALLOW_NEW_SOURCES */
 void mld_block(unsigned int ifidx, struct in6_addr *addr); /* BLOCK_OLD_SOURCES */
+
+//void mld_msg_handle(mld_t *mld, struct icmp6_hdr *hdr, mld_mar_t *mar);
+
+/* handle MLD2 router msgs */
+void mld_address_record(mld_t *mld, unsigned int ifidx, mld_addr_rec_t *rec);
+//void mld_msg_handle(mld_t *mld, struct msghdr *msg);
+//void mld_listen(mld_t *mld);
 
 /* query state */
 int mld_wait(struct in6_addr *addr);
