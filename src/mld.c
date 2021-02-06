@@ -316,6 +316,7 @@ void mld_stop(mld_t *mld)
 
 void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec)
 {
+	// TODO check type and source of record
 	mld_filter_grp_add(mld, iface, &rec->addr);
 	//rec->mar_type
 	//if (!memcmp(addr, &mrec.mar_address, sizeof(struct in6_addr))) {
