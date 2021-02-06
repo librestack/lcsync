@@ -243,10 +243,14 @@ void mld_timer_ticker(mld_t *mld, int iface, size_t idx)
 		job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	}
 }
-
+// FIXME some refactoring to do here - these functions are all similar
 int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr)
 {
 	uint32_t hash[BLOOM_HASHES];
+	if (iface >= mld->len) {
+		errno = EINVAL;
+		return -1;
+	}
 	vec_t *t = mld->filter[iface].t;
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
 	size_t idx = hash[0] % BLOOM_SZ;
@@ -257,7 +261,10 @@ int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
 {
 	uint32_t hash[BLOOM_HASHES];
 	vec_t *grp = mld->filter[iface].grp;
-	if (iface >= mld->len) return 0;
+	if (iface >= mld->len) {
+		errno = EINVAL;
+		return 0;
+	}
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
 	for (int i = 0; i < BLOOM_HASHES; i++) {
 		size_t idx = hash[i] % BLOOM_SZ;
@@ -269,7 +276,10 @@ int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
 int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
 {
 	uint32_t hash[BLOOM_HASHES];
-	if (iface >= mld->len) return -1;
+	if (iface >= mld->len) {
+		errno = EINVAL;
+		return -1;
+	}
 	vec_t *grp = mld->filter[iface].grp;
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
 	for (int i = 0; i < BLOOM_HASHES; i++) {
@@ -281,11 +291,11 @@ int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
 
 int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 {
+	uint32_t hash[BLOOM_HASHES];
 	if (iface >= mld->len) {
 		errno = EINVAL;
 		return -1;
 	}
-	uint32_t hash[BLOOM_HASHES];
 	mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_refresh };
 	vec_t *grp = mld->filter[iface].grp;
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
