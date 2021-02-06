@@ -41,7 +41,7 @@ int main(void)
 	create_channel(&addr, channame);
 	mld = mld_init(interfaces);
 
-	test_assert(!mld_filter_grp_cmp(mld, 1, &addr), "test filter before adding any records");
+	test_assert(!mld_filter_grp_cmp(mld, 0, &addr), "test filter before adding any records");
 	mld_address_record(mld, 0, &rec);
 	test_assert(mld_filter_grp_cmp(mld, 0, &addr), "test filter after adding record");
 

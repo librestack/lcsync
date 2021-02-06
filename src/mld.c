@@ -106,6 +106,20 @@ static int interface_index(struct msghdr *msg)
 	return ifidx;
 }
 
+void mld_free(mld_t *mld)
+{
+	job_queue_destroy(mld->timerq);
+	free(mld);
+}
+
+void mld_stop(mld_t *mld)
+{
+	struct ipv6_mreq req;
+	setsockopt(mld->sock, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &req, sizeof(req));
+	close(mld->sock);
+	mld_free(mld);
+}
+
 /* 
  * This whole thing needs re-writing so that it is simply an enquiry as to
  * current state. The state machine for updating that state is a separate
@@ -309,30 +323,6 @@ int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 	return 0;
 }
 
-void mld_free(mld_t *mld)
-{
-	job_queue_destroy(mld->timerq);
-	free(mld);
-}
-
-mld_t *mld_init(int ifaces)
-{
-	mld_t *mld = calloc(1, sizeof(mld_t) + ifaces * sizeof(mld_filter_t));
-	if (!mld) return NULL;
-	mld->len = ifaces;
-	/* create FIFO queue with timer writer thread + ticker */
-	mld->timerq = job_queue_create(2);
-	return mld;
-}
-
-void mld_stop(mld_t *mld)
-{
-	struct ipv6_mreq req;
-	setsockopt(mld->sock, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &req, sizeof(req));
-	close(mld->sock);
-	mld_free(mld);
-}
-
 void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec)
 {
 	struct in6_addr addr = rec->addr;
@@ -391,6 +381,16 @@ void mld_listen(mld_t *mld)
 	}
 }
 #endif
+
+mld_t *mld_init(int ifaces)
+{
+	mld_t *mld = calloc(1, sizeof(mld_t) + ifaces * sizeof(mld_filter_t));
+	if (!mld) return NULL;
+	mld->len = ifaces;
+	/* create FIFO queue with timer writer thread + ticker */
+	mld->timerq = job_queue_create(2);
+	return mld;
+}
 
 mld_t *mld_start(void)
 {
