@@ -347,16 +347,12 @@ void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
 	struct in6_addr grp = rec->addr;
 	struct in6_addr src[rec->srcs];
 	int idx = -1;
-	// For ASM:
-	//	EXCLUDE(NULL) => subscribe
-	//	INCLUDE(NULL) => unsubscribe
 	switch (rec->type) {
 		case MODE_IS_INCLUDE:
 			if (!rec->srcs) {
 				mld_filter_grp_del(mld, iface, &grp);
 				break;
 			}
-			fprintf(stderr, "possible SSM join in progress\n");
 			memcpy(src, rec->src, sizeof(struct in6_addr) * rec->srcs);
 			for (int i = 0; i < rec->srcs; i++) {
 				if (!mld_thatsme(&src[i])) {
@@ -365,7 +361,6 @@ void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
 				}
 			}
 			if (idx < 0) break;
-			fprintf(stderr, "SSM source matches local interface address, proceeding\n");
 			/* fallthru */
 		case MODE_IS_EXCLUDE:
 			mld_filter_grp_add(mld, iface, &grp);
