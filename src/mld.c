@@ -314,8 +314,9 @@ void mld_stop(mld_t *mld)
 	mld_free(mld);
 }
 
-void mld_address_record(mld_t *mld, unsigned int ifidx, mld_addr_rec_t *rec)
+void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec)
 {
+	mld_filter_grp_add(mld, iface, &rec->addr);
 	//rec->mar_type
 	//if (!memcmp(addr, &mrec.mar_address, sizeof(struct in6_addr))) {
 	//	inet_ntop(AF_INET6, (&mrec.mar_address)->s6_addr, straddr, INET6_ADDRSTRLEN);

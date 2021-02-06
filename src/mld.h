@@ -86,7 +86,7 @@ void mld_block(unsigned int ifidx, struct in6_addr *addr); /* BLOCK_OLD_SOURCES 
 //void mld_msg_handle(mld_t *mld, struct icmp6_hdr *hdr, mld_mar_t *mar);
 
 /* handle MLD2 router msgs */
-void mld_address_record(mld_t *mld, unsigned int ifidx, mld_addr_rec_t *rec);
+void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec);
 //void mld_msg_handle(mld_t *mld, struct msghdr *msg);
 //void mld_listen(mld_t *mld);
 
