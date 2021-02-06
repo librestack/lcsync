@@ -7,6 +7,7 @@
 #include "job.h"
 #include <arpa/inet.h>
 #include <assert.h>
+#include <errno.h>
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <netdb.h>
@@ -74,8 +75,8 @@ struct mld_s {
 
 /* Multicast Address Record */
 struct mld_addr_rec_s {
-	uint8_t         type;       /* Record Type */
-	uint8_t         auxl;     /* Aux Data Len */
+	uint8_t         type;    /* Record Type */
+	uint8_t         auxl;    /* Aux Data Len */
 	uint16_t        srcs;    /* Number of Sources */
 	struct in6_addr addr;    /* Multicast Address */
 } __attribute__((__packed__));
@@ -256,6 +257,7 @@ int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
 {
 	uint32_t hash[BLOOM_HASHES];
 	vec_t *grp = mld->filter[iface].grp;
+	if (iface >= mld->len) return 0;
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
 	for (int i = 0; i < BLOOM_HASHES; i++) {
 		size_t idx = hash[i] % BLOOM_SZ;
@@ -264,19 +266,25 @@ int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
 	return 1;
 }
 
-void mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
+int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
 {
 	uint32_t hash[BLOOM_HASHES];
+	if (iface >= mld->len) return -1;
 	vec_t *grp = mld->filter[iface].grp;
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
 	for (int i = 0; i < BLOOM_HASHES; i++) {
 		size_t idx = hash[i] % BLOOM_SZ;
 		if (vec_get_epi8(grp, idx)) vec_dec_epi8(grp, idx);
 	}
+	return 0;
 }
 
-void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
+int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 {
+	if (iface >= mld->len) {
+		errno = EINVAL;
+		return -1;
+	}
 	uint32_t hash[BLOOM_HASHES];
 	mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_refresh };
 	vec_t *grp = mld->filter[iface].grp;
@@ -288,6 +296,7 @@ void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 		tj.idx = idx;
 		job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	}
+	return 0;
 }
 
 void mld_free(mld_t *mld)
@@ -316,8 +325,9 @@ void mld_stop(mld_t *mld)
 
 void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec)
 {
+	struct in6_addr addr = rec->addr;
 	// TODO check type and source of record
-	mld_filter_grp_add(mld, iface, &rec->addr);
+	mld_filter_grp_add(mld, iface, &addr);
 	//rec->mar_type
 	//if (!memcmp(addr, &mrec.mar_address, sizeof(struct in6_addr))) {
 	//	inet_ntop(AF_INET6, (&mrec.mar_address)->s6_addr, straddr, INET6_ADDRSTRLEN);

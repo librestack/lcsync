@@ -67,13 +67,13 @@ void mld_timer_refresh(mld_t *mld, int iface, size_t idx);
 int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr);
 
 /* add group address to interface bloom filter */
-void mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *addr);
+int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *addr);
 
 /* return true (-1) if filter contains addr, false (0) if not */
 int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *addr);
 
 /* remove group address from interface bloom filter */
-void mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *addr);
+int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *addr);
 
 /* manage state */
 void mld_is_in(unsigned int ifidx, struct in6_addr *addr); /* MODE_IS_INCLUDE */
