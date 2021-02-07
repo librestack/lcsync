@@ -79,7 +79,8 @@ struct mld_addr_rec_s {
 	uint16_t        srcs;    /* Number of Sources */
 	struct in6_addr addr;    /* Multicast Address */
 	struct in6_addr src[];   /* Source Address */
-} __attribute__((__packed__));
+};
+static_assert(sizeof(struct mld_addr_rec_s) == 20); /* ensure struct doesn't need packing */
 
 /* Version 2 Multicast Listener Report Message */
 #if 0
@@ -272,7 +273,7 @@ int mld_thatsme(struct in6_addr *addr)
 void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
 {
 	struct in6_addr grp = rec->addr;
-	struct in6_addr src[rec->srcs];
+	struct in6_addr *src = rec->src;
 	int idx = -1;
 	switch (rec->type) {
 		case MODE_IS_INCLUDE:
@@ -280,7 +281,6 @@ void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
 				mld_filter_grp_del(mld, iface, &grp);
 				break;
 			}
-			memcpy(src, rec->src, sizeof(struct in6_addr) * rec->srcs);
 			for (int i = 0; i < rec->srcs; i++) {
 				if (!mld_thatsme(&src[i])) {
 					idx = i;
