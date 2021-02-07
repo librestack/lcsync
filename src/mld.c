@@ -117,9 +117,12 @@ void mld_free(mld_t *mld)
 
 void mld_stop(mld_t *mld)
 {
-	struct ipv6_mreq req;
-	setsockopt(mld->sock, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &req, sizeof(req));
-	close(mld->sock);
+	if(!mld) return;
+	if (mld->sock) {
+		struct ipv6_mreq req;
+		setsockopt(mld->sock, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &req, sizeof(req));
+		close(mld->sock);
+	}
 	mld_free(mld);
 }
 
