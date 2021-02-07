@@ -380,7 +380,7 @@ void mld_listen_report(mld_t *mld, struct msghdr *msg)
 		mld_address_record(mld, iface, &mrec[i]);
 	}
 }
-#if 0
+
 void mld_msg_handle(mld_t *mld, struct msghdr *msg)
 {
 	struct icmp6_hdr *icmpv6 = msg->msg_iov[0].iov_base;
@@ -388,7 +388,7 @@ void mld_msg_handle(mld_t *mld, struct msghdr *msg)
 		mld_listen_report(mld, msg);
 	}
 }
-
+#if 0
 void mld_listen(mld_t *mld)
 {
 	ssize_t byt = 0;

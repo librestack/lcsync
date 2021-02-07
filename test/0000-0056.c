@@ -41,7 +41,7 @@ int main(void)
 	struct icmp6_hdr icmpv6 = {0};
 	struct msghdr msg = {0};
 
-	test_name("mld_listen_report()");
+	test_name("mld_listen_report() / mld_msg_handle()");
 
 
 	create_channel(&addr, channame);
@@ -66,9 +66,14 @@ int main(void)
 	msg.msg_iovlen = 2;
 	//msg.msg_flags = 0;
 
-	/* process MLD2_LISTEN_REPORT with state machine */
 	mld_listen_report(mld, &msg);
 	test_assert(mld_filter_grp_cmp(mld, 0, &addr), "test filter after EXCLUDE(NULL) => join");
+
+	mrec->type = MODE_IS_INCLUDE;
+	mld_msg_handle(mld, &msg);
+	test_assert(!mld_filter_grp_cmp(mld, 0, &addr), "test filter after INCLUDE(NULL) => leave");
+
+	// TODO some more tests here - multiple records etc.
 	
 	free(mrec);
 	mld_free(mld);

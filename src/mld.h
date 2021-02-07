@@ -93,8 +93,7 @@ int mld_thatsme(struct in6_addr *addr);
 /* handle MLD2 router msgs */
 void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec);
 void mld_listen_report(mld_t *mld, struct msghdr *msg);
-
-//void mld_msg_handle(mld_t *mld, struct msghdr *msg);
+void mld_msg_handle(mld_t *mld, struct msghdr *msg);
 //void mld_listen(mld_t *mld);
 
 /* query state */
