@@ -75,18 +75,6 @@ int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *addr);
 /* remove group address from interface bloom filter */
 int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *addr);
 
-/* manage state */
-#if 0
-void mld_is_in(int iface, struct in6_addr *addr); /* MODE_IS_INCLUDE */
-void mld_is_ex(int iface, struct in6_addr *addr); /* MODE_IS_EXCLUDE */
-void mld_to_in(int iface, struct in6_addr *addr); /* CHANGE_TO_INCLUDE_MODE */
-void mld_to_ex(int iface, struct in6_addr *addr); /* CHANGE_TO_EXCLUDE_MODE */
-void mld_allow(int iface, struct in6_addr *addr); /* ALLOW_NEW_SOURCES */
-void mld_block(int iface, struct in6_addr *addr); /* BLOCK_OLD_SOURCES */
-#endif
-
-//void mld_msg_handle(mld_t *mld, struct icmp6_hdr *hdr, mld_mar_t *mar);
-
 /* return 0 if addr is assigned to a local interface, 1 if not, -1 on error */
 int mld_thatsme(struct in6_addr *addr);
 

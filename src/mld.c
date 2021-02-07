@@ -63,9 +63,8 @@ struct mld_s {
 	job_queue_t *timerq;
 	/* number of interfaces allocated */
 	int len;
-	/* clock tick semaphores */
 	/* counted bloom filter for groups gives us O(1) for insert/query/delete 
-	 * combied with a bloom timer (is that a thing, or did I just make it
+	 * combined with a bloom timer (is that a thing, or did I just make it
 	 * up?) - basically a counted bloom filter where the max is set to the
 	 * time in seconds, and we count it down using SIMD instructions
 	 */
@@ -133,80 +132,6 @@ int mld_wait(struct in6_addr *addr)
 	(void)addr;
 	return 0;
 }
-#if 0
-int mld_wait(struct in6_addr *addr)
-{
-	int ret = 0;
-	int opt = 1;
-	int joins = 0;
-	int sock;
-	//int ifidx;
-	ssize_t byt;
-	struct ipv6_mreq req;
-	struct ifaddrs *ifaddr, *ifa;
-	struct iovec iov[2] = {0};
-	struct icmp6_hdr icmpv6 = {0};
-	struct mar mrec = {0};
-	struct msghdr msg;
-	char buf_ctrl[BUFSIZE];
-	char buf_name[BUFSIZE];
-	char straddr[INET6_ADDRSTRLEN];
-	sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
-	assert(sock);
-	if (sock == -1) {
-		perror("socket()");
-		return -1;
-	}
-	setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &opt, sizeof(opt));
-	getifaddrs(&ifaddr);
-	for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-		if (ifa->ifa_addr->sa_family !=AF_INET6) continue; /* ipv6 only */
-		inet_pton(AF_INET6, MLD2_CAPABLE_ROUTERS, &(req.ipv6mr_multiaddr));
-		req.ipv6mr_interface = if_nametoindex(ifa->ifa_name);
-		ret = setsockopt(sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req));
-		if (ret != -1) {
-			DEBUG("listening on interface %s", ifa->ifa_name);
-			joins++;
-		}
-	}
-	freeifaddrs(ifaddr);
-	if (!joins) {
-		ERROR("Unable to join on any interfaces");
-		return -1;
-	}
-	iov[0].iov_base = &icmpv6;
-	iov[0].iov_len = sizeof icmpv6;
-	iov[1].iov_base = &mrec;
-	iov[1].iov_len = sizeof mrec;
-	msg.msg_control = buf_ctrl;
-	msg.msg_controllen = BUFSIZE;
-	msg.msg_name = buf_name;
-	msg.msg_namelen = BUFSIZE;
-	msg.msg_iov = iov;
-	msg.msg_iovlen = 2;
-	msg.msg_flags = 0;
-	for (;;) {
-		if ((byt = recvmsg(sock, &msg, 0)) == -1) {
-			perror("recvmsg()");
-			return -1;
-		}
-		//ifidx = interface_index(msg);
-		if (icmpv6.icmp6_type == MLD2_LISTEN_REPORT) {
-			uint16_t rec = ntohs(icmpv6.icmp6_data16[1]);
-			DEBUG("got a MLD2_LISTEN_REPORT with %u records", rec);
-			for (int i = 0; i < rec; i++) {
-				if (!memcmp(addr, &mrec.mar_address, sizeof(struct in6_addr))) {
-					inet_ntop(AF_INET6, (&mrec.mar_address)->s6_addr, straddr, INET6_ADDRSTRLEN);
-					DEBUG("MATCH FOUND: %s", straddr);
-					return 0;
-				}
-			}
-		}
-	}
-	close(sock);
-	return 0;
-}
-#endif
 
 void vec_dump(vec_t *vec, int idx)
 {
