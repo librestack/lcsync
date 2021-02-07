@@ -388,15 +388,15 @@ void mld_msg_handle(mld_t *mld, struct msghdr *msg)
 		mld_listen_report(mld, msg);
 	}
 }
-#if 0
-void mld_listen(mld_t *mld)
+
+int mld_listen(mld_t *mld)
 {
 	ssize_t byt = 0;
 	char buf_ctrl[BUFSIZE];
 	char buf_name[IPV6_BYTES];
 	struct iovec iov[2] = {0};
 	struct icmp6_hdr icmpv6 = {0};
-	struct mar mrec = {0};
+	mld_addr_rec_t mrec = {0};
 	struct msghdr msg;
 	iov[0].iov_base = &icmpv6;
 	iov[0].iov_len = sizeof icmpv6;
@@ -412,13 +412,13 @@ void mld_listen(mld_t *mld)
 	for (;;) {
 		if ((byt = recvmsg(mld->sock, &msg, 0)) == -1) {
 			perror("recvmsg()");
-			//return -1;
-			break;
+			return -1;
 		}
+		DEBUG("%s(): msg received", __func__);
 		mld_msg_handle(mld, &msg);
 	}
+	return 0;
 }
-#endif
 
 mld_t *mld_init(int ifaces)
 {
