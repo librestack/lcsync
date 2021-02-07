@@ -279,9 +279,6 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 		DEBUG("packets required=%u", hamm(bitmap, maplen));
 		printmap(bitmap, mtree_base_subtree(stree, root) * bits);
 	}
-	DEBUG("dryrun=%i", dryrun);
-	DEBUG("bitmap=%p", bitmap);
-	DEBUG("PKTS=%zu", PKTS);
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 	iov[1].iov_base = buf;
