@@ -64,7 +64,7 @@ int main(void)
 	struct msghdr msg = {0};
 	const int interfaces = 1;
 	int rc;
-	int socks[2];
+	int sock[2];
 	mld_t *mld;
 	pthread_t thread;
 	pthread_attr_t attr;
@@ -74,12 +74,12 @@ int main(void)
 	mld = mld_init(interfaces);
 	test_assert(mld_listen(mld) == -1, "mld_listen() - return -1 when socket not initialized");
 
-	rc =socketpair(AF_UNIX, SOCK_RAW, 0, socks);
+	rc =socketpair(AF_UNIX, SOCK_RAW, 0, sock);
 	if (rc) {
 		perror("socketpair()");
 	}
 	test_assert(rc == 0, "socketpair()");
-	mld->sock = socks[1];
+	mld->sock = sock[1];
 
 	pthread_attr_init(&attr);
 	pthread_attr_destroy(&attr);
@@ -100,19 +100,21 @@ int main(void)
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 2;
 
-	rc = sendmsg(socks[0], &msg, 0);
+	rc = sendmsg(sock[0], &msg, 0);
 	if (rc == -1) perror("sendmsg()");
 	usleep(1000);
 	test_assert(mld_filter_grp_cmp(mld, 0, &addr), "test filter after EXCLUDE(NULL) => join");
 
 	mrec->type = MODE_IS_INCLUDE;
-	rc = sendmsg(socks[0], &msg, 0);
+	rc = sendmsg(sock[0], &msg, 0);
 	if (rc == -1) perror("sendmsg()");
 	usleep(1000);
 	test_assert(!mld_filter_grp_cmp(mld, 0, &addr), "test filter after INCLUDE(NULL) => leave");
 
 	pthread_cancel(thread);
 	pthread_join(thread, NULL);
+	close(sock[0]);
+	close(sock[1]);
 	free(mrec);
 	lc_ctx_free(lctx);
 	mld_free(mld);
