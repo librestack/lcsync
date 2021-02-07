@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net>
 
-CFLAGS := -Wall -Wextra -Wpedantic -Wno-gnu-zero-variadic-macro-arguments -g
+CFLAGS := -Wall -Wextra -Wpedantic -g
+CFLAGS-CLANG := $(CFLAGS) -Wno-gnu-zero-variadic-macro-arguments
 export CFLAGS
 INSTALLDIR := /usr/local/bin
 export INSTALLDIR
@@ -26,7 +27,7 @@ sparse: clean
 	CC=cgcc $(MAKE) src
 
 clang: clean
-	CC=clang $(MAKE) src
+	CC=clang $(MAKE) CFLAGS="$(CFLAGS-CLANG)" src
 
 gcc: clean all
 
