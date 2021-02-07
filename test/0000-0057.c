@@ -29,8 +29,8 @@ struct mld_filter_s {
 };
 
 struct mld_s {
-	int sock;
 	job_queue_t *timerq;
+	int sock;
 	int len;
 	mld_filter_t filter[];
 };

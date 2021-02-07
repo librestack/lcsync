@@ -56,11 +56,11 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 	TRACE("%s()", __func__);
 	size_t idx, off, len, maplen, pkts;
 	ssize_t byt = 0, msglen;
-	uint8_t mod;
-	uint64_t sz;
 	net_treehead_t *hdr;
 	char buf[MTU_FIXED];
 	unsigned char *bitmap = NULL;
+	uint64_t sz;
+	uint8_t mod;
 	do {
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");

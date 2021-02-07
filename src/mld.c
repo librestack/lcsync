@@ -58,9 +58,9 @@ struct mld_filter_s {
 };
 
 struct mld_s {
+	job_queue_t *timerq;
 	/* raw socket for MLD snooping */
 	int sock;
-	job_queue_t *timerq;
 	/* number of interfaces allocated */
 	int len;
 	/* counted bloom filter for groups gives us O(1) for insert/query/delete 
@@ -123,11 +123,7 @@ void mld_stop(mld_t *mld)
 	mld_free(mld);
 }
 
-/* 
- * This whole thing needs re-writing so that it is simply an enquiry as to
- * current state. The state machine for updating that state is a separate
- * concern.
- */
+/* wait on a specific address */
 int mld_wait(struct in6_addr *addr)
 {
 	(void)addr;
@@ -186,74 +182,90 @@ void mld_timer_ticker(mld_t *mld, int iface, size_t idx)
 		job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	}
 }
-// FIXME some refactoring to do here - these functions are all similar
-int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr)
+
+int mld_filter_grp_del_f(mld_t *mld, int iface, size_t idx, vec_t *v)
 {
+	(void)mld; (void)iface;
+	if (vec_get_epi8(v, idx)) vec_dec_epi8(v, idx);
+	return 0;
+}
+
+int mld_filter_grp_add_f(mld_t *mld, int iface, size_t idx, vec_t *v)
+{
+	mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_refresh };
+	if (vec_get_epi8(v, idx) != CHAR_MAX)
+		vec_inc_epi8(v, idx);
+	tj.idx = idx;
+	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
+	return 0;
+}
+
+int mld_filter_timer_get_f(mld_t *mld, int iface, size_t idx, vec_t *v)
+{
+	(void)mld; (void)iface;
+	return vec_get_epi8(v, idx);
+}
+
+int mld_filter_grp_cmp_f(mld_t *mld, int iface, size_t idx, vec_t *v)
+{
+	(void)mld; (void)iface;
+	if (!vec_get_epi8(v, idx)) return 1;
+	return 0;
+}
+
+int mld_filter_grp_call(mld_t *mld, int iface, struct in6_addr *saddr, vec_t *v, int(*f)(mld_t *, int, size_t, vec_t *))
+{
+	size_t idx;
+	int rc = 0, notify = 0;
 	uint32_t hash[BLOOM_HASHES];
 	if (iface >= mld->len) {
 		errno = EINVAL;
 		return -1;
 	}
-	vec_t *t = mld->filter[iface].t;
+	if (f != &mld_filter_grp_cmp_f && f != mld_filter_timer_get_f) {
+		/* add requires the entry NOT to exist, del requires that it does */
+		int required = !(f == &mld_filter_grp_del_f);
+		if (mld_filter_grp_cmp(mld, iface, saddr) == required) return 0;
+		notify = (f == mld_filter_grp_add_f || f == mld_filter_grp_del_f);
+	}
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
-	size_t idx = hash[0] % BLOOM_SZ;
-	return vec_get_epi8(t, idx);
+	for (int i = 0; i < BLOOM_HASHES; i++) {
+		idx = hash[i] % BLOOM_SZ;
+		if ((rc = f(mld, iface, idx, v))) break; /* error or found */
+		if (f == &mld_filter_timer_get_f) break; /* use first result for timer */
+	}
+	if (!rc && notify) {
+		/* TODO notify state change to subscribers */
+		/* TODO lets do some multicast */
+	}
+	return rc;
+}
+
+int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr)
+{
+	vec_t *t = mld->filter[iface].t;
+	return mld_filter_grp_call(mld, iface, saddr, t, &mld_filter_timer_get_f);
 }
 
 int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
 {
-	uint32_t hash[BLOOM_HASHES];
 	vec_t *grp = mld->filter[iface].grp;
-	if (iface >= mld->len) {
-		errno = EINVAL;
-		return 0;
-	}
-	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
-	for (int i = 0; i < BLOOM_HASHES; i++) {
-		size_t idx = hash[i] % BLOOM_SZ;
-		if (!vec_get_epi8(grp, idx)) return 0;
-	}
-	return 1;
+	return !mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_cmp_f);
 }
 
 int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
 {
-	uint32_t hash[BLOOM_HASHES];
-	if (iface >= mld->len) {
-		errno = EINVAL;
-		return -1;
-	}
 	vec_t *grp = mld->filter[iface].grp;
-	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
-	for (int i = 0; i < BLOOM_HASHES; i++) {
-		size_t idx = hash[i] % BLOOM_SZ;
-		if (vec_get_epi8(grp, idx)) vec_dec_epi8(grp, idx);
-	}
-	return 0;
+	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_del_f);
 }
 
 int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 {
-	uint32_t hash[BLOOM_HASHES];
-	if (iface >= mld->len) {
-		errno = EINVAL;
-		return -1;
-	}
-	if (mld_filter_grp_cmp(mld, iface, saddr)) return 0; /* exists */
-	mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_refresh };
 	vec_t *grp = mld->filter[iface].grp;
-	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
-	for (int i = 0; i < BLOOM_HASHES; i++) {
-		size_t idx = hash[i] % BLOOM_SZ;
-		if (vec_get_epi8(grp, idx) != CHAR_MAX)
-			vec_inc_epi8(grp, idx);
-		tj.idx = idx;
-		job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
-	}
-	return 0;
+	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_add_f);
 }
 
-// FIXME: cache this in another bloom filter
+// TODO: cache this in another bloom filter
 int mld_thatsme(struct in6_addr *addr)
 {
 	int ret = 1;
