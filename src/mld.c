@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <ifaddrs.h>
+#include <librecast.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <netinet/icmp6.h>
@@ -58,6 +59,7 @@ struct mld_filter_s {
 };
 
 struct mld_s {
+	lc_ctx_t *lctx;
 	job_queue_t *timerq;
 	/* raw socket for MLD snooping */
 	int sock;
@@ -112,6 +114,7 @@ static int interface_index(struct msghdr *msg)
 void mld_free(mld_t *mld)
 {
 	job_queue_destroy(mld->timerq);
+	lc_ctx_free(mld->lctx);
 	free(mld);
 }
 
@@ -186,6 +189,63 @@ void mld_timer_ticker(mld_t *mld, int iface, size_t idx)
 	}
 }
 
+/* create side channel by hashing event type with main channel addr */
+/* FIXME this belongs in the main librecast net API */
+lc_channel_t * lc_channel_sidehash(lc_ctx_t *lctx, struct in6_addr *addr, int band)
+{
+	lc_channel_t *chan;
+	char base[INET6_ADDRSTRLEN] = "";
+	char hash[INET6_ADDRSTRLEN] = "";
+	int rc;
+	if (!inet_ntop(AF_INET6, addr, base, INET6_ADDRSTRLEN)) {
+		ERROR("inet_ntop()");
+		return NULL;
+	}
+	if ((rc = lc_hashgroup(base, (unsigned char *)&band, sizeof band, hash, 0))) {
+		ERROR("ERROR: lc_hashgroup = %i", rc);
+		return NULL;
+	}
+	DEBUG("%s() channel group address: %s", __func__, hash);
+	return lc_channel_init(lctx, hash, MLD_EVENT_SERV);
+}
+
+lc_channel_t * lc_channel_sideband(lc_ctx_t *lctx, struct in6_addr *addr, int band)
+{
+	/* create side band by XORing byte of address corresponding to band */
+#if 0
+	band &= 0xe;
+	(char)addr[band] ^= (char)addr[band];
+	return lc_channel_init(lctx, addr, MLD_EVENT_SERV);
+#endif
+}
+
+void mld_notify(mld_t *mld, struct in6_addr *saddr, int event)
+{
+	lc_message_t msg = {0};
+	lc_socket_t *sock;
+	lc_channel_t *chan[MLD_EVENT_MAX];
+	struct addrinfo *ai;
+	struct sockaddr_in6 *sad;
+	const int opt = 1;
+	chan[0] = lc_channel_sidehash(mld->lctx, saddr, MLD_EVENT_ALL);
+
+	/* check filter to see if anyone listening for notifications */
+	ai = lc_channel_addrinfo(chan[0]);
+	sad = (struct sockaddr_in6 *)ai->ai_addr;
+	if (!mld_filter_grp_cmp(mld, 0, &(sad->sin6_addr))) {
+		DEBUG("no one listening - skipping notification");
+		return;
+	}
+
+	sock = lc_socket_new(mld->lctx);
+	/* set loopback so machine-local listeners are notified */
+	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &opt, sizeof(opt));
+	/* set TTL to 1 so notification doesn't leave local segment */
+	lc_socket_setopt(sock, IPV6_MULTICAST_HOPS, &opt, sizeof(opt));
+	lc_channel_bind(sock, chan[0]);
+	lc_msg_send(chan[0], &msg);
+}
+
 int mld_filter_grp_del_f(mld_t *mld, int iface, size_t idx, vec_t *v)
 {
 	(void)mld; (void)iface;
@@ -218,6 +278,7 @@ int mld_filter_grp_cmp_f(mld_t *mld, int iface, size_t idx, vec_t *v)
 
 int mld_filter_grp_call(mld_t *mld, int iface, struct in6_addr *saddr, vec_t *v, int(*f)(mld_t *, int, size_t, vec_t *))
 {
+	TRACE("%s()", __func__);
 	size_t idx;
 	int rc = 0, notify = 0;
 	uint32_t hash[BLOOM_HASHES];
@@ -230,6 +291,8 @@ int mld_filter_grp_call(mld_t *mld, int iface, struct in6_addr *saddr, vec_t *v,
 		int required = !(f == &mld_filter_grp_del_f);
 		if (mld_filter_grp_cmp(mld, iface, saddr) == required) return 0;
 		notify = (f == mld_filter_grp_add_f || f == mld_filter_grp_del_f);
+		if (f == mld_filter_grp_add_f) notify = MLD_EVENT_JOIN;
+		if (f == mld_filter_grp_del_f) notify = MLD_EVENT_PART;
 	}
 	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
 	for (int i = 0; i < BLOOM_HASHES; i++) {
@@ -240,6 +303,7 @@ int mld_filter_grp_call(mld_t *mld, int iface, struct in6_addr *saddr, vec_t *v,
 	if (!rc && notify) {
 		/* TODO notify state change to subscribers */
 		/* TODO lets do some multicast */
+		mld_notify(mld, saddr, notify);
 	}
 	return rc;
 }
@@ -258,12 +322,14 @@ int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
 
 int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
 {
+	TRACE("%s()", __func__);
 	vec_t *grp = mld->filter[iface].grp;
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_del_f);
 }
 
 int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 {
+	TRACE("%s()", __func__);
 	vec_t *grp = mld->filter[iface].grp;
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_add_f);
 }
@@ -287,11 +353,14 @@ int mld_thatsme(struct in6_addr *addr)
 
 void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
 {
+	TRACE("%s()", __func__);
 	struct in6_addr grp = rec->addr;
 	struct in6_addr *src = rec->src;
 	int idx = -1;
+	DEBUG("rec->type = %u", rec->type);
 	switch (rec->type) {
 		case MODE_IS_INCLUDE:
+		case CHANGE_TO_INCLUDE_MODE:
 			if (!rec->srcs) {
 				mld_filter_grp_del(mld, iface, &grp);
 				break;
@@ -305,6 +374,7 @@ void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
 			if (idx < 0) break;
 			/* fallthru */
 		case MODE_IS_EXCLUDE:
+		case CHANGE_TO_EXCLUDE_MODE:
 			mld_filter_grp_add(mld, iface, &grp);
 			break;
 	}
@@ -312,6 +382,7 @@ void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
 
 void mld_listen_report(mld_t *mld, struct msghdr *msg)
 {
+	TRACE("%s()", __func__);
 	int iface = interface_index(msg);
 	struct icmp6_hdr *icmpv6 = msg->msg_iov[0].iov_base;
 	mld_addr_rec_t *mrec = msg->msg_iov[1].iov_base;
@@ -323,6 +394,7 @@ void mld_listen_report(mld_t *mld, struct msghdr *msg)
 
 void mld_msg_handle(mld_t *mld, struct msghdr *msg)
 {
+	TRACE("%s()", __func__);
 	struct icmp6_hdr *icmpv6 = msg->msg_iov[0].iov_base;
 	if (icmpv6->icmp6_type == MLD2_LISTEN_REPORT) {
 		mld_listen_report(mld, msg);
@@ -360,13 +432,21 @@ int mld_listen(mld_t *mld)
 	return 0;
 }
 
+void *mld_listen_job(void *arg)
+{
+	mld_t *mld = *(mld_t **)arg;
+	mld_listen(mld);
+	return arg;
+}
+
 mld_t *mld_init(int ifaces)
 {
 	mld_t *mld = calloc(1, sizeof(mld_t) + ifaces * sizeof(mld_filter_t));
 	if (!mld) return NULL;
 	mld->len = ifaces;
-	/* create FIFO queue with timer writer thread + ticker */
-	mld->timerq = job_queue_create(2);
+	/* create FIFO queue with timer writer thread + ticker + MLD listener */
+	mld->timerq = job_queue_create(3);
+	mld->lctx = lc_ctx_new();
 	return mld;
 }
 
@@ -406,5 +486,6 @@ mld_t *mld_start(void)
 	mld->sock = sock;
 	mld_timerjob_t tj = { .mld = mld, .f = &mld_timer_ticker };
 	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
+	job_push_new(mld->timerq, &mld_listen_job, &mld, sizeof mld, &free, JOB_COPY|JOB_FREE);
 	return mld;
 }

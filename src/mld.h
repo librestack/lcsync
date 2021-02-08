@@ -40,6 +40,17 @@
 /* 9.14.1.  Robustness Variable */
 #define MLD2_ROBUSTNESS 2
 
+/* Event Types */
+typedef enum {
+	MLD_EVENT_JOIN = 1,
+	MLD_EVENT_PART = 2,
+	MLD_EVENT_MAX
+} mld_event_type_t;
+#define MLD_EVENT_ALL ((MLD_EVENT_MAX - 1) << 1) - 1
+
+/* port (or service) to use for MLD event notifications */
+#define MLD_EVENT_SERV "4242"
+
 typedef struct mld_s mld_t;
 typedef struct mld_filter_s mld_filter_t;
 typedef struct mld_timerjob_s mld_timerjob_t;

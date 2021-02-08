@@ -29,6 +29,7 @@ struct mld_filter_s {
 };
 
 struct mld_s {
+	lc_ctx_t *lctx;
 	job_queue_t *timerq;
 	int sock;
 	int len;
