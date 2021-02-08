@@ -20,6 +20,7 @@
 static const time_t waits = 1;
 static int events;
 static sem_t sem;
+static mld_t *mld;
 
 void *do_join(void *arg)
 {
@@ -35,6 +36,7 @@ void *do_mld_watch(void *arg)
 	test_log("watching %s\n", straddr);
 	sem_post(&sem);
 	if (!mld_wait(addr)) events++;
+	test_log("notify received for %s\n", straddr);
 	return arg;
 }
 
@@ -61,6 +63,7 @@ int main(void)
 	loginit();
 	test_name("mld_wait()");
 
+	mld = mld_start();
 	lctx = lc_ctx_new();
 	sock = lc_socket_new(lctx);
 	chan[0] = lc_channel_new(lctx, "we will join this channel");
@@ -74,18 +77,18 @@ int main(void)
 	 * we have a race condition with the threads, but if we make sure the
 	 * semaphore is posted by both threads and wait a bit extra, it'll
 	 * probably be fine, won't it? This is only a concern in the test env. */
-	sem_wait(&sem); sem_wait(&sem); usleep(200);
+	sem_wait(&sem); sem_wait(&sem); usleep(20000);
 	lc_channel_bind(sock, chan[0]);
-	job_push_new(q, &do_join, chan[0], 0, &free, 0);
+	lc_channel_join(chan[0]);
 
 	/* set test timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
 	timeout.tv_sec += waits;
 	/* first job should return, we joined its channel */
-	test_assert(!sem_timedwait(&job[0]->done, &timeout), "timeout - mld_watch() channel 0");
+	test_assert(!sem_timedwait(&job[0]->done, &timeout), "timeout - mld_wait() channel 0");
 	free(job[0]);
 	/* second channel will timeout, we ignored it */
-	test_assert(sem_timedwait(&job[1]->done, &timeout), "timeout - mld_watch() channel 1");
+	test_assert(sem_timedwait(&job[1]->done, &timeout), "timeout - mld_wait() channel 1");
 	free(job[1]->arg);
 	free(job[1]);
 
@@ -97,5 +100,6 @@ int main(void)
 	lc_socket_close(sock);
 	lc_ctx_free(lctx);
 	job_queue_destroy(q);
+	mld_stop(mld);
 	return fails;
 }

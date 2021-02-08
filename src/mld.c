@@ -129,13 +129,6 @@ void mld_stop(mld_t *mld)
 	mld_free(mld);
 }
 
-/* wait on a specific address */
-int mld_wait(struct in6_addr *addr)
-{
-	(void)addr;
-	return 0;
-}
-
 void vec_dump(vec_t *vec, int idx)
 {
 	for (int j = 0; j < 16; j++) {
@@ -193,7 +186,6 @@ void mld_timer_ticker(mld_t *mld, int iface, size_t idx)
 /* FIXME this belongs in the main librecast net API */
 lc_channel_t * lc_channel_sidehash(lc_ctx_t *lctx, struct in6_addr *addr, int band)
 {
-	lc_channel_t *chan;
 	char base[INET6_ADDRSTRLEN] = "";
 	char hash[INET6_ADDRSTRLEN] = "";
 	int rc;
@@ -208,7 +200,7 @@ lc_channel_t * lc_channel_sidehash(lc_ctx_t *lctx, struct in6_addr *addr, int ba
 	DEBUG("%s() channel group address: %s", __func__, hash);
 	return lc_channel_init(lctx, hash, MLD_EVENT_SERV);
 }
-
+#if 0
 lc_channel_t * lc_channel_sideband(lc_ctx_t *lctx, struct in6_addr *addr, int band)
 {
 	/* create side band by XORing byte of address corresponding to band */
@@ -217,6 +209,24 @@ lc_channel_t * lc_channel_sideband(lc_ctx_t *lctx, struct in6_addr *addr, int ba
 	(char)addr[band] ^= (char)addr[band];
 	return lc_channel_init(lctx, addr, MLD_EVENT_SERV);
 #endif
+	return NULL;
+}
+#endif
+
+/* wait on a specific address */
+int mld_wait(struct in6_addr *addr)
+{
+	lc_message_t msg = {0};
+	lc_ctx_t *lctx = lc_ctx_new();
+	lc_socket_t *sock = lc_socket_new(lctx);
+	lc_channel_t *chan = lc_channel_sidehash(lctx, addr, MLD_EVENT_ALL);
+	lc_channel_bind(sock, chan);
+	lc_channel_join(chan);
+	DEBUG("waiting...");
+	lc_msg_recv(sock, &msg);
+	DEBUG("got msg");
+	lc_ctx_free(lctx);
+	return 0;
 }
 
 void mld_notify(mld_t *mld, struct in6_addr *saddr, int event)
@@ -229,13 +239,21 @@ void mld_notify(mld_t *mld, struct in6_addr *saddr, int event)
 	const int opt = 1;
 	chan[0] = lc_channel_sidehash(mld->lctx, saddr, MLD_EVENT_ALL);
 
+	// TODO notify event specific side channels
+	(void) event;
+
 	/* check filter to see if anyone listening for notifications */
 	ai = lc_channel_addrinfo(chan[0]);
 	sad = (struct sockaddr_in6 *)ai->ai_addr;
+	char straddr1[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, saddr, straddr1, INET6_ADDRSTRLEN);
+	char straddr2[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, &(sad->sin6_addr), straddr2, INET6_ADDRSTRLEN);
 	if (!mld_filter_grp_cmp(mld, 0, &(sad->sin6_addr))) {
-		DEBUG("no one listening - skipping notification");
+		DEBUG("no one listening to %s - skipping notification for %s", straddr2, straddr1);
 		return;
 	}
+	DEBUG("sending notification for event on %s to %s", straddr1, straddr2);
 
 	sock = lc_socket_new(mld->lctx);
 	/* set loopback so machine-local listeners are notified */
