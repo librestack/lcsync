@@ -15,7 +15,6 @@
 #include "net.h"
 #include "log.h"
 #include "globals.h"
-#include "mtree.h"
 #include "file.h"
 
 static int running = 1;
@@ -224,6 +223,8 @@ void *net_job_send_tree(void *arg)
 	lc_channel_bind(sock, chan);
 	int s = lc_channel_socket_raw(chan);
 	struct addrinfo *addr = lc_channel_addrinfo(chan);
+	struct sockaddr_in6 *sad = (struct sockaddr_in6 *)addr->ai_addr;
+	struct in6_addr *grp = &(sad->sin6_addr);
 	net_treehead_t hdr = {
 		.data = htobe64((uint64_t)data->byt),
 		.size = htobe64(data->iov[0].iov_len),
@@ -244,7 +245,7 @@ void *net_job_send_tree(void *arg)
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 	while (running) {
-		// TODO mld_wait()
+		if (mld_enabled && data->mld) mld_wait(data->mld, 0, grp);
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
 		net_send_tree(s, addr, vlen, iov);
@@ -579,6 +580,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->byt = len;
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = tree;
+	if (mld_enabled) data->mld = mld_start();
 	job_tree = job_push_new(q, &net_job_send_tree, data, sz, NULL, 0);
 	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
 		data->n = channels - 1 + chan;
@@ -592,6 +594,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	free(job_tree);
 	mtree_free(tree);
 	job_queue_destroy(q);
+	if (mld_enabled) mld_stop(data->mld);
 	free(data);
 	return 0; // TODO: return bytes or -1
 }

@@ -12,3 +12,5 @@ test 0035 (intermittent):
 "Unexpected error 9 on netlink descriptor 0."
 possibly in net_recv_tree()
 -------------------------------------------------------------------------------
+cap tests are executing as root
+-------------------------------------------------------------------------------

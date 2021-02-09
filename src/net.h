@@ -5,8 +5,10 @@
 #define _NET_H 1
 
 #include <librecast/net.h>
+#include <signal.h>
 #include "hash.h"
 #include "mtree.h"
+#include "mld.h"
 
 /* IPv6 path discovery isn't much use for multicast and
  * we don't want to receive a bunch of Packet Too Big messages
@@ -61,6 +63,7 @@ struct net_data_s {
 	unsigned char * alias;		/* hash of file alias */
 	unsigned char * hash;		/* hash of file/data */
 	unsigned char * map;		/* channel bitmap */
+	mld_t         * mld;		/* MLD handle */
 	size_t		byt;		/* data bytes */
 	size_t		chan;		/* channels */
 	size_t		n;		/* node */

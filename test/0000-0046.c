@@ -65,6 +65,8 @@ int main(void)
 	test_name("mld_wait()");
 
 	mld = mld_start();
+	test_assert(mld != NULL, "mld_start()");
+	if (!mld) return fails;
 	test_log("%s() mld has address %p\n", "main", (void*)mld);
 	lctx = lc_ctx_new();
 	sock = lc_socket_new(lctx);
