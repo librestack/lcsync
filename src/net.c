@@ -182,7 +182,7 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		DEBUG("len = %zu, sz=%zu, off = %zu", len, sz, off);
 		iov[1].iov_len = sz;
-		//iov[1].iov_base = (char *)iov[1].iov_base + off;
+		//iov[1].iov_base = (char *)iov[1].iov_base + off; FIXME
 		iov[1].iov_base = temp + off;
 		msgh.msg_name = addr->ai_addr;
 		msgh.msg_namelen = addr->ai_addrlen;
@@ -244,6 +244,7 @@ void *net_job_send_tree(void *arg)
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 	while (running) {
+		// TODO mld_wait()
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
 		net_send_tree(s, addr, vlen, iov);
@@ -523,6 +524,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 	DEBUG("base: %zu, min: %zu, max: %zu", base, min, max);
 	while (running) {
+		// TODO mld_wait()
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
 			DEBUG("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_base = mtree_blockn(stree, blk);
