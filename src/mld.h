@@ -96,8 +96,7 @@ void mld_msg_handle(mld_t *mld, struct msghdr *msg);
 int mld_listen(mld_t *mld);
 
 /* query state */
-int mld_wait(struct in6_addr *addr);
-//int mld_wait(mld_t *mld, int iface, struct in6_addr *addr);
+int mld_wait(mld_t *mld, int iface, struct in6_addr *addr);
 //int mld_wait(unsigned int ifidx, struct in6_addr *addr);
 
 #endif /* _MLD_H */

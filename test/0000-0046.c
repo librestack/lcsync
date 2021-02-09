@@ -21,6 +21,7 @@ static const time_t waits = 1;
 static int events;
 static sem_t sem;
 static mld_t *mld;
+static int iface = 0;
 
 void *do_join(void *arg)
 {
@@ -35,7 +36,7 @@ void *do_mld_watch(void *arg)
 	inet_ntop(AF_INET6, addr, straddr, INET6_ADDRSTRLEN);
 	test_log("watching %s\n", straddr);
 	sem_post(&sem);
-	if (!mld_wait(addr)) events++;
+	if (!mld_wait(mld, iface, addr)) events++;
 	test_log("notify received for %s\n", straddr);
 	return arg;
 }
@@ -64,12 +65,14 @@ int main(void)
 	test_name("mld_wait()");
 
 	mld = mld_start();
+	test_log("%s() mld has address %p\n", "main", (void*)mld);
 	lctx = lc_ctx_new();
 	sock = lc_socket_new(lctx);
 	chan[0] = lc_channel_new(lctx, "we will join this channel");
 	chan[1] = lc_channel_new(lctx, "but not this one");
 	sem_init(&sem, 0, 0);
 	q = job_queue_create(3);
+
 	job[0] = push_job(q, chan[0]);
 	job[1] = push_job(q, chan[1]);
 
@@ -77,7 +80,8 @@ int main(void)
 	 * we have a race condition with the threads, but if we make sure the
 	 * semaphore is posted by both threads and wait a bit extra, it'll
 	 * probably be fine, won't it? This is only a concern in the test env. */
-	sem_wait(&sem); sem_wait(&sem); usleep(20000);
+	/* FIXME - why do we need to wait this loooooooong? */
+	sem_wait(&sem); sem_wait(&sem); usleep(500000);
 	lc_channel_bind(sock, chan[0]);
 	lc_channel_join(chan[0]);
 
