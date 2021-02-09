@@ -48,7 +48,7 @@ void *packet_sniff(void *arg)
 	test_assert(sock != -1, "socket(): %s", strerror(errno));
 
 	inet_ntop(AF_INET6, grp, strsrc, INET6_ADDRSTRLEN);
-	test_log("snooping for grp: %s\n", strsrc);
+	test_log("snoop group: %s\n", strsrc);
 	running = sock;
 	while (running) {
 		test_log("I will wait here until the good packets come to me\n");
