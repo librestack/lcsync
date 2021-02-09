@@ -101,7 +101,7 @@ int main(void)
 	data->mld = mld_start();
 
 	loginit();
-	test_name("MLD triggered sending");
+	test_name("net_job_send_tree() - MLD trigger");
 
 	mld_enabled = 1;
 
@@ -112,15 +112,26 @@ int main(void)
 	pthread_attr_destroy(&attr);
 
 	/* wait a moment, ensure no packets received */
-	sleep(10);
+	usleep(10000);
 	test_assert(pkts == 0, "pkts received=%i", pkts);
 
-	/* join grp, wait, ensure packets received */
 	lc_channel_bind(sock, chan);
-	lc_channel_join(chan);
-	sleep(1);
-	test_assert(pkts > 0, "pkts received=%i", pkts);
-	test_log("pkts received (total) = %i\n", tots);
+	for (int i = 0; i < 8; i++) {
+		/* join grp, wait, ensure packets received */
+		pkts = 0;
+		lc_channel_join(chan);
+		usleep(100000);
+		test_assert(pkts > 0, "%i:pkts received=%i", i, pkts);
+		test_log("pkts received (total) = %i\n", tots);
+
+		/* leave group, reset counters, make sure sending has stopped */
+		lc_channel_part(chan);
+		usleep(100000);
+		pkts = 0;
+		usleep(100000);
+		test_assert(pkts == 0, "%i: pkts received=%i", i, pkts);
+	}
+
 	running = 0;
 	net_stop(SIGINT);
 	pthread_cancel(thread_count); pthread_cancel(thread_serv);
@@ -128,6 +139,7 @@ int main(void)
 	free(data->iov[0].iov_base);
 	mld_stop(data->mld);
 	free(data);
+	lc_channel_part(chan);
 	lc_ctx_free(lctx);
 	return fails;
 }

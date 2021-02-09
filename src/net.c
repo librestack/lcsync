@@ -526,6 +526,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	DEBUG("base: %zu, min: %zu, max: %zu", base, min, max);
 	while (running) {
 		// TODO mld_wait()
+		//if (mld_enabled && data->mld) mld_wait(data->mld, 0, grp);
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
 			DEBUG("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_base = mtree_blockn(stree, blk);
