@@ -53,7 +53,7 @@ size_t mtree_levels(size_t base);
 /* return number of nodes in tree with base number of data nodes */
 size_t mtree_size(size_t base);
 
-/* return blocksize (FIXME: this is called chunksz in struct) for tree */
+/* return blocksize for tree */
 size_t mtree_blocksz(mtree_tree *tree);
 
 /* return size of base (file) data from which tree is built */
