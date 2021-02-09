@@ -17,7 +17,6 @@
 #include <net/ethernet.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <signal.h>
 #include <unistd.h>
 
 static int pkts = 0; /* data packets to multicast group */
@@ -47,8 +46,6 @@ void *packet_sniff(void *arg)
 	//int sock = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IPV6));
 	int sock = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
 	test_assert(sock != -1, "socket(): %s", strerror(errno));
-
-	signal(SIGINT, SIG_IGN);
 
 	inet_ntop(AF_INET6, grp, strsrc, INET6_ADDRSTRLEN);
 	test_log("snooping for grp: %s\n", strsrc);
