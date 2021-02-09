@@ -153,6 +153,7 @@ int mld_wait(mld_t *mld, int iface, struct in6_addr *addr)
 	lc_channel_bind(sock, chan);
 	lc_channel_join(chan);
 	lc_msg_recv(sock, &msg);
+	DEBUG("%s() notify received", __func__);
 	lc_channel_part(chan);
 	lc_channel_free(chan);
 	lc_socket_close(sock);
