@@ -64,7 +64,7 @@ struct mld_addr_rec_s {
 	struct in6_addr addr;    /* Multicast Address */
 	struct in6_addr src[];   /* Source Address */
 };
-static_assert(sizeof(struct mld_addr_rec_s) == 20); /* ensure struct doesn't need packing */
+static_assert(sizeof(struct mld_addr_rec_s) == 20, "ensure struct doesn't need packing");
 
 /* Version 2 Multicast Listener Report Message */
 #if 0
