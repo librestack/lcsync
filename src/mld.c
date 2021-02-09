@@ -148,15 +148,13 @@ int mld_wait(mld_t *mld, int iface, struct in6_addr *addr)
 		return 0;
 	}
 	lc_message_t msg = {0};
-	lc_ctx_t *lctx = lc_ctx_new();
-	lc_socket_t *sock = lc_socket_new(lctx);
-	lc_channel_t *chan = lc_channel_sidehash(lctx, addr, MLD_EVENT_ALL);
+	lc_socket_t *sock = lc_socket_new(mld->lctx);
+	lc_channel_t *chan = lc_channel_sidehash(mld->lctx, addr, MLD_EVENT_ALL);
 	lc_channel_bind(sock, chan);
 	lc_channel_join(chan);
 	DEBUG("waiting...");
 	lc_msg_recv(sock, &msg);
 	DEBUG("got msg");
-	lc_ctx_free(lctx);
 	return 0;
 }
 
