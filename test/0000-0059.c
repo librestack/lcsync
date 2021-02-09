@@ -17,7 +17,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-static const time_t waits = 1;
+static const int waits = 1;
 static int events;
 static sem_t sem;
 static mld_t *mld;
@@ -55,59 +55,39 @@ job_t *push_job(job_queue_t *q, lc_channel_t *chan)
 int main(void)
 {
 	struct timespec timeout;
+	struct in6_addr *addr;
+	struct sockaddr_in6 *sad;
+	struct addrinfo *p;
 	job_queue_t *q;
-	job_t *job[2] = {0};
+	job_t *job;
 	lc_ctx_t *lctx;
-	lc_socket_t *sock;
-	lc_channel_t *chan[2];
+	lc_channel_t *chan;
 
 	loginit();
-	test_name("mld_wait()");
+	test_name("mld_wait() - address already in filter");
 
-	mld = mld_start();
-	test_log("%s() mld has address %p\n", "main", (void*)mld);
+	q = job_queue_create(1);
+	mld = mld_init(1);
 	lctx = lc_ctx_new();
-	sock = lc_socket_new(lctx);
-	chan[0] = lc_channel_new(lctx, "we will join this channel");
-	chan[1] = lc_channel_new(lctx, "but not this one");
-	sem_init(&sem, 0, 0);
-	q = job_queue_create(3);
+	chan = lc_channel_new(lctx, "manually put this in filter");
 
-	/* FIXME race condition - test result appears to be affected by which of
-	 * these threads goes first */
-
-	job[1] = push_job(q, chan[1]);
-	usleep(100);
-	job[0] = push_job(q, chan[0]);
-
-	/* make sure threads are ready before issuing the join.
-	 * we have a race condition with the threads, but if we make sure the
-	 * semaphore is posted by both threads and wait a bit extra, it'll
-	 * probably be fine, won't it? This is only a concern in the test env. */
-	/* FIXME - why do we need to wait this loooooooong? */
-	sem_wait(&sem); sem_wait(&sem); usleep(8000);
-	lc_channel_bind(sock, chan[0]);
-	lc_channel_join(chan[0]);
+	/* we manually put this in the filter, so it must return immediately */
+	p = lc_channel_addrinfo(chan);
+	sad = (struct sockaddr_in6 *)p->ai_addr;
+	addr = &(sad->sin6_addr);
+	mld_filter_grp_add(mld, 0, addr);
+	job = push_job(q, chan);
 
 	/* set test timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
 	timeout.tv_sec += waits;
-	/* first job should return, we joined its channel */
-	test_assert(!sem_timedwait(&job[0]->done, &timeout), "timeout - mld_wait() channel 0");
-	free(job[0]);
-	/* second channel will timeout, we ignored it */
-	test_assert(sem_timedwait(&job[1]->done, &timeout), "timeout - mld_wait() channel 1");
-	free(job[1]->arg);
-	free(job[1]);
+	test_assert(!sem_timedwait(&job->done, &timeout), "timeout - mld_wait()");
+	free(job);
 
 	test_assert(events == 1, "received %i/1 event notifications", events);
 
-	lc_channel_part(chan[0]);
-	lc_channel_free(chan[1]);
-	lc_channel_free(chan[0]);
-	lc_socket_close(sock);
 	lc_ctx_free(lctx);
+	mld_free(mld);
 	job_queue_destroy(q);
-	mld_stop(mld);
 	return fails;
 }

@@ -279,7 +279,9 @@ int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
 
 int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 {
-	TRACE("%s()", __func__);
+	char straddr[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, saddr, straddr, INET6_ADDRSTRLEN);
+	DEBUG("%s(): %s", __func__, straddr);
 	vec_t *grp = mld->filter[iface].grp;
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_add_f);
 }
