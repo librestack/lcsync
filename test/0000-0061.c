@@ -126,7 +126,7 @@ int main(void)
 	// mld_filter_grp_add(): ff3e:ba5b:2812:9174:980b:632b:8f5c:9d81
 	// no one listening to ff3e:5513:4ada:6a77:84de:ed91:b4d4:b808 - skipping notification for ff3e:ba5b:2812:9174:980b:632b:8f5c:9d81
 	// FIXME join from mld_wait() never gets into filter
-
+	
 	/* wait a moment, ensure no packets received */
 	usleep(10000);
 	test_assert(pkts == 0, "pkts received=%i", pkts);
@@ -142,9 +142,9 @@ int main(void)
 
 		/* leave group, reset counters, make sure sending has stopped */
 		lc_channel_part(chan);
-		usleep(100);
+		usleep(10000); /* leave channel, wait before resetting counter */
 		pkts = 0;
-		usleep(100);
+		usleep(10000); /* counter reset, wait not to see what arrives */
 		test_assert(pkts == 0, "%i: pkts received=%i", i, pkts);
 	}
 

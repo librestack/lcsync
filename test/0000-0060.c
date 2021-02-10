@@ -16,8 +16,12 @@
 #include <linux/if_packet.h>
 #include <net/ethernet.h>
 #include <arpa/inet.h>
+#include <librecast.h>
 #include <netdb.h>
 #include <unistd.h>
+
+// FIXME - temp
+lc_channel_t * lc_channel_sidehash(lc_ctx_t *lctx, struct in6_addr *addr, int band);
 
 static int pkts = 0; /* data packets to multicast group */
 static int tots = 0; /* data packets intercepted */
@@ -76,11 +80,12 @@ int main(void)
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
 	lc_channel_t *chan = lc_channel_nnew(lctx, hash, HASHSIZE);
+	lc_channel_t *chanside;
 	pthread_t thread_count, thread_serv;
 	pthread_attr_t attr = {0};
-	struct addrinfo *p;
-	struct sockaddr_in6 *sad;
-	struct in6_addr *grp;
+	struct addrinfo *p, *pn;
+	struct sockaddr_in6 *sad, *sadn;
+	struct in6_addr *grp, *grpn;
 	net_data_t *data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
 	char *srcdata = calloc(1, sz);
 	mtree_tree *stree = mtree_create(sz, blocksz);
@@ -102,6 +107,12 @@ int main(void)
 
 	mld_enabled = 1;
 
+	chanside = lc_channel_sidehash(lctx, grp, MLD_EVENT_ALL);
+	pn = lc_channel_addrinfo(chanside);
+	sadn = (struct sockaddr_in6 *)pn->ai_addr;
+	grpn = &(sadn->sin6_addr);
+	test_assert(!mld_filter_grp_cmp(data->mld, 0, grpn), "filter doesn't contain notify group (0)");
+
 	/* start thread to count packets to dst grp */
 	pthread_attr_init(&attr);
 	pthread_create(&thread_count, &attr, &packet_sniff, grp);
@@ -112,22 +123,28 @@ int main(void)
 	usleep(10000);
 	test_assert(pkts == 0, "pkts received=%i", pkts);
 
-	lc_channel_bind(sock, chan);
-	for (int i = 0; i < 8; i++) {
-		/* join grp, wait, ensure packets received */
-		pkts = 0;
-		lc_channel_join(chan);
-		usleep(100000);
-		test_assert(pkts > 0, "%i:pkts received=%i", i, pkts);
-		test_log("pkts received (total) = %i\n", tots);
+	/* check filter for notification side-channel */
+	test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (1)");
 
-		/* leave group, reset counters, make sure sending has stopped */
-		lc_channel_part(chan);
-		usleep(100000);
-		pkts = 0;
-		usleep(100000);
-		test_assert(pkts == 0, "%i: pkts received=%i", i, pkts);
-	}
+	/* join grp, wait, ensure packets received */
+	lc_channel_bind(sock, chan);
+	test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (2)");
+	lc_channel_join(chan);
+	test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (2b)");
+	usleep(10000);
+	test_assert(pkts > 0, "pkts received=%i", pkts); // FIXME
+	test_log("pkts received (total) = %i\n", tots);
+
+	//test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (3)");
+
+	/* leave group, reset counters, make sure sending has stopped */
+	// FIXME hang on one dang minute! aren't we sending notifications to *start*
+	// sending when we part...
+	lc_channel_part(chan);
+	usleep(100000);
+	pkts = 0;
+	usleep(100000);
+	test_assert(pkts == 0, "pkts received=%i", pkts);
 
 	running = 0;
 	net_stop(SIGINT);
@@ -136,7 +153,7 @@ int main(void)
 	free(data->iov[0].iov_base);
 	mld_stop(data->mld);
 	free(data);
-	lc_channel_part(chan);
+	//lc_channel_part(chan);
 	lc_ctx_free(lctx);
 	return fails;
 }

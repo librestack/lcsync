@@ -24,7 +24,7 @@ int arg_parse(int *argc, char **argv[])
 	opt_t odryrun = { .oshort = 'n', .olong = "dry-run", .var = &dryrun, .type = OTYPE_BOOL };
 	opt_t ohex = { .var = &hex, .olong = "hex" };
 	opt_t ologlevel = { .olong = "loglevel", .var = &loglevel, .type = OTYPE_INT };
-	opt_t omld = { .var = &mld_enabled, .olong = "mld" };
+	opt_t omld = { .var = &mld_enabled, .olong = "mld", .type = OTYPE_BOOL };
 	opt_t opkts = { .olong = "pkts", .var = &PKTS, .type = OTYPE_INT };
 	opt_t oquiet = { .oshort = 'q', .olong = "quiet", .var = &quiet, .type = OTYPE_BOOL };
 	opt_t overbose = { .oshort = 'v', .olong = "verbose", .var = &verbose, .type = OTYPE_BOOL };

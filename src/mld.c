@@ -174,6 +174,7 @@ void mld_notify(mld_t *mld, struct in6_addr *saddr, int event)
 	chan[0] = lc_channel_sidehash(mld->lctx, saddr, MLD_EVENT_ALL);
 
 	// TODO notify event specific side channels
+	// TODO put some content in the notify msg so we can tell what happened
 	(void) event;
 
 	/* check filter to see if anyone listening for notifications */
