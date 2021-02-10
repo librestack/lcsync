@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
+#include <arpa/inet.h>
 #include <assert.h>
 #include <endian.h>
 #include <libgen.h>
@@ -232,6 +233,11 @@ void *net_job_send_tree(void *arg)
 		.chan = net_send_channels,
 		.pkts = htobe32(howmany(data->iov[0].iov_len, DATA_FIXED))
 	};
+
+	// FIXME FIXME FIXME
+	char straddr[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, grp, straddr, INET6_ADDRSTRLEN);
+	DEBUG("sending tree on channel addr: %s", straddr);
 	DEBUG("idx=%u", be32toh(hdr.idx));
 	DEBUG("len=%u", be32toh(hdr.len));
 	DEBUG("data=%lu", be64toh(hdr.data));
@@ -245,7 +251,11 @@ void *net_job_send_tree(void *arg)
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 	while (running) {
-		if (mld_enabled && data->mld) mld_wait(data->mld, 0, grp);
+		if (mld_enabled && data->mld) {
+			DEBUG("%s() about to  mld_wait", __func__);
+			mld_wait(data->mld, 0, grp); // FIXME - not returning
+			DEBUG("%s() done waiting", __func__);
+		}
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
 		net_send_tree(s, addr, vlen, iov);
@@ -502,7 +512,7 @@ static ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, stru
 	return byt;
 }
 
-ssize_t net_send_subtree(mtree_tree *stree, size_t root)
+ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 {
 	TRACE("%s()", __func__);
 	const int on = 1;
@@ -510,6 +520,8 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	size_t vlen = 2, base, min, max;
 	struct iovec iov[vlen];
 	struct addrinfo *addr;
+	struct sockaddr_in6 *sad;
+	struct in6_addr *grp;
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
 	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
@@ -517,6 +529,8 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	lc_channel_bind(sock, chan);
 	s = lc_channel_socket_raw(chan);
 	addr = lc_channel_addrinfo(chan);
+	sad = (struct sockaddr_in6 *)addr->ai_addr;
+	grp = &(sad->sin6_addr);
 	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
@@ -525,8 +539,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root)
 	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 	DEBUG("base: %zu, min: %zu, max: %zu", base, min, max);
 	while (running) {
-		// TODO mld_wait()
-		//if (mld_enabled && data->mld) mld_wait(data->mld, 0, grp);
+		if (mld_enabled && mld) mld_wait(mld, 0, grp);
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
 			DEBUG("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_base = mtree_blockn(stree, blk);
@@ -557,7 +570,7 @@ void *net_job_send_subtree(void *arg)
 {
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *stree = data->iov[0].iov_base;
-	net_send_subtree(stree, data->n);
+	net_send_subtree(data->mld, stree, data->n);
 	return arg;
 }
 

@@ -26,6 +26,7 @@ $(PROGRAM).o:
 install:        all
 		$(INSTALL) -d $(DESTDIR)$(bindir)
 		$(INSTALL_PROGRAM) $(PROGRAM) $(DESTDIR)$(bindir)/$(PROGRAM)
+		setcap cap_net_raw=eip $(DESTDIR)$(bindir)/$(PROGRAM)
 
 .PHONY: clean realclean
 

@@ -14,3 +14,16 @@ possibly in net_recv_tree()
 -------------------------------------------------------------------------------
 cap tests are executing as root
 -------------------------------------------------------------------------------
+SIGINT (ctrl-c) when running in net recv mode and recv is block interupts recv()
+which generates an error, followed by segfault:
+$ lcsync dnapizza.jpg /tmp/dnapizza.jpg
+Operation not permitted
+Bridge creation failed
+ioctl (TUNSETIFF) failed: Operation not permitted
+TAP creation failed
+^Crecv(): Interrupted system call
+Segmentation fault
+-------------------------------------------------------------------------------
+SIGINT does not stop server from sending when blocked in MLD mode
+SIGTERM works
+-------------------------------------------------------------------------------

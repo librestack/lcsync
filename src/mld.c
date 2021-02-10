@@ -240,7 +240,7 @@ int mld_filter_grp_call(mld_t *mld, int iface, struct in6_addr *saddr, vec_t *v,
 		/* add requires the entry NOT to exist, del requires that it does */
 		int required = !(f == &mld_filter_grp_del_f);
 		if (mld_filter_grp_cmp(mld, iface, saddr) == required) return 0;
-		notify = (f == mld_filter_grp_add_f || f == mld_filter_grp_del_f);
+		//notify = (f == mld_filter_grp_add_f || f == mld_filter_grp_del_f);
 		if (f == mld_filter_grp_add_f) notify = MLD_EVENT_JOIN;
 		if (f == mld_filter_grp_del_f) notify = MLD_EVENT_PART;
 	}
