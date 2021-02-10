@@ -3,6 +3,7 @@
 
 #include "test.h"
 #include "../src/log.h"
+#include <time.h>
 
 int fails = 0;
 
@@ -87,6 +88,7 @@ void test_expectiov(struct iovec *expected, struct iovec *got)
 void test_log(char *msg, ...)
 {
 	va_list argp;
+	fprintf(stderr, "%lu: ", clock());
 	va_start(argp, msg);
 	vfprintf(stderr, msg, argp);
 	va_end(argp);

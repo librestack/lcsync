@@ -26,6 +26,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 #include "log.h"
 
 #define LOG_BUFSIZE 128
@@ -72,8 +73,12 @@ void logmsg(unsigned int level, const char *fmt, ...)
 	if (uselock) logwait();
 	if (level == LOG_INFO)
 		fprintf(stdout, "%s\n", b);
-	else
+	else {
+		if (level == LOG_DEBUG) {
+			fprintf(stderr, "%li: ", clock());
+		}
 		fprintf(stderr, "%s\n", b);
+	}
 	if (uselock) logdone();
 	free(mbuf);
 }
