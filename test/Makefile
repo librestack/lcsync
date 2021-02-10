@@ -20,7 +20,7 @@ VALGRIND = valgrind --leak-check=full --error-exitcode=2 --errors-for-leak-kinds
 
 .PHONY: test clean realclean build result check cap
 
-cap: clean 0000-0046.test 0000-0047.test 0000-0051.test 0000-0058.test 0000-0060.test 0000-0061.test
+cap: clean 0000-0046.test 0000-0047.test 0000-0051.test 0000-0058.test 0000-0060.test 0000-0061.test 0000-0062.test
 
 check: MEMCHECK = $(VALGRIND)
 check: FAIL = $(LEAK)
@@ -45,6 +45,7 @@ build:
 0000-0058.test: CAPS = cap_net_raw=eip
 0000-0060.test: CAPS = cap_net_raw=eip
 0000-0061.test: CAPS = cap_net_raw=eip
+0000-0062.test: CAPS = cap_net_raw=eip
 
 %.test: %.c $(OBJS)
 	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)

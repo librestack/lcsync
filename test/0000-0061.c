@@ -137,7 +137,7 @@ int main(void)
 		pkts = 0;
 		lc_channel_join(chan);
 		usleep(10000);
-		test_assert(pkts > 0, "%i:pkts received=%i", i, pkts);
+		test_assert(pkts > 0, "%i:pkts received=%i", i, pkts); // FIXME
 		test_log("pkts received (total) = %i\n", tots);
 
 		/* leave group, reset counters, make sure sending has stopped */

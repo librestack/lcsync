@@ -142,6 +142,9 @@ lc_channel_t * lc_channel_sideband(lc_ctx_t *lctx, struct in6_addr *addr, int ba
 /* wait on a specific address */
 int mld_wait(mld_t *mld, int iface, struct in6_addr *addr)
 {
+	struct in6_addr *grp;
+	struct sockaddr_in6 *sad;
+	struct addrinfo *ai;
 	DEBUG("%s() mld has address %p", __func__, (void*)mld);
 	if (mld_filter_grp_cmp(mld, iface, addr)) {
 		DEBUG("%s() - no need to wait - filter has address", __func__);
@@ -150,6 +153,13 @@ int mld_wait(mld_t *mld, int iface, struct in6_addr *addr)
 	lc_message_t msg = {0};
 	lc_socket_t *sock = lc_socket_new(mld->lctx);
 	lc_channel_t *chan = lc_channel_sidehash(mld->lctx, addr, MLD_EVENT_ALL);
+
+	/* avoid race - add notification channel to filter first */
+	ai = lc_channel_addrinfo(chan);
+	sad = (struct sockaddr_in6 *)ai->ai_addr;
+	grp = &(sad->sin6_addr);
+	mld_filter_grp_add(mld, iface, grp);
+
 	lc_channel_bind(sock, chan);
 	lc_channel_join(chan);
 	lc_msg_recv(sock, &msg);
@@ -443,6 +453,9 @@ mld_t *mld_start(void)
 	mld_timerjob_t tj = { .mld = mld, .f = &mld_timer_ticker };
 	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	job_push_new(mld->timerq, &mld_listen_job, &mld, sizeof mld, &free, JOB_COPY|JOB_FREE);
+	// FIXME cleanup - mld->ready not required - MLD listener is ready from
+	// the moment the socket is created and the join happens.  So before
+	// here.
 	//sem_wait(&mld->ready); /* don't return until MLD listener enters the loop */
 	return mld;
 }
