@@ -28,7 +28,7 @@ int arg_parse(int *argc, char **argv[])
 	opt_t opkts = { .olong = "pkts", .var = &PKTS, .type = OTYPE_INT };
 	opt_t oquiet = { .oshort = 'q', .olong = "quiet", .var = &quiet, .type = OTYPE_BOOL };
 	opt_t overbose = { .oshort = 'v', .olong = "verbose", .var = &verbose, .type = OTYPE_BOOL };
-	opt_parser_t *parser = opt_init(9);
+	opt_parser_t *parser = opt_init(10);
 	opt_new(parser, &oblocksz);
 	opt_new(parser, &ochannels);
 	opt_new(parser, &odelay);
