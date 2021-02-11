@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <ifaddrs.h>
+#include <poll.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <netinet/icmp6.h>
@@ -74,6 +75,7 @@ void mld_timer_tick(mld_t *mld, int iface, size_t idx)
 		for (size_t z = 0; z < BLOOM_VECTORS; z++) {
 			mask.u8 = t[z].u8 > 0;
 			t[z].u8 += mask.u8;
+			if (*(mld->cont) == 0) return;
 		}
 	}
 	DEBUG("%s() - update complete", __func__);
@@ -142,28 +144,21 @@ lc_channel_t * lc_channel_sideband(lc_ctx_t *lctx, struct in6_addr *addr, int ba
 /* wait on a specific address */
 int mld_wait(mld_t *mld, int iface, struct in6_addr *addr)
 {
-	struct in6_addr *grp;
-	struct sockaddr_in6 *sad;
-	struct addrinfo *ai;
+	struct pollfd fds = { .events = POLL_IN };
+	int rc = 0;
 	DEBUG("%s() mld has address %p", __func__, (void*)mld);
 	if (mld_filter_grp_cmp(mld, iface, addr)) {
 		DEBUG("%s() - no need to wait - filter has address", __func__);
 		return 0;
 	}
-	lc_message_t msg = {0};
 	lc_socket_t *sock = lc_socket_new(mld->lctx);
 	lc_channel_t *chan = lc_channel_sidehash(mld->lctx, addr, MLD_EVENT_ALL);
-
-	/* avoid race - add notification channel to filter first */
-	ai = lc_channel_addrinfo(chan);
-	sad = (struct sockaddr_in6 *)ai->ai_addr;
-	grp = &(sad->sin6_addr);
-	mld_filter_grp_add(mld, iface, grp);
-
+	mld_filter_grp_add_ai(mld, iface, lc_channel_addrinfo(chan)); /* avoid race */
 	lc_channel_bind(sock, chan);
 	lc_channel_join(chan);
-	lc_msg_recv(sock, &msg);
-	DEBUG("%s() notify received", __func__);
+	fds.fd = lc_socket_raw(sock);
+	while (!(rc = poll(&fds, 1, 100)) && (*(mld->cont)));
+	if (rc > 0) DEBUG("%s() notify received", __func__);
 	lc_channel_part(chan);
 	lc_channel_free(chan);
 	lc_socket_close(sock);
@@ -288,6 +283,18 @@ int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_del_f);
 }
 
+// FIXME - this doesn't belong here
+struct in6_addr *aitoin6(struct addrinfo *ai)
+{
+	struct sockaddr_in6 *sad = (struct sockaddr_in6 *)ai->ai_addr;
+	return &(sad->sin6_addr);
+}
+
+int mld_filter_grp_del_ai(mld_t *mld, int iface, struct addrinfo *ai)
+{
+	return mld_filter_grp_del(mld, iface, aitoin6(ai));
+}
+
 int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 {
 	char straddr[INET6_ADDRSTRLEN];
@@ -295,6 +302,11 @@ int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 	DEBUG("%s(): %s", __func__, straddr);
 	vec_t *grp = mld->filter[iface].grp;
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_add_f);
+}
+
+int mld_filter_grp_add_ai(mld_t *mld, int iface, struct addrinfo *ai)
+{
+	return mld_filter_grp_add(mld, iface, aitoin6(ai));
 }
 
 // TODO: cache this in another bloom filter
@@ -373,6 +385,12 @@ int mld_listen(mld_t *mld)
 	struct icmp6_hdr icmpv6 = {0};
 	mld_addr_rec_t mrec = {0};
 	struct msghdr msg;
+	struct pollfd fds = {
+		.fd = mld->sock,
+		.events = POLL_IN
+	};
+	int rc = 0;
+	if (!mld->sock) return -1;
 	iov[0].iov_base = &icmpv6;
 	iov[0].iov_len = sizeof icmpv6;
 	iov[1].iov_base = &mrec;
@@ -384,15 +402,17 @@ int mld_listen(mld_t *mld)
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 2;
 	msg.msg_flags = 0;
-	DEBUG("MLD listener ready (ish)");
-	sem_post(&mld->ready);
-	for (;;) {
-		if ((byt = recvmsg(mld->sock, &msg, 0)) == -1) {
-			perror("recvmsg()");
-			return -1;
+	DEBUG("MLD listener ready");
+	while (*(mld->cont)) {
+		while (!(rc = poll(&fds, 1, 100)) && *(mld->cont));
+		if (rc > 0 && *(mld->cont)) {
+			if ((byt = recvmsg(mld->sock, &msg, 0)) == -1) {
+				perror("recvmsg()");
+				return -1;
+			}
+			DEBUG("%s(): msg received", __func__);
+			mld_msg_handle(mld, &msg);
 		}
-		DEBUG("%s(): msg received", __func__);
-		mld_msg_handle(mld, &msg);
 	}
 	return 0;
 }
@@ -406,17 +426,18 @@ void *mld_listen_job(void *arg)
 
 mld_t *mld_init(int ifaces)
 {
+	static volatile int cont = 1;
 	mld_t *mld = calloc(1, sizeof(mld_t) + ifaces * sizeof(mld_filter_t));
 	if (!mld) return NULL;
 	mld->len = ifaces;
 	/* create FIFO queue with timer writer thread + ticker + MLD listener */
 	mld->timerq = job_queue_create(3);
 	mld->lctx = lc_ctx_new();
-	sem_init(&mld->ready, 0, 0);
+	mld->cont = &cont;
 	return mld;
 }
 
-mld_t *mld_start(void)
+mld_t *mld_start(volatile int *cont)
 {
 	mld_t *mld = NULL;
 	int ret = 0;
@@ -449,13 +470,10 @@ mld_t *mld_start(void)
 	}
 	mld = mld_init(joins);
 	if (!mld) return NULL;
+	if (cont) mld->cont = cont;
 	mld->sock = sock;
 	mld_timerjob_t tj = { .mld = mld, .f = &mld_timer_ticker };
 	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	job_push_new(mld->timerq, &mld_listen_job, &mld, sizeof mld, &free, JOB_COPY|JOB_FREE);
-	// FIXME cleanup - mld->ready not required - MLD listener is ready from
-	// the moment the socket is created and the join happens.  So before
-	// here.
-	//sem_wait(&mld->ready); /* don't return until MLD listener enters the loop */
 	return mld;
 }

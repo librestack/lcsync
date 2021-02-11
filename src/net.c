@@ -18,7 +18,7 @@
 #include "globals.h"
 #include "file.h"
 
-static int running = 1;
+static volatile int running = 1;
 
 /* return number of bits set in bitmap (Hamming Weight) */
 unsigned int hamm(unsigned char *map, size_t len)
@@ -253,7 +253,7 @@ void *net_job_send_tree(void *arg)
 	while (running) {
 		if (mld_enabled && data->mld) {
 			DEBUG("%s() about to  mld_wait", __func__);
-			mld_wait(data->mld, 0, grp); // FIXME - not returning
+			mld_wait(data->mld, 0, grp);
 			DEBUG("%s() done waiting", __func__);
 		}
 		iov[1].iov_len = len;
@@ -539,6 +539,8 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 	DEBUG("base: %zu, min: %zu, max: %zu", base, min, max);
 	while (running) {
+		// TODO move this inside block loop?
+		//if (mld_enabled && mld) mld_wait(mld, 0, grp, &running);
 		if (mld_enabled && mld) mld_wait(mld, 0, grp);
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
 			DEBUG("sending block %zu with idx=%zu", blk, idx);
@@ -594,7 +596,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->byt = len;
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = tree;
-	if (mld_enabled) data->mld = mld_start();
+	if (mld_enabled) data->mld = mld_start(&running);
 	job_tree = job_push_new(q, &net_job_send_tree, data, sz, NULL, 0);
 	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
 		data->n = channels - 1 + chan;

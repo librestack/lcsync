@@ -100,7 +100,7 @@ int main(void)
 	data->iov[0].iov_base = stree;
 	data->iov[0].iov_len = sz;
 	data->byt = sz;
-	data->mld = mld_start();
+	data->mld = mld_start(NULL);
 
 	loginit();
 	test_name("net_job_send_tree() - MLD trigger");

@@ -17,6 +17,7 @@ lc_ctx_t *lctx;
 
 void create_channel(struct in6_addr *addr, char *name)
 {
+	test_log("%()\n", __func__);
 	struct sockaddr_in6 *sad;
 	struct addrinfo *ai;
 	snprintf(name, 16, "channel 0");
@@ -28,6 +29,7 @@ void create_channel(struct in6_addr *addr, char *name)
 
 void *listen_thread(void *arg)
 {
+	test_log("%()\n", __func__);
 	mld_t *mld = (mld_t *)arg;
 	test_assert(mld_listen(mld) == 0, "mld_listen() - have socket");
 	return arg;
@@ -52,6 +54,7 @@ int main(void)
 	test_name("mld_listen()");
 
 	mld = mld_init(interfaces);
+
 	test_assert(mld_listen(mld) == -1, "mld_listen() - return -1 when socket not initialized");
 
 	rc =socketpair(AF_UNIX, SOCK_RAW, 0, sock);
@@ -67,6 +70,8 @@ int main(void)
 
 	create_channel(&addr, channame);
 	test_assert(!mld_filter_grp_cmp(mld, 0, &addr), "test filter before adding any records");
+
+
 
 	/* create MLD2_LISTEN_REPORT */
 	mrec->type = MODE_IS_EXCLUDE;

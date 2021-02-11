@@ -63,7 +63,7 @@ int main(void)
 	 * of them.  We join the first, but not the second and ensure only one
 	 * of the calls returns.  Repeat. */
 
-	mld = mld_start();
+	mld = mld_start(NULL);
 	test_assert(mld != NULL, "mld_start()");
 	if (!mld) return fails;
 	test_log("%s() mld has address %p\n", "main", (void*)mld);

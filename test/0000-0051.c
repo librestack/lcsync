@@ -23,7 +23,7 @@ int main(void)
 	test_name("mld_filter_grp_add() / mld_filter_grp_cmp()");
 	lctx = lc_ctx_new();
 
-	mld = mld_start();
+	mld = mld_start(NULL);
 	for (int i = 0; i < limit; i++) {
 		snprintf(channame, 16, "channel %i", i);
 		chan = lc_channel_new(lctx, channame);

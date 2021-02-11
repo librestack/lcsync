@@ -36,7 +36,7 @@ int main(void)
 
 	test_name("MLD filter testing - joining via multicast");
 	lctx = lc_ctx_new();
-	mld = mld_start();
+	mld = mld_start(NULL);
 	for (int i = 0; i < limit; i++) {
 		snprintf(channame, 16, "channel %i", i);
 		sock[i] = lc_socket_new(lctx);

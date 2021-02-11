@@ -1,12 +1,11 @@
 blocking mode for small number of files
 otherwise start new job for each subscribe notification (requires file index)
 * net_job_send_tree() exit if --mld mode and no one listening
-* net_send_subtree() --mld
 * check subscription on each round
-* need tests for all this
 
 MLD timer stop ticking when all zero
 MLD timer start ticking when reset
+MLD timer - test what happens when ticking reaches zero
 
 See 7.2.  MLD State Maintained by Multicast Routers of RFC 3810:
 	  https://tools.ietf.org/html/rfc3810#section-7.2

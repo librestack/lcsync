@@ -5,6 +5,7 @@
 #define _MLD_H 1
 
 #include <limits.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <immintrin.h>
 #include "vec.h"
@@ -63,7 +64,7 @@ mld_t *mld_init(int ifaces);
 void mld_free(mld_t *mld);
 
 /* start MLD snooping */
-mld_t *mld_start(void);
+mld_t *mld_start(volatile int *cont);
 
 /* stop MLD snooping */
 void mld_stop(mld_t *mld);
@@ -79,12 +80,14 @@ int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr);
 
 /* add group address to interface bloom filter */
 int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *addr);
+int mld_filter_grp_add_ai(mld_t *mld, int iface, struct addrinfo *ai);
 
 /* return true (-1) if filter contains addr, false (0) if not */
 int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *addr);
 
 /* remove group address from interface bloom filter */
 int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *addr);
+int mld_filter_grp_del_ai(mld_t *mld, int iface, struct addrinfo *ai);
 
 /* return 0 if addr is assigned to a local interface, 1 if not, -1 on error */
 int mld_thatsme(struct in6_addr *addr);
@@ -96,6 +99,8 @@ void mld_msg_handle(mld_t *mld, struct msghdr *msg);
 int mld_listen(mld_t *mld);
 
 /* query state */
+
+/* block until notification received for addr */
 int mld_wait(mld_t *mld, int iface, struct in6_addr *addr);
 
 #endif /* _MLD_H */

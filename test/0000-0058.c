@@ -41,7 +41,7 @@ int main(void)
 	ai = lc_channel_addrinfo(chan[CHANMAIN]);
 	sad = (struct sockaddr_in6 *)ai->ai_addr;
 	addr = &(sad->sin6_addr);
-	mld = mld_start();
+	mld = mld_start(NULL);
 	test_assert(mld != NULL, "mld_start()");
 	
 	/* join side channel for MLD events */

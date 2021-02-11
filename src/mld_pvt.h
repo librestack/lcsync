@@ -41,7 +41,8 @@ struct mld_filter_s {
 
 struct mld_s {
 	lc_ctx_t *lctx;
-	sem_t ready;
+	/* stop if cont points to zero value */
+	volatile int *cont;
 	job_queue_t *timerq;
 	/* raw socket for MLD snooping */
 	int sock;
