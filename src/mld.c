@@ -421,8 +421,11 @@ int mld_listen(mld_t *mld)
 
 void *mld_listen_job(void *arg)
 {
-	mld_t *mld = *(mld_t **)arg;
-	mld_listen(mld);
+	if (arg) {
+		mld_t *mld = *(mld_t **)arg;
+		mld_listen(mld);
+	}
+	else ERROR("%s() requires arg", __func__);
 	return arg;
 }
 
