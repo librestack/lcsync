@@ -380,20 +380,19 @@ void mld_msg_handle(mld_t *mld, struct msghdr *msg)
 
 int mld_listen(mld_t *mld)
 {
-	assert(mld);
-	ssize_t byt = 0;
-	char buf_ctrl[BUFSIZE];
-	char buf_name[IPV6_BYTES];
+	mld_addr_rec_t mrec = {0};
 	struct iovec iov[2] = {0};
 	struct icmp6_hdr icmpv6 = {0};
-	mld_addr_rec_t mrec = {0};
-	struct msghdr msg;
-	struct pollfd fds = {
-		.fd = mld->sock,
-		.events = POLL_IN
-	};
+	struct msghdr msg = {0};
+	struct pollfd fds = { .fd = mld->sock, .events = POLL_IN };
+	char buf_ctrl[BUFSIZE];
+	char buf_name[IPV6_BYTES];
 	int rc = 0;
-	if (!mld->sock) return -1;
+	assert(mld);
+	if (!mld->sock) {
+		errno = ENOTSOCK;
+		return -1;
+	}
 	iov[0].iov_base = &icmpv6;
 	iov[0].iov_len = sizeof icmpv6;
 	iov[1].iov_base = &mrec;
@@ -406,10 +405,15 @@ int mld_listen(mld_t *mld)
 	msg.msg_iovlen = 2;
 	msg.msg_flags = 0;
 	DEBUG("MLD listener ready");
+	assert(mld->cont);
 	while (*(mld->cont)) {
 		while (!(rc = poll(&fds, 1, 100)) && *(mld->cont));
-		if (rc > 0 && *(mld->cont)) {
-			if ((byt = recvmsg(mld->sock, &msg, 0)) == -1) {
+		if (rc == -1) {
+			perror("poll()");
+			return -1;
+		}
+		if (*(mld->cont)) {
+			if ((recvmsg(mld->sock, &msg, 0)) == -1) {
 				perror("recvmsg()");
 				return -1;
 			}
