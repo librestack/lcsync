@@ -410,6 +410,7 @@ mtree_tree *mtree_create(size_t len, size_t blocksz)
 
 void mtree_free(mtree_tree *tree)
 {
+	if (!tree) return;
 	free(tree->tree);
 	free(tree);
 }
