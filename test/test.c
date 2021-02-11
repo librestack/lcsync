@@ -27,12 +27,17 @@ void fail_msg(char *msg, ...)
 
 void test_assert(int condition, char *msg, ...)
 {
+	char *b;
+	va_list argp;
+	va_start(argp, msg);
+	b = malloc(_vscprintf(msg, argp) + 1);
+	vsprintf(b, msg, argp);
+	test_log("%s(): %s\n", __func__, b);
 	if (!condition) {
-		va_list argp;
-		va_start(argp, msg);
 		vfail_msg(msg, argp);
-		va_end(argp);
 	}
+	va_end(argp);
+	free(b);
 }
 
 void test_sleep(time_t tv_sec, long tv_nsec)
