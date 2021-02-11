@@ -41,3 +41,7 @@ lcsync listener not stopping
 SIGINT does not stop server from sending when blocked in MLD mode
 SIGTERM works
 -------------------------------------------------------------------------------
+intermittent fail in 0062
+mld_filter_grp_cmp() - false (1241374768)
+integer overflow not possible, so probably writing where we shouldn't
+-------------------------------------------------------------------------------

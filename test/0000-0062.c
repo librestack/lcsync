@@ -65,6 +65,7 @@ int main(void)
 		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - true (%i)", i);
 		/* remove group and check again */
 		channel_part(chan[i]);
+		// FIXME - FAIL mld_filter_grp_cmp() - false (1241374768) - overflow?
 		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - false (%i)", i);
 	}
 
