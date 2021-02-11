@@ -23,6 +23,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+static volatile int cont = 1;
+
 /* extract interface number from ancillary control data */
 static int interface_index(struct msghdr *msg)
 {
@@ -426,14 +428,17 @@ void *mld_listen_job(void *arg)
 
 mld_t *mld_init(int ifaces)
 {
-	static volatile int cont = 1;
 	mld_t *mld = calloc(1, sizeof(mld_t) + ifaces * sizeof(mld_filter_t));
 	if (!mld) return NULL;
 	mld->len = ifaces;
+	mld->cont = &cont;
 	/* create FIFO queue with timer writer thread + ticker + MLD listener */
 	mld->timerq = job_queue_create(3);
-	mld->lctx = lc_ctx_new();
-	mld->cont = &cont;
+	if (!(mld->lctx = lc_ctx_new())) {
+		ERROR("Failed to create librecast context");
+		free(mld);
+		mld = NULL;
+	}
 	return mld;
 }
 
