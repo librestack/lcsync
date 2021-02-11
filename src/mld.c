@@ -380,6 +380,7 @@ void mld_msg_handle(mld_t *mld, struct msghdr *msg)
 
 int mld_listen(mld_t *mld)
 {
+	assert(mld);
 	ssize_t byt = 0;
 	char buf_ctrl[BUFSIZE];
 	char buf_name[IPV6_BYTES];
@@ -421,11 +422,9 @@ int mld_listen(mld_t *mld)
 
 void *mld_listen_job(void *arg)
 {
-	if (arg) {
-		mld_t *mld = *(mld_t **)arg;
-		mld_listen(mld);
-	}
-	else ERROR("%s() requires arg", __func__);
+	assert(arg);
+	mld_t *mld = *(mld_t **)arg;
+	mld_listen(mld);
 	return arg;
 }
 
