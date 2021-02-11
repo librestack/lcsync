@@ -440,25 +440,29 @@ mld_t *mld_init(int ifaces)
 mld_t *mld_start(volatile int *cont)
 {
 	mld_t *mld = NULL;
-	int ret = 0;
-	int sock;
-	int opt = 1;
+	struct ifaddrs *ifaddr = {0};
+	struct ipv6_mreq req = {0};
+	const int opt = 1;
 	int joins = 0;
-	struct ifaddrs *ifaddr, *ifa;
-	struct ipv6_mreq req;
-	sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+	int sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
 	if (sock == -1) {
 		perror("socket()");
 		return NULL;
 	}
-	setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &opt, sizeof(opt));
-	getifaddrs(&ifaddr);
-	for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+	if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &opt, sizeof(opt))) {
+		perror("setsockopt()");
+		goto exit_err_0;
+	}
+	if (getifaddrs(&ifaddr)) {
+		perror("getifaddrs()");
+		goto exit_err_0;
+	}
+	for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
 		if (ifa->ifa_addr->sa_family !=AF_INET6) continue; /* ipv6 only */
-		inet_pton(AF_INET6, MLD2_CAPABLE_ROUTERS, &(req.ipv6mr_multiaddr));
-		req.ipv6mr_interface = if_nametoindex(ifa->ifa_name);
-		ret = setsockopt(sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req));
-		if (ret != -1) {
+		if (inet_pton(AF_INET6, MLD2_CAPABLE_ROUTERS, &(req.ipv6mr_multiaddr)) != 1)
+			continue;
+		if (!(req.ipv6mr_interface = if_nametoindex(ifa->ifa_name))) continue;
+		if (setsockopt(sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req)) != -1) {
 			DEBUG("listening on interface %s", ifa->ifa_name);
 			joins++;
 		}
@@ -469,11 +473,14 @@ mld_t *mld_start(volatile int *cont)
 		return NULL;
 	}
 	mld = mld_init(joins);
-	if (!mld) return NULL;
+	if (!mld) goto exit_err_0;
 	if (cont) mld->cont = cont;
 	mld->sock = sock;
 	mld_timerjob_t tj = { .mld = mld, .f = &mld_timer_ticker };
 	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	job_push_new(mld->timerq, &mld_listen_job, &mld, sizeof mld, &free, JOB_COPY|JOB_FREE);
 	return mld;
+exit_err_0:
+	close(sock);
+	return NULL;
 }

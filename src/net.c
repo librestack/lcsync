@@ -6,6 +6,7 @@
 #include <endian.h>
 #include <libgen.h>
 #include <netdb.h>
+#include <poll.h>
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>
@@ -277,10 +278,15 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	unsigned bits = howmany(blocksz, DATA_FIXED);
 	size_t maplen = howmany(mtree_base_subtree(stree, root) * bits, CHAR_BIT);
 	size_t min = mtree_subtree_data_min(mtree_base(stree), root);
-	ssize_t byt = 0, msglen;
+	ssize_t byt = 0, msglen = 0;
 	net_blockhead_t hdr = {0};
 	struct iovec iov[2];
 	struct msghdr msgh = { .msg_iov = iov, .msg_iovlen = 2 };
+	struct pollfd fds = {
+		.fd = sock,
+		.events = POLL_IN
+	};
+	int rc = 0;
 	DEBUG("%s(): blocks  = %zu", __func__, mtree_blocks(stree));
 	DEBUG("%s(): base    = %zu", __func__, mtree_base_subtree(stree, root));
 	DEBUG("%s(): blocksz = %zu", __func__, blocksz);
@@ -295,8 +301,10 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	iov[0].iov_len = sizeof hdr;
 	iov[1].iov_base = buf;
 	iov[1].iov_len = DATA_FIXED;
-	if (!dryrun) while (bitmap && hamm(bitmap, maplen) && PKTS) {
-		if ((msglen = recvmsg(sock, &msgh, 0)) == -1) {
+	if (!dryrun) while (running && bitmap && hamm(bitmap, maplen) && PKTS) {
+		DEBUG("%s() recvmsg", __func__);
+		while (running && !(rc = poll(&fds, 1, 100)));
+		if (rc > 0 && (msglen = recvmsg(sock, &msgh, 0)) == -1) {
 			perror("recv()");
 			byt = -1; break;
 		}
@@ -328,8 +336,11 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 	int s;
 	ssize_t byt = 0;
 	lc_ctx_t *lctx = lc_ctx_new();
+	if (!lctx) return -1;
 	lc_socket_t *sock = lc_socket_new(lctx);
+	if (!sock) return -1;
 	lc_channel_t *chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE);
+	if (!chan) return -1;
 	lc_channel_bind(sock, chan);
 	lc_channel_join(chan);
 	s = lc_socket_raw(sock);
@@ -431,6 +442,7 @@ static void *net_job_diff_tree(void *arg)
 
 static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 {
+	TRACE("%s()", __func__);
 	unsigned channels = 1U << net_send_channels; // FIXME - get this from tree
 	job_t *job[channels];
 	size_t vlen = 2;
@@ -450,8 +462,11 @@ static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 		job[chan] = job_push_new(q, &net_job_sync_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
 	}
 	for (unsigned chan = 0; chan < channels; chan++) {
-		sem_wait(&job[chan]->done);
+		struct timespec ts = { .tv_nsec = 100 };
+		//sem_wait(&job[chan]->done);
+		while (sem_timedwait(&job[chan]->done, &ts) == -1 && errno == ETIMEDOUT && running);
 		free(job[chan]);
+		DEBUG("%s(): job completed", __func__);
 	}
 	free(data->map);
 	free(data);
@@ -565,6 +580,7 @@ void *net_job_sync_subtree(void *arg)
 	mtree_tree *stree = data->iov[0].iov_base;
 	mtree_tree *dtree = data->iov[1].iov_base;
 	net_sync_subtree(stree, dtree, data->n);
+	DEBUG("%s() done", __func__);
 	return arg;
 }
 

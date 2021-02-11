@@ -1,3 +1,5 @@
+* step through mld functions - check all args are safe - check return vals
+
 blocking mode for small number of files
 otherwise start new job for each subscribe notification (requires file index)
 * net_job_send_tree() exit if --mld mode and no one listening
