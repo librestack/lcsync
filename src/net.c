@@ -671,41 +671,38 @@ int net_send(int *argc, char *argv[])
 int net_sync(int *argc, char *argv[])
 {
 	(void) argc; /* unused */
-	int rc = 0;
+	int rc = -1;
 	int fdd;
 	size_t blocksz, len;
 	ssize_t sz_d;
-	struct stat sbd;
+	struct stat sbd = {0};
 	char *src = argv[0];
 	char *dst = argv[1];
 	char *dmap = NULL;
 	struct sigaction sa_int = { .sa_handler = net_stop };
 	unsigned char hash[HASHSIZE];
 	job_queue_t *q = job_queue_create(1U << net_send_channels);
-	mtree_tree *stree = NULL;
-	mtree_tree *dtree;
+	mtree_tree *stree, *dtree;
 	TRACE("%s('%s')", __func__, argv[0]);
 	sigaction(SIGINT, &sa_int, NULL);
 	crypto_generichash(hash, HASHSIZE, (unsigned char *)src, strlen(src), NULL, 0);
-	if ((net_fetch_tree(hash, &stree) == -1) || (mtree_verify(stree, mtree_treelen(stree)))) {
-		rc = -1; goto exit_err_0;
-	}
+	if (net_fetch_tree(hash, &stree) == -1) goto exit_err_0;
+	if (mtree_verify(stree, mtree_treelen(stree))) goto exit_err_0;
 	DEBUG("mapping dst: %s", dst);
 	len = mtree_len(stree);
 	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // TODO - set from packet data
 	if ((sz_d = file_map(dst, &fdd, &dmap, len, PROT_READ|PROT_WRITE, &sbd)) == -1) {
-		rc = -1; goto exit_err_0;
+		goto exit_err_0;
 	}
 	blocksz = mtree_blocksz(stree);
 	len = mtree_len(stree);
 	dtree = mtree_create(len, blocksz);
 	mtree_build(dtree, dmap, NULL);
-	if (mtree_verify(dtree, mtree_treelen(dtree))) {
-		rc = -1; goto exit_err_1;
-	}
+	if (mtree_verify(dtree, mtree_treelen(dtree))) goto exit_err_1;
 	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
 		net_sync_trees(stree, dtree, q);
 	}
+	rc = 0;
 exit_err_1:
 	mtree_free(dtree);
 exit_err_0:
