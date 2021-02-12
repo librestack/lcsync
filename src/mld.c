@@ -224,8 +224,7 @@ int mld_filter_grp_del_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 int mld_filter_grp_add_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 {
 	mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_refresh };
-	if (vec_get_epi8(v, idx) != CHAR_MAX)
-		vec_inc_epi8(v, idx);
+	if (vec_get_epi8(v, idx) != CHAR_MAX) vec_inc_epi8(v, idx);
 	tj.idx = idx;
 	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	return 0;
