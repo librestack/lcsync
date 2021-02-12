@@ -322,7 +322,6 @@ int mld_filter_grp_add_ai(mld_t *mld, unsigned int iface, struct addrinfo *ai)
 	return mld_filter_grp_add(mld, iface, aitoin6(ai));
 }
 
-// TODO: cache this in another bloom filter
 int mld_thatsme(struct in6_addr *addr)
 {
 	int ret = 1;
