@@ -345,7 +345,6 @@ void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec)
 	struct in6_addr grp = rec->addr;
 	struct in6_addr *src = rec->src;
 	int idx = -1;
-	DEBUG("rec->type = %u", rec->type);
 	switch (rec->type) {
 		case MODE_IS_INCLUDE:
 		case CHANGE_TO_INCLUDE_MODE:
