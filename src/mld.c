@@ -4,7 +4,6 @@
 #include "mld_pvt.h"
 #include "hash.h"
 #include "log.h"
-#include "job.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <ifaddrs.h>
