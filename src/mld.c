@@ -153,28 +153,44 @@ lc_channel_t * lc_channel_sideband(lc_ctx_t *lctx, struct in6_addr *addr, int ba
 }
 #endif
 
+static int mld_wait_notify(mld_t *mld, unsigned int iface, struct in6_addr *addr)
+{
+	lc_socket_t *sock;
+	lc_channel_t *chan;
+	struct pollfd fds = { .events = POLL_IN };
+	const int timeout = 100; /* affects responsiveness of exit */
+	int rc = 0;
+	if (!(sock = lc_socket_new(mld->lctx))) return -1;
+	if (!(chan = lc_channel_sidehash(mld->lctx, addr, MLD_EVENT_ALL))) {
+		rc = -1;
+		goto exit_err_0;
+	}
+	mld_filter_grp_add_ai(mld, iface, lc_channel_addrinfo(chan)); /* avoid race */
+	if ((lc_channel_bind(sock, chan)) || (lc_channel_join(chan))) {
+		rc = -1;
+		goto exit_err_1;
+	}
+	fds.fd = lc_socket_raw(sock);
+	while (!(rc = poll(&fds, 1, timeout)) && (*(mld->cont)));
+	if (rc > 0) DEBUG("%s() notify received", __func__);
+	lc_channel_part(chan);
+	rc = 0;
+exit_err_1:
+	lc_channel_free(chan);
+exit_err_0:
+	lc_socket_close(sock);
+	return rc;
+}
+
 /* wait on a specific address */
 int mld_wait(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 {
-	struct pollfd fds = { .events = POLL_IN };
-	int rc = 0;
-	DEBUG("%s() mld has address %p", __func__, (void*)mld);
+	DEBUG("%s()", __func__);
 	if (mld_filter_grp_cmp(mld, iface, addr)) {
 		DEBUG("%s() - no need to wait - filter has address", __func__);
 		return 0;
 	}
-	lc_socket_t *sock = lc_socket_new(mld->lctx);
-	lc_channel_t *chan = lc_channel_sidehash(mld->lctx, addr, MLD_EVENT_ALL);
-	mld_filter_grp_add_ai(mld, iface, lc_channel_addrinfo(chan)); /* avoid race */
-	lc_channel_bind(sock, chan);
-	lc_channel_join(chan);
-	fds.fd = lc_socket_raw(sock);
-	while (!(rc = poll(&fds, 1, 100)) && (*(mld->cont)));
-	if (rc > 0) DEBUG("%s() notify received", __func__);
-	lc_channel_part(chan);
-	lc_channel_free(chan);
-	lc_socket_close(sock);
-	return 0;
+	return mld_wait_notify(mld, iface, addr);
 }
 
 void mld_notify(mld_t *mld, struct in6_addr *saddr, int event)
