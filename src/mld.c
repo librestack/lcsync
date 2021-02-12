@@ -179,7 +179,7 @@ int mld_wait(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 
 void mld_notify(mld_t *mld, struct in6_addr *saddr, int event)
 {
-	DEBUG("%s() mld has address %p", __func__, (void*)mld);
+	TRACE("%s()", __func__);
 	lc_message_t msg = {0};
 	lc_socket_t *sock;
 	lc_channel_t *chan[MLD_EVENT_MAX];
@@ -331,7 +331,6 @@ int mld_thatsme(struct in6_addr *addr)
 
 void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec)
 {
-	TRACE("%s()", __func__);
 	struct in6_addr grp = rec->addr;
 	struct in6_addr *src = rec->src;
 	int idx = -1;
@@ -359,7 +358,6 @@ void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec)
 
 void mld_listen_report(mld_t *mld, struct msghdr *msg)
 {
-	TRACE("%s()", __func__);
 	struct icmp6_hdr *icmpv6 = msg->msg_iov[0].iov_base;
 	mld_addr_rec_t *mrec = msg->msg_iov[1].iov_base;
 	unsigned int iface = mld_idx_iface(mld, interface_index(msg));
@@ -371,7 +369,6 @@ void mld_listen_report(mld_t *mld, struct msghdr *msg)
 
 void mld_msg_handle(mld_t *mld, struct msghdr *msg)
 {
-	TRACE("%s()", __func__);
 	struct icmp6_hdr *icmpv6 = msg->msg_iov[0].iov_base;
 	if (icmpv6->icmp6_type == MLD2_LISTEN_REPORT) {
 		mld_listen_report(mld, msg);
