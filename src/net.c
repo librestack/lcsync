@@ -596,23 +596,36 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 {
 	TRACE("%s()", __func__);
 	unsigned channels = 1U << net_send_channels;
+	ssize_t rc = -1;
 	size_t blocks;
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec);
+	mtree_tree *tree;
+	job_queue_t *q;
 	net_data_t *data;
 	job_t *job_tree, *job_data[channels];
-	mtree_tree *tree = mtree_create(len, blocksize);
-	job_queue_t *q = job_queue_create(channels + 1);
+	if (!(tree = mtree_create(len, blocksize)))
+		goto exit_err_0;
+	if (!(q = job_queue_create(channels + 1)))
+		goto exit_err_1;
+	assert(srcdata);
 	mtree_build(tree, srcdata, q);
 	DEBUG("%s(): source tree built", __func__);
-	assert(!mtree_verify(tree, mtree_treelen(tree)));
+	if (mtree_verify(tree, mtree_treelen(tree)))
+		goto exit_err_2;
 	blocks = mtree_blocks(tree);
-	data = calloc(1, sz);
+	if (!(data = calloc(1, sz))) {
+		perror("calloc");
+		goto exit_err_2;
+	}
 	data->hash = mtree_root(tree);
 	data->alias = (hash) ? hash : data->hash;
 	data->byt = len;
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = tree;
-	if (mld_enabled) data->mld = mld_start(&running);
+	if (mld_enabled) {
+		data->mld = mld_start(&running);
+		goto exit_err_3;
+	}
 	job_tree = job_push_new(q, &net_job_send_tree, data, sz, NULL, 0);
 	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
 		data->n = channels - 1 + chan;
@@ -623,12 +636,17 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 		sem_wait(&job_data[chan]->done);
 		free(job_data[chan]);
 	}
+	rc = 0;
 	free(job_tree);
-	mtree_free(tree);
-	job_queue_destroy(q);
 	if (mld_enabled) mld_stop(data->mld);
+exit_err_3:
 	free(data);
-	return 0; // TODO: return bytes or -1
+exit_err_2:
+	job_queue_destroy(q);
+exit_err_1:
+	mtree_free(tree);
+exit_err_0:
+	return rc;
 }
 
 int net_recv(int *argc, char *argv[])
