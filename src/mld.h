@@ -70,30 +70,30 @@ mld_t *mld_start(volatile int *cont);
 void mld_stop(mld_t *mld);
 
 /* decrement all the counters. */
-void mld_timer_tick(mld_t *mld, int iface, size_t idx);
+void mld_timer_tick(mld_t *mld, unsigned int iface, size_t idx);
 
 /* reset specific timer to MLD_TIMEOUT */
-void mld_timer_refresh(mld_t *mld, int iface, size_t idx);
+void mld_timer_refresh(mld_t *mld, unsigned int iface, size_t idx);
 
 /* inspect timer for group address */
-int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr);
+int mld_filter_timer_get(mld_t *mld, unsigned int iface, struct in6_addr *saddr);
 
 /* add group address to interface bloom filter */
-int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *addr);
-int mld_filter_grp_add_ai(mld_t *mld, int iface, struct addrinfo *ai);
+int mld_filter_grp_add(mld_t *mld, unsigned int iface, struct in6_addr *addr);
+int mld_filter_grp_add_ai(mld_t *mld, unsigned int iface, struct addrinfo *ai);
 
 /* return true (-1) if filter contains addr, false (0) if not */
-int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *addr);
+int mld_filter_grp_cmp(mld_t *mld, unsigned int iface, struct in6_addr *addr);
 
 /* remove group address from interface bloom filter */
-int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *addr);
-int mld_filter_grp_del_ai(mld_t *mld, int iface, struct addrinfo *ai);
+int mld_filter_grp_del(mld_t *mld, unsigned int iface, struct in6_addr *addr);
+int mld_filter_grp_del_ai(mld_t *mld, unsigned int iface, struct addrinfo *ai);
 
 /* return 0 if addr is assigned to a local interface, 1 if not, -1 on error */
 int mld_thatsme(struct in6_addr *addr);
 
 /* handle MLD2 router msgs */
-void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec);
+void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec);
 void mld_listen_report(mld_t *mld, struct msghdr *msg);
 void mld_msg_handle(mld_t *mld, struct msghdr *msg);
 
@@ -103,6 +103,6 @@ int mld_listen(mld_t *mld);
 /* query state */
 
 /* block until notification received for addr */
-int mld_wait(mld_t *mld, int iface, struct in6_addr *addr);
+int mld_wait(mld_t *mld, unsigned int iface, struct in6_addr *addr);
 
 #endif /* _MLD_H */

@@ -26,11 +26,11 @@
 static volatile int cont = 1;
 
 /* extract interface number from ancillary control data */
-static int interface_index(struct msghdr *msg)
+static unsigned int interface_index(struct msghdr *msg)
 {
 	struct cmsghdr *cmsg;
 	struct in6_pktinfo *pi;
-	int ifidx = 0;
+	unsigned int ifidx = 0;
 	for (cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
 		if (cmsg->cmsg_level != IPPROTO_IPV6 || cmsg->cmsg_type != IPV6_PKTINFO)
 			continue;
@@ -38,6 +38,17 @@ static int interface_index(struct msghdr *msg)
 		ifidx = pi->ipi6_ifindex;
 	}
 	return ifidx;
+}
+
+static unsigned int mld_idx_iface(mld_t *mld, unsigned int idx)
+{
+	DEBUG("%s() mld->len = %i", __func__, mld->len);
+	DEBUG("%s() looking for %u", __func__, idx);
+	for (int i = 0; i < mld->len; i++) {
+		DEBUG("mld->ifx[i]=%u", mld->ifx[i]);
+		if (mld->ifx[i] == idx) return i;
+	}
+	return 0;
 }
 
 void mld_free(mld_t *mld)
@@ -67,7 +78,7 @@ void vec_dump(vec_t *vec, int idx)
 }
 
 /* decrement all the counters. There are 16.7 million of them, use SIMD */
-void mld_timer_tick(mld_t *mld, int iface, size_t idx)
+void mld_timer_tick(mld_t *mld, unsigned int iface, size_t idx)
 {
 	(void)iface; (void)idx;
 	vec_t *t;
@@ -83,7 +94,7 @@ void mld_timer_tick(mld_t *mld, int iface, size_t idx)
 	DEBUG("%s() - update complete", __func__);
 }
 
-void mld_timer_refresh(mld_t *mld, int iface, size_t idx)
+void mld_timer_refresh(mld_t *mld, unsigned int iface, size_t idx)
 {
 	vec_t *t = mld->filter[iface].t;
 	vec_set_epi8(t, idx, MLD_TIMEOUT);
@@ -98,7 +109,7 @@ void *mld_timer_job(void *arg)
 }
 
 /* this thread handles the clock ticks, creating a job for the timer thread */
-void mld_timer_ticker(mld_t *mld, int iface, size_t idx)
+void mld_timer_ticker(mld_t *mld, unsigned int iface, size_t idx)
 {
 	struct timespec ts;
 	sem_t sem;
@@ -144,7 +155,7 @@ lc_channel_t * lc_channel_sideband(lc_ctx_t *lctx, struct in6_addr *addr, int ba
 #endif
 
 /* wait on a specific address */
-int mld_wait(mld_t *mld, int iface, struct in6_addr *addr)
+int mld_wait(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 {
 	struct pollfd fds = { .events = POLL_IN };
 	int rc = 0;
@@ -204,14 +215,14 @@ void mld_notify(mld_t *mld, struct in6_addr *saddr, int event)
 	lc_msg_send(chan[0], &msg);
 }
 
-int mld_filter_grp_del_f(mld_t *mld, int iface, size_t idx, vec_t *v)
+int mld_filter_grp_del_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 {
 	(void)mld; (void)iface;
 	if (vec_get_epi8(v, idx)) vec_dec_epi8(v, idx);
 	return 0;
 }
 
-int mld_filter_grp_add_f(mld_t *mld, int iface, size_t idx, vec_t *v)
+int mld_filter_grp_add_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 {
 	mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_refresh };
 	if (vec_get_epi8(v, idx) != CHAR_MAX)
@@ -221,26 +232,26 @@ int mld_filter_grp_add_f(mld_t *mld, int iface, size_t idx, vec_t *v)
 	return 0;
 }
 
-int mld_filter_timer_get_f(mld_t *mld, int iface, size_t idx, vec_t *v)
+int mld_filter_timer_get_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 {
 	(void)mld; (void)iface;
 	return vec_get_epi8(v, idx);
 }
 
-int mld_filter_grp_cmp_f(mld_t *mld, int iface, size_t idx, vec_t *v)
+int mld_filter_grp_cmp_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 {
 	(void)mld; (void)iface;
 	if (!vec_get_epi8(v, idx)) return 1;
 	return 0;
 }
 
-int mld_filter_grp_call(mld_t *mld, int iface, struct in6_addr *saddr, vec_t *v, int(*f)(mld_t *, int, size_t, vec_t *))
+int mld_filter_grp_call(mld_t *mld, unsigned int iface, struct in6_addr *saddr, vec_t *v, int(*f)(mld_t *, unsigned int, size_t, vec_t *))
 {
 	TRACE("%s()", __func__);
 	size_t idx;
 	int rc = 0, notify = 0;
 	uint32_t hash[BLOOM_HASHES];
-	if (iface >= mld->len) {
+	if (iface >= (unsigned)mld->len) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -266,19 +277,19 @@ int mld_filter_grp_call(mld_t *mld, int iface, struct in6_addr *saddr, vec_t *v,
 	return rc;
 }
 
-int mld_filter_timer_get(mld_t *mld, int iface, struct in6_addr *saddr)
+int mld_filter_timer_get(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
 	vec_t *t = mld->filter[iface].t;
 	return mld_filter_grp_call(mld, iface, saddr, t, &mld_filter_timer_get_f);
 }
 
-int mld_filter_grp_cmp(mld_t *mld, int iface, struct in6_addr *saddr)
+int mld_filter_grp_cmp(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
 	vec_t *grp = mld->filter[iface].grp;
 	return !mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_cmp_f);
 }
 
-int mld_filter_grp_del(mld_t *mld, int iface, struct in6_addr *saddr)
+int mld_filter_grp_del(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
 	TRACE("%s()", __func__);
 	vec_t *grp = mld->filter[iface].grp;
@@ -292,12 +303,12 @@ struct in6_addr *aitoin6(struct addrinfo *ai)
 	return &(sad->sin6_addr);
 }
 
-int mld_filter_grp_del_ai(mld_t *mld, int iface, struct addrinfo *ai)
+int mld_filter_grp_del_ai(mld_t *mld, unsigned int iface, struct addrinfo *ai)
 {
 	return mld_filter_grp_del(mld, iface, aitoin6(ai));
 }
 
-int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
+int mld_filter_grp_add(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
 	char straddr[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, saddr, straddr, INET6_ADDRSTRLEN);
@@ -306,7 +317,7 @@ int mld_filter_grp_add(mld_t *mld, int iface, struct in6_addr *saddr)
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_add_f);
 }
 
-int mld_filter_grp_add_ai(mld_t *mld, int iface, struct addrinfo *ai)
+int mld_filter_grp_add_ai(mld_t *mld, unsigned int iface, struct addrinfo *ai)
 {
 	return mld_filter_grp_add(mld, iface, aitoin6(ai));
 }
@@ -328,7 +339,7 @@ int mld_thatsme(struct in6_addr *addr)
 	return ret;
 }
 
-void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
+void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec)
 {
 	TRACE("%s()", __func__);
 	struct in6_addr grp = rec->addr;
@@ -360,7 +371,9 @@ void mld_address_record(mld_t *mld, int iface, mld_addr_rec_t *rec)
 void mld_listen_report(mld_t *mld, struct msghdr *msg)
 {
 	TRACE("%s()", __func__);
-	int iface = interface_index(msg);
+	unsigned int idx = interface_index(msg);
+	DEBUG("%s() got idx %u", __func__, idx);
+	unsigned int iface = mld_idx_iface(mld, idx);
 	struct icmp6_hdr *icmpv6 = msg->msg_iov[0].iov_base;
 	mld_addr_rec_t *mrec = msg->msg_iov[1].iov_base;
 	uint16_t recs = ntohs(icmpv6->icmp6_data16[1]);
@@ -454,6 +467,7 @@ mld_t *mld_start(volatile int *cont)
 	struct ifaddrs *ifaddr = {0};
 	struct ipv6_mreq req = {0};
 	const int opt = 1;
+	unsigned int ifx[IFACE_MAX] = {0};
 	int joins = 0;
 	int sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
 	if (sock == -1) {
@@ -474,8 +488,10 @@ mld_t *mld_start(volatile int *cont)
 			continue;
 		if (!(req.ipv6mr_interface = if_nametoindex(ifa->ifa_name))) continue;
 		if (setsockopt(sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req)) != -1) {
-			DEBUG("listening on interface %s", ifa->ifa_name);
-			joins++;
+			unsigned int idx = if_nametoindex(ifa->ifa_name);
+			DEBUG("listening on interface %s (%u)", ifa->ifa_name, idx);
+			if (!idx) perror("if_nametoindex()"); assert(idx);
+			ifx[joins++] = idx;
 		}
 	}
 	freeifaddrs(ifaddr);
@@ -483,9 +499,11 @@ mld_t *mld_start(volatile int *cont)
 		ERROR("Unable to join on any interfaces");
 		return NULL;
 	}
+	DEBUG("%s() listening on %i interfaces", __func__, joins);
 	mld = mld_init(joins);
 	if (!mld) goto exit_err_0;
 	if (cont) mld->cont = cont;
+	memcpy(mld->ifx, ifx, sizeof ifx);
 	mld->sock = sock;
 	mld_timerjob_t tj = { .mld = mld, .f = &mld_timer_ticker };
 	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);

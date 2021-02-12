@@ -10,6 +10,7 @@
 #include <librecast.h>
 
 #define BUFSIZE 1500
+#define IFACE_MAX UCHAR_MAX
 
 #if !__USE_KERNEL_IPV6_DEFS
 /* IPv6 packet information.  */
@@ -27,9 +28,9 @@ typedef enum {
 
 struct mld_timerjob_s {
 	mld_t *mld;
-	void (*f)(mld_t *, int iface, size_t idx);
+	void (*f)(mld_t *, unsigned int iface, size_t idx);
 	size_t idx;
-	int iface;
+	unsigned int iface;
 };
 
 struct mld_filter_s {
@@ -48,6 +49,8 @@ struct mld_s {
 	int sock;
 	/* number of interfaces allocated */
 	int len;
+	/* iface -> interface_idx mapping */
+	unsigned int ifx[IFACE_MAX];
 	/* counted bloom filter for groups gives us O(1) for insert/query/delete 
 	 * combined with a bloom timer (is that a thing, or did I just make it
 	 * up?) - basically a counted bloom filter where the max is set to the

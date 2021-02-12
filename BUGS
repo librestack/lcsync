@@ -45,3 +45,6 @@ intermittent fail in 0062
 mld_filter_grp_cmp() - false (1241374768)
 integer overflow not possible, so probably writing where we shouldn't
 -------------------------------------------------------------------------------
+mld_listen_report() assumes interface_index() will return an index within bounds
+of our array.  It doesn't.
+-------------------------------------------------------------------------------
