@@ -333,31 +333,31 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 
 ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 {
+	lc_ctx_t *lctx;
+	lc_socket_t *sock;
+	lc_channel_t *chan;
+	ssize_t byt = -1;
 	int s;
-	ssize_t byt = 0;
-	lc_ctx_t *lctx = lc_ctx_new();
-	if (!lctx) return -1;
-	lc_socket_t *sock = lc_socket_new(lctx);
-	if (!sock) return -1;
-	lc_channel_t *chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE);
-	if (!chan) return -1;
-	lc_channel_bind(sock, chan);
-	lc_channel_join(chan);
+	if (!(lctx = lc_ctx_new()))
+		goto exit_err_0;
+	if (!(sock = lc_socket_new(lctx)))
+		goto exit_err_1;
+	if (!(chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE)))
+		goto exit_err_2;
+	if (lc_channel_bind(sock, chan) || lc_channel_join(chan))
+		goto exit_err_3;
 	s = lc_socket_raw(sock);
-
-	/* TODO: first, ensure destination is big enough */
-	/* TODO: malloc, remap, update *len etc */
-
-	DEBUG("%s(): receiving subtree at root %zu", __func__, root);
-
 	if (hex) mtree_hexdump(stree, stderr);
 	DEBUG("recving subtree with root %zu", root);
 	byt = net_recv_subtree(s, stree, dtree, root);
-
 	lc_channel_part(chan);
+exit_err_3:
 	lc_channel_free(chan);
+exit_err_2:
 	lc_socket_close(sock);
+exit_err_1:
 	lc_ctx_free(lctx);
+exit_err_0:
 	return byt;
 }
 

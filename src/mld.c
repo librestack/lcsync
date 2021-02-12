@@ -206,6 +206,7 @@ static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *saddr, int e
 	// TODO notify event specific side channels
 	(void) event;
 	chan[0] = lc_channel_sidehash(mld->lctx, saddr, MLD_EVENT_ALL);
+	if (!chan[0]) return;
 
 	/* check filter to see if anyone listening for notifications */
 	ai = lc_channel_addrinfo(chan[0]);
@@ -217,7 +218,10 @@ static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *saddr, int e
 	}
 	DEBUG("sending notification for event on %s to %s", straddr1, straddr2);
 
-	sock = lc_socket_new(mld->lctx);
+	if (!(sock = lc_socket_new(mld->lctx))) {
+		lc_channel_free(chan[0]);
+		return;
+	}
 	/* set loopback so machine-local listeners are notified */
 	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &opt, sizeof(opt));
 	/* set TTL to 1 so notification doesn't leave local segment */
@@ -416,7 +420,7 @@ int mld_listen(mld_t *mld)
 	DEBUG("MLD listener ready");
 	assert(mld->cont);
 	while (*(mld->cont)) {
-		while (!(rc = poll(&fds, 1, 100)) && *(mld->cont));
+		while (!(rc = poll(&fds, 1, 1000)) && *(mld->cont));
 		if (rc == -1) {
 			perror("poll()");
 			return -1;
