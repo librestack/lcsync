@@ -28,13 +28,14 @@ void fail_msg(char *msg, ...)
 void test_assert(int condition, char *msg, ...)
 {
 	char *b;
-	va_list argp;
+	va_list argp, vcpy;
 	va_start(argp, msg);
+	va_copy(vcpy, argp);
 	b = malloc(_vscprintf(msg, argp) + 1);
 	vsprintf(b, msg, argp);
 	test_log("%s(): %s\n", __func__, b);
 	if (!condition) {
-		vfail_msg(msg, argp);
+		vfail_msg(msg, vcpy);
 	}
 	va_end(argp);
 	free(b);
