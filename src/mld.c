@@ -240,8 +240,7 @@ int mld_filter_timer_get_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 int mld_filter_grp_cmp_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 {
 	(void)mld; (void)iface;
-	if (!vec_get_epi8(v, idx)) return 1;
-	return 0;
+	return !vec_get_epi8(v, idx);
 }
 
 int mld_filter_grp_call(mld_t *mld, unsigned int iface, struct in6_addr *saddr, vec_t *v,
