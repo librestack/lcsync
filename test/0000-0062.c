@@ -26,7 +26,8 @@ static void channel_join(lc_channel_t *chan)
 
 int main(void)
 {
-	const int limit = 1; /* a modest number for normal test runs */
+	//const int limit = 64; /* a modest number for normal test runs */
+	const int limit = 1; // FIXME
 	mld_t *mld;
 	struct in6_addr *addr[limit];
 	char channame[16] = "";
