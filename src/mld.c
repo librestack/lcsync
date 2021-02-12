@@ -179,27 +179,23 @@ int mld_wait(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 
 void mld_notify(mld_t *mld, struct in6_addr *saddr, int event)
 {
-	TRACE("%s()", __func__);
 	lc_message_t msg = {0};
 	lc_socket_t *sock;
 	lc_channel_t *chan[MLD_EVENT_MAX];
 	struct addrinfo *ai;
-	struct sockaddr_in6 *sad;
 	char straddr1[INET6_ADDRSTRLEN];
 	char straddr2[INET6_ADDRSTRLEN];
 	const int opt = 1;
-	chan[0] = lc_channel_sidehash(mld->lctx, saddr, MLD_EVENT_ALL);
 
 	// TODO notify event specific side channels
-	// TODO put some content in the notify msg so we can tell what happened
 	(void) event;
+	chan[0] = lc_channel_sidehash(mld->lctx, saddr, MLD_EVENT_ALL);
 
 	/* check filter to see if anyone listening for notifications */
 	ai = lc_channel_addrinfo(chan[0]);
-	sad = (struct sockaddr_in6 *)ai->ai_addr;
 	inet_ntop(AF_INET6, saddr, straddr1, INET6_ADDRSTRLEN);
-	inet_ntop(AF_INET6, &(sad->sin6_addr), straddr2, INET6_ADDRSTRLEN);
-	if (!mld_filter_grp_cmp(mld, 0, &(sad->sin6_addr))) {
+	inet_ntop(AF_INET6, aitoin6(ai), straddr2, INET6_ADDRSTRLEN);
+	if (!mld_filter_grp_cmp(mld, 0, aitoin6(ai))) {
 		DEBUG("no one listening to %s - skipping notification for %s", straddr2, straddr1);
 		return;
 	}
