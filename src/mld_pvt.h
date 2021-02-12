@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <librecast.h>
 
+#define MLD_DEBUG 1
 #define BUFSIZE 1500
 #define IFACE_MAX UCHAR_MAX
 

@@ -310,9 +310,11 @@ int mld_filter_grp_del_ai(mld_t *mld, unsigned int iface, struct addrinfo *ai)
 
 int mld_filter_grp_add(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
+#ifdef MLD_DEBUG
 	char straddr[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, saddr, straddr, INET6_ADDRSTRLEN);
 	DEBUG("%s(): %s", __func__, straddr);
+#endif
 	vec_t *grp = mld->filter[iface].grp;
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_add_f);
 }
