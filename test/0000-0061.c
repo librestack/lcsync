@@ -129,7 +129,7 @@ int main(void)
 	
 	/* wait a moment, ensure no packets received */
 	usleep(10000);
-	test_assert(pkts == 0, "pkts received=%i", pkts);
+	test_assert(pkts == 0, "pkts received=%i (before join)", pkts);
 
 	lc_channel_bind(sock, chan);
 	for (int i = 0; i < 1; i++) {
@@ -137,7 +137,7 @@ int main(void)
 		pkts = 0;
 		lc_channel_join(chan);
 		usleep(10000);
-		test_assert(pkts > 0, "%i:pkts received=%i", i, pkts); // FIXME
+		test_assert(pkts > 0, "%i:pkts received=%i (joined)", i, pkts); // FIXME
 		test_log("pkts received (total) = %i\n", tots);
 
 		/* leave group, reset counters, make sure sending has stopped */
@@ -145,7 +145,7 @@ int main(void)
 		usleep(10000); /* leave channel, wait before resetting counter */
 		pkts = 0;
 		usleep(10000); /* counter reset, wait not to see what arrives */
-		test_assert(pkts == 0, "%i: pkts received=%i", i, pkts);
+		test_assert(pkts == 0, "%i: pkts received=%i (parted)", i, pkts);
 	}
 
 	running = 0;

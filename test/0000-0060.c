@@ -144,7 +144,7 @@ int main(void)
 	usleep(100000);
 	pkts = 0;
 	usleep(100000);
-	test_assert(pkts == 0, "pkts received=%i (after leave)", pkts);
+	test_assert(pkts == 0, "pkts received=%i (parted)", pkts);
 
 	running = 0;
 	net_stop(SIGINT);
