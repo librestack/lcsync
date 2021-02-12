@@ -5,6 +5,7 @@
 #define MLD_PVT_H 1
 
 #include "mld.h"
+#include "macro.h"
 #include "job.h"
 #include <assert.h>
 #include <librecast.h>
