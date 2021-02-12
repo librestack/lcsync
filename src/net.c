@@ -14,7 +14,7 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
-#include "net.h"
+#include "net_pvt.h"
 #include "log.h"
 #include "globals.h"
 #include "file.h"
@@ -22,7 +22,7 @@
 static volatile int running = 1;
 
 /* return number of bits set in bitmap (Hamming Weight) */
-unsigned int hamm(unsigned char *map, size_t len)
+static unsigned int hamm(unsigned char *map, size_t len)
 {
 	unsigned int c = 0;
 	while (len--) for (char v = map[len]; v; c++) v &= v - 1;
@@ -211,7 +211,7 @@ void *net_job_send_tree(void *arg)
 {
 	TRACE("%s()", __func__);
 	const int on = 1;
-	size_t vlen = 2;
+	const size_t vlen = 2;
 	struct iovec iov[vlen];
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *tree = (mtree_tree *)data->iov[0].iov_base;

@@ -2,7 +2,6 @@
 /* Copyright (c) 2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "test.h"
-#include "../src/mld.h"
 #include "../src/mld_pvt.h"
 #include "../src/job.h"
 #include <netinet/icmp6.h>

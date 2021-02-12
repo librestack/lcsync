@@ -100,7 +100,7 @@ void mld_timer_refresh(mld_t *mld, unsigned int iface, size_t idx)
 	DEBUG("timer refreshed (%zu)", idx);
 }
 
-void *mld_timer_job(void *arg)
+static void *mld_timer_job(void *arg)
 {
 	mld_timerjob_t *tj = (mld_timerjob_t *)arg;
 	tj->f(tj->mld, tj->iface, tj->idx);
@@ -108,7 +108,7 @@ void *mld_timer_job(void *arg)
 }
 
 /* this thread handles the clock ticks, creating a job for the timer thread */
-void mld_timer_ticker(mld_t *mld, unsigned int iface, size_t idx)
+static void mld_timer_ticker(mld_t *mld, unsigned int iface, size_t idx)
 {
 	struct timespec ts;
 	sem_t sem;
@@ -226,14 +226,14 @@ static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *saddr, int e
 	lc_msg_send(chan[0], &msg);
 }
 
-int mld_filter_grp_del_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
+static int mld_filter_grp_del_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 {
 	(void)mld; (void)iface;
 	if (vec_get_epi8(v, idx)) vec_dec_epi8(v, idx);
 	return 0;
 }
 
-int mld_filter_grp_add_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
+static int mld_filter_grp_add_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 {
 	mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_refresh };
 	if (vec_get_epi8(v, idx) != CHAR_MAX) vec_inc_epi8(v, idx);
@@ -242,19 +242,19 @@ int mld_filter_grp_add_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 	return 0;
 }
 
-int mld_filter_timer_get_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
+static int mld_filter_timer_get_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 {
 	(void)mld; (void)iface;
 	return vec_get_epi8(v, idx);
 }
 
-int mld_filter_grp_cmp_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
+static int mld_filter_grp_cmp_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 {
 	(void)mld; (void)iface;
 	return !vec_get_epi8(v, idx);
 }
 
-int mld_filter_grp_call(mld_t *mld, unsigned int iface, struct in6_addr *saddr, vec_t *v,
+static int mld_filter_grp_call(mld_t *mld, unsigned int iface, struct in6_addr *saddr, vec_t *v,
 		int(*f)(mld_t *, unsigned int, size_t, vec_t *))
 {
 	size_t idx;
@@ -433,7 +433,7 @@ int mld_listen(mld_t *mld)
 	return 0;
 }
 
-void *mld_listen_job(void *arg)
+static void *mld_listen_job(void *arg)
 {
 	assert(arg);
 	mld_t *mld = *(mld_t **)arg;
@@ -460,7 +460,7 @@ mld_t *mld_init(int ifaces)
 mld_t *mld_start(volatile int *cont)
 {
 	mld_t *mld = NULL;
-	struct ifaddrs *ifaddr = {0};
+	struct ifaddrs *ifaddr = NULL;
 	struct ipv6_mreq req = {0};
 	const int opt = 1;
 	unsigned int ifx[IFACE_MAX] = {0};

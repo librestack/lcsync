@@ -69,10 +69,10 @@ int main(void)
 	}
 	/* test we can remove groups too */
 	for (int i = 0; i < limit; i++) {
-		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - true (%i)", i);
+		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - before part (%i)", i);
 		/* remove group and check again */
 		channel_part(chan[i]);
-		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - false (%i)", i);
+		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - parted (%i)", i);
 	}
 
 	mld_stop(mld);

@@ -1,5 +1,6 @@
+* mld_filter_grp_del() possibly not working  - various cap tests failing when
+parted (0060, 0061, 0062 at least)
 * step through mld functions - check all args are safe - check return vals
-* replace all int iface with unsigned int
 
 blocking mode for small number of files
 otherwise start new job for each subscribe notification (requires file index)

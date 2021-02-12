@@ -2,21 +2,12 @@
 /* Copyright (c) 2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "test.h"
-#include "../src/mld.h"
+#include "../src/mld_pvt.h"
 #include <netinet/icmp6.h>
 #include <netdb.h>
 #include <librecast.h>
 
 lc_ctx_t *lctx;
-
-/* Multicast Address Record */
-struct mld_addr_rec_s {
-	uint8_t         type;   /* Record Type */
-	uint8_t         auxl;   /* Aux Data Len */
-	uint16_t        srcs;   /* Number of Sources */
-	struct in6_addr addr;   /* Multicast Address */
-	struct in6_addr src[];  /* Source Addresses */
-} __attribute__((__packed__));
 
 void create_channel(struct in6_addr *addr, char *name)
 {

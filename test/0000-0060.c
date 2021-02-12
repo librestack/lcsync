@@ -140,7 +140,7 @@ int main(void)
 	/* leave group, reset counters, make sure sending has stopped */
 	// FIXME hang on one dang minute! aren't we sending notifications to *start*
 	// sending when we part...
-	lc_channel_part(chan);
+	test_assert(!lc_channel_part(chan), "lc_channel_part()");
 	usleep(100000);
 	pkts = 0;
 	usleep(100000);
