@@ -31,20 +31,18 @@ static unsigned int interface_index(struct msghdr *msg)
 	struct in6_pktinfo *pi;
 	unsigned int ifidx = 0;
 	for (cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-		if (cmsg->cmsg_level != IPPROTO_IPV6 || cmsg->cmsg_type != IPV6_PKTINFO)
-			continue;
-		pi = (struct in6_pktinfo *) CMSG_DATA(cmsg);
-		ifidx = pi->ipi6_ifindex;
+		if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_PKTINFO) {
+			pi = (struct in6_pktinfo *) CMSG_DATA(cmsg);
+			ifidx = pi->ipi6_ifindex;
+			break;
+		}
 	}
 	return ifidx;
 }
 
 static unsigned int mld_idx_iface(mld_t *mld, unsigned int idx)
 {
-	DEBUG("%s() mld->len = %i", __func__, mld->len);
-	DEBUG("%s() looking for %u", __func__, idx);
 	for (int i = 0; i < mld->len; i++) {
-		DEBUG("mld->ifx[i]=%u", mld->ifx[i]);
 		if (mld->ifx[i] == idx) return i;
 	}
 	return 0;
@@ -52,6 +50,7 @@ static unsigned int mld_idx_iface(mld_t *mld, unsigned int idx)
 
 void mld_free(mld_t *mld)
 {
+	if(!mld) return;
 	job_queue_destroy(mld->timerq);
 	lc_ctx_free(mld->lctx);
 	free(mld);
@@ -70,7 +69,7 @@ void mld_stop(mld_t *mld)
 
 void vec_dump(vec_t *vec, int idx)
 {
-	for (int j = 0; j < 16; j++) {
+	for (int j = 0; j < VECTOR_SZ; j++) {
 		fprintf(stderr, "%u ", (uint8_t)vec[idx / VECTOR_BITS].u8[j]);
 	}
 	putc('\n', stderr);
@@ -268,6 +267,7 @@ static int mld_filter_grp_call(mld_t *mld, unsigned int iface, struct in6_addr *
 		errno = EINVAL;
 		return -1;
 	}
+	assert(mld);
 	if (f != &mld_filter_grp_cmp_f && f != mld_filter_timer_get_f) {
 		/* add requires the entry NOT to exist, del requires that it does */
 		int required = !(f == &mld_filter_grp_del_f);
