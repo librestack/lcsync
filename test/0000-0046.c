@@ -5,6 +5,7 @@
 #include "../src/globals.h"
 #include "../src/job.h"
 #include "../src/log.h"
+#include "../src/macro.h"
 #include "../src/mld.h"
 #include "../src/net.h"
 #include <arpa/inet.h>
@@ -37,13 +38,9 @@ void *do_mld_watch(void *arg)
 /* convert channel address and queue mld_wait() job */
 job_t *push_job(job_queue_t *q, lc_channel_t *chan)
 {
-	struct in6_addr *addr;
-	struct sockaddr_in6 *sad;
-	struct addrinfo *p;
-	p = lc_channel_addrinfo(chan);
-	sad = (struct sockaddr_in6 *)p->ai_addr;
-	addr = &(sad->sin6_addr);
-	return job_push_new(q, &do_mld_watch, addr, sizeof(struct in6_addr), NULL, JOB_COPY|JOB_FREE);
+	struct addrinfo *ai;
+	ai = lc_channel_addrinfo(chan);
+	return job_push_new(q, &do_mld_watch, aitoin6(ai), sizeof(struct in6_addr), NULL, JOB_COPY|JOB_FREE);
 }
 
 int main(void)
