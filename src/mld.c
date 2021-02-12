@@ -244,12 +244,12 @@ int mld_filter_grp_cmp_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 	return 0;
 }
 
-int mld_filter_grp_call(mld_t *mld, unsigned int iface, struct in6_addr *saddr, vec_t *v, int(*f)(mld_t *, unsigned int, size_t, vec_t *))
+int mld_filter_grp_call(mld_t *mld, unsigned int iface, struct in6_addr *saddr, vec_t *v,
+		int(*f)(mld_t *, unsigned int, size_t, vec_t *))
 {
-	TRACE("%s()", __func__);
 	size_t idx;
-	int rc = 0, notify = 0;
 	uint32_t hash[BLOOM_HASHES];
+	int rc = 0, notify = 0;
 	if (iface >= (unsigned)mld->len) {
 		errno = EINVAL;
 		return -1;
@@ -258,7 +258,6 @@ int mld_filter_grp_call(mld_t *mld, unsigned int iface, struct in6_addr *saddr, 
 		/* add requires the entry NOT to exist, del requires that it does */
 		int required = !(f == &mld_filter_grp_del_f);
 		if (mld_filter_grp_cmp(mld, iface, saddr) == required) return 0;
-		//notify = (f == mld_filter_grp_add_f || f == mld_filter_grp_del_f);
 		if (f == mld_filter_grp_add_f) notify = MLD_EVENT_JOIN;
 		if (f == mld_filter_grp_del_f) notify = MLD_EVENT_PART;
 	}
@@ -268,11 +267,7 @@ int mld_filter_grp_call(mld_t *mld, unsigned int iface, struct in6_addr *saddr, 
 		if ((rc = f(mld, iface, idx, v))) break; /* error or found */
 		if (f == &mld_filter_timer_get_f) break; /* use first result for timer */
 	}
-	if (!rc && notify) {
-		/* TODO notify state change to subscribers */
-		/* TODO lets do some multicast */
-		mld_notify(mld, saddr, notify);
-	}
+	if (!rc && notify) mld_notify(mld, saddr, notify);
 	return rc;
 }
 
@@ -290,16 +285,13 @@ int mld_filter_grp_cmp(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 
 int mld_filter_grp_del(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
-	TRACE("%s()", __func__);
+#ifdef MLD_DEBUG
+	char straddr[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, saddr, straddr, INET6_ADDRSTRLEN);
+	DEBUG("%s(): %s", __func__, straddr);
+#endif
 	vec_t *grp = mld->filter[iface].grp;
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_del_f);
-}
-
-// FIXME - this doesn't belong here
-struct in6_addr *aitoin6(struct addrinfo *ai)
-{
-	struct sockaddr_in6 *sad = (struct sockaddr_in6 *)ai->ai_addr;
-	return &(sad->sin6_addr);
 }
 
 int mld_filter_grp_del_ai(mld_t *mld, unsigned int iface, struct addrinfo *ai)
