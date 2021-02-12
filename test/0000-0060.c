@@ -121,7 +121,7 @@ int main(void)
 
 	/* wait a moment, ensure no packets received */
 	usleep(10000);
-	test_assert(pkts == 0, "pkts received=%i", pkts);
+	test_assert(pkts == 0, "pkts received=%i (before join)", pkts);
 
 	/* check filter for notification side-channel */
 	test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (1)");
@@ -132,7 +132,7 @@ int main(void)
 	lc_channel_join(chan);
 	test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (2b)");
 	usleep(10000);
-	test_assert(pkts > 0, "pkts received=%i", pkts); // FIXME
+	test_assert(pkts > 0, "pkts received=%i (joined)", pkts); // FIXME
 	test_log("pkts received (total) = %i\n", tots);
 
 	//test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (3)");
@@ -144,7 +144,7 @@ int main(void)
 	usleep(100000);
 	pkts = 0;
 	usleep(100000);
-	test_assert(pkts == 0, "pkts received=%i", pkts);
+	test_assert(pkts == 0, "pkts received=%i (after leave)", pkts);
 
 	running = 0;
 	net_stop(SIGINT);
