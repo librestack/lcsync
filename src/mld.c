@@ -193,7 +193,7 @@ int mld_wait(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 	return mld_wait_notify(mld, iface, addr);
 }
 
-void mld_notify(mld_t *mld, struct in6_addr *saddr, int event)
+static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *saddr, int event)
 {
 	lc_message_t msg = {0};
 	lc_socket_t *sock;
@@ -211,7 +211,7 @@ void mld_notify(mld_t *mld, struct in6_addr *saddr, int event)
 	ai = lc_channel_addrinfo(chan[0]);
 	inet_ntop(AF_INET6, saddr, straddr1, INET6_ADDRSTRLEN);
 	inet_ntop(AF_INET6, aitoin6(ai), straddr2, INET6_ADDRSTRLEN);
-	if (!mld_filter_grp_cmp(mld, 0, aitoin6(ai))) {
+	if (!mld_filter_grp_cmp(mld, iface, aitoin6(ai))) {
 		DEBUG("no one listening to %s - skipping notification for %s", straddr2, straddr1);
 		return;
 	}
@@ -277,7 +277,7 @@ int mld_filter_grp_call(mld_t *mld, unsigned int iface, struct in6_addr *saddr, 
 		if ((rc = f(mld, iface, idx, v))) break; /* error or found */
 		if (f == &mld_filter_timer_get_f) break; /* use first result for timer */
 	}
-	if (!rc && notify) mld_notify(mld, saddr, notify);
+	if (!rc && notify) mld_notify(mld, iface, saddr, notify);
 	return rc;
 }
 
