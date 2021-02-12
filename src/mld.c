@@ -371,11 +371,9 @@ void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec)
 void mld_listen_report(mld_t *mld, struct msghdr *msg)
 {
 	TRACE("%s()", __func__);
-	unsigned int idx = interface_index(msg);
-	DEBUG("%s() got idx %u", __func__, idx);
-	unsigned int iface = mld_idx_iface(mld, idx);
 	struct icmp6_hdr *icmpv6 = msg->msg_iov[0].iov_base;
 	mld_addr_rec_t *mrec = msg->msg_iov[1].iov_base;
+	unsigned int iface = mld_idx_iface(mld, interface_index(msg));
 	uint16_t recs = ntohs(icmpv6->icmp6_data16[1]);
 	for (int i = 0; i < recs; i++) {
 		mld_address_record(mld, iface, &mrec[i]);
