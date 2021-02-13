@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include "net_pvt.h"
 #include "log.h"
+#include "macro.h"
 #include "globals.h"
 #include "file.h"
 
@@ -447,7 +448,8 @@ static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 	job_t *job[channels];
 	size_t vlen = 2;
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * vlen;
-	net_data_t *data = calloc(1, sz);
+	net_data_t *data;
+	if (!(data = calloc(1, sz))) return -1;
 	data->len = vlen;
 	DEBUG("root hashes differ:");
 	hash_hex_debug(mtree_root(stree), HASHSIZE);
@@ -463,7 +465,6 @@ static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 	}
 	for (unsigned chan = 0; chan < channels; chan++) {
 		struct timespec ts = { .tv_nsec = 100 };
-		//sem_wait(&job[chan]->done);
 		while (sem_timedwait(&job[chan]->done, &ts) == -1 && errno == ETIMEDOUT && running);
 		free(job[chan]);
 		DEBUG("%s(): job completed", __func__);
@@ -532,32 +533,31 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 	TRACE("%s()", __func__);
 	const int on = 1;
 	int s;
+	ssize_t rc = -1;
 	size_t vlen = 2, base, min, max;
 	struct iovec iov[vlen];
 	struct addrinfo *addr;
-	struct sockaddr_in6 *sad;
-	struct in6_addr *grp;
-	lc_ctx_t *lctx = lc_ctx_new();
-	lc_socket_t *sock = lc_socket_new(lctx);
-	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
-	lc_channel_t *chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE);
-	lc_channel_bind(sock, chan);
-	s = lc_channel_socket_raw(chan);
+	lc_ctx_t *lctx;
+	lc_socket_t *sock;
+	lc_channel_t *chan;
+	if (!(lctx = lc_ctx_new())) return -1;
+	if (!(sock = lc_socket_new(lctx))) goto exit_err_0;
+	if (lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on)))
+		goto exit_err_1;
+	if (!(chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE)))
+		goto exit_err_1;
+	if (lc_channel_bind(sock, chan)) goto exit_err_1;
+	if (!(s = lc_channel_socket_raw(chan))) goto exit_err_1;
 	addr = lc_channel_addrinfo(chan);
-	sad = (struct sockaddr_in6 *)addr->ai_addr;
-	grp = &(sad->sin6_addr);
 	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 	base = mtree_base(stree);
 	min = mtree_subtree_data_min(base, root);
 	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
-	DEBUG("base: %zu, min: %zu, max: %zu", base, min, max);
 	while (running) {
-		// TODO move this inside block loop?
-		//if (mld_enabled && mld) mld_wait(mld, 0, grp, &running);
-		if (mld_enabled && mld) mld_wait(mld, 0, grp);
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
+			if (mld_enabled && mld) mld_wait(mld, 0, aitoin6(addr));
 			DEBUG("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_base = mtree_blockn(stree, blk);
 			if (!iov[1].iov_base) continue;
@@ -568,10 +568,13 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 		}
 	}
 	if (hex) mtree_hexdump(stree, stderr);
+	rc = 0;
 	lc_channel_free(chan);
+exit_err_1:
 	lc_socket_close(sock);
+exit_err_0:
 	lc_ctx_free(lctx);
-	return 0; // TODO: return bytes or -1
+	return rc;
 }
 
 void *net_job_sync_subtree(void *arg)
