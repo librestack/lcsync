@@ -113,7 +113,7 @@ int main(void)
 	loginit();
 	char src[] = "0000-0027.src.tmp.XXXXXX";
 	char dst[] = "0000-0027.dst.tmp.XXXXXX";
-	test_name("net_send_data() / net_recv_data()");
+	test_name("net_send() / net_sync()");
 	gentestfiles(src, dst);
 	do_sync(src, dst);
 	do_verify(src, dst);
