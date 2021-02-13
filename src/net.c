@@ -170,41 +170,36 @@ void *net_job_recv_tree(void *arg)
 
 ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
 {
-	ssize_t byt = 0;
+	ssize_t byt = 0, rc;
 	size_t sz, off = 0;
 	size_t len = iov[1].iov_len;
-	size_t filesz = len;
 	size_t idx = 0;
 	net_treehead_t *hdr = iov[0].iov_base;
 	struct msghdr msgh = {0};
 	hdr->pkts = htobe32(howmany(iov[1].iov_len, DATA_FIXED));
-	char *temp = calloc(1, len);
-	memcpy(temp, iov[1].iov_base, len);
+	char *data = calloc(1, len);
+	memcpy(data, iov[1].iov_base, len);
 	while (running && len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
-		DEBUG("len = %zu, sz=%zu, off = %zu", len, sz, off);
 		iov[1].iov_len = sz;
-		//iov[1].iov_base = (char *)iov[1].iov_base + off; FIXME
-		iov[1].iov_base = temp + off;
+		iov[1].iov_base = data + off;
 		msgh.msg_name = addr->ai_addr;
 		msgh.msg_namelen = addr->ai_addrlen;
 		msgh.msg_iov = iov;
 		msgh.msg_iovlen = vlen;
-		assert(off + sz <= filesz);
 		hdr->idx = htobe32(idx++);
 		hdr->len = htobe32(sz);
-		size_t hdrsz = iov[0].iov_len;
-		DEBUG("%zu + %zu = %zu bytes", sz, hdrsz, sz + hdrsz); 
 		off += sz;
 		len -= sz;
-		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
+		if ((rc = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
 			break;
 		}
-		DEBUG("%zi bytes sent", byt); 
+		DEBUG("%zi bytes sent", rc); 
+		byt += rc;
 		if (DELAY) usleep(DELAY);
 	}
-	free(temp);
+	free(data);
 	return byt;
 }
 
