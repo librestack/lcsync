@@ -1,6 +1,7 @@
 NEXT ACTIONS:
 
 * MLD trigger - > index lookup & send (check subscription each loop)
+* net_job_send_tree() - handle multiple interfaces (send all or mld requested)
 * file indexing -> lmdb
 * fix 0035 bug
 * run tests in separate namespace

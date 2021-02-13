@@ -212,22 +212,32 @@ void *net_job_send_tree(void *arg)
 {
 	TRACE("%s()", __func__);
 	const int on = 1;
+	int s;
 	const size_t vlen = 2;
+	struct addrinfo *addr;
+	struct in6_addr *grp;
 	struct iovec iov[vlen];
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *tree = (mtree_tree *)data->iov[0].iov_base;
-	void * base = mtree_data(tree, 0);
+	unsigned char * base = mtree_data(tree, 0);
 	size_t len = mtree_treelen(tree);
+	lc_ctx_t *lctx;
+	lc_socket_t *sock;
+	lc_channel_t *chan;
 	assert(!mtree_verify(tree, len));
-	lc_ctx_t *lctx = lc_ctx_new();
-	lc_socket_t *sock = lc_socket_new(lctx);
-	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof on);
-	lc_channel_t *chan = lc_channel_nnew(lctx, data->alias, HASHSIZE);
-	lc_channel_bind(sock, chan);
-	int s = lc_channel_socket_raw(chan);
-	struct addrinfo *addr = lc_channel_addrinfo(chan);
-	struct sockaddr_in6 *sad = (struct sockaddr_in6 *)addr->ai_addr;
-	struct in6_addr *grp = &(sad->sin6_addr);
+	if (!(lctx = lc_ctx_new()))
+		return NULL;
+	if (!(sock = lc_socket_new(lctx)))
+		goto exit_err_0;
+	if (lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof on))
+		goto exit_err_1;
+	if (!(chan = lc_channel_nnew(lctx, data->alias, HASHSIZE)))
+		goto exit_err_1;
+	if (lc_channel_bind(sock, chan))
+		goto exit_err_2;
+	s = lc_channel_socket_raw(chan);
+	addr = lc_channel_addrinfo(chan);
+	grp = aitoin6(addr);
 	net_treehead_t hdr = {
 		.data = htobe64((uint64_t)data->byt),
 		.size = htobe64(data->iov[0].iov_len),
@@ -235,8 +245,7 @@ void *net_job_send_tree(void *arg)
 		.chan = net_send_channels,
 		.pkts = htobe32(howmany(data->iov[0].iov_len, DATA_FIXED))
 	};
-
-	// FIXME FIXME FIXME
+#ifdef NET_DEBUG
 	char straddr[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, grp, straddr, INET6_ADDRSTRLEN);
 	DEBUG("sending tree on channel addr: %s", straddr);
@@ -248,22 +257,22 @@ void *net_job_send_tree(void *arg)
 	DEBUG("pkts=%u", be32toh(hdr.pkts));
 	DEBUG("chan=%u", hdr.chan);
 	DEBUG("sizeof hdr=%zu", sizeof hdr);
-	assert(data->byt > 0);
+#endif
 	memcpy(&hdr.hash, data->hash, HASHSIZE);
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 	while (running) {
-		if (mld_enabled && data->mld) {
-			DEBUG("%s() about to  mld_wait", __func__);
-			mld_wait(data->mld, 0, grp);
-			DEBUG("%s() done waiting", __func__);
-		}
+		// FIXME - how to handle interfaces - send on all?
+		if (mld_enabled && data->mld) mld_wait(data->mld, 0, grp); // FIXME - iface
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
 		net_send_tree(s, addr, vlen, iov);
 	}
+exit_err_2:
 	lc_channel_free(chan);
+exit_err_1:
 	lc_socket_close(sock);
+exit_err_0:
 	lc_ctx_free(lctx);
 	return NULL;
 }
