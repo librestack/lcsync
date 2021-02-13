@@ -123,6 +123,10 @@ static void mld_timer_ticker(mld_t *mld, unsigned int iface, size_t idx)
 
 /* create side channel by hashing event type with main channel addr */
 /* FIXME this belongs in the main librecast net API */
+
+// FIXME - grp and watch channels are reversable the watch for one is the grp
+// for the other and vice-versa.  We don't want notifications for the watch
+// channel on the main channel
 lc_channel_t * lc_channel_sidehash(lc_ctx_t *lctx, struct in6_addr *addr, int band)
 {
 	char base[INET6_ADDRSTRLEN] = "";
@@ -184,7 +188,11 @@ exit_err_0:
 /* wait on a specific address */
 int mld_wait(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 {
-	DEBUG("%s()", __func__);
+#ifdef MLD_DEBUG
+	char straddr[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, addr, straddr, INET6_ADDRSTRLEN);
+	DEBUG("%s(iface=%u): %s", __func__, iface, straddr);
+#endif
 	if (mld_filter_grp_cmp(mld, iface, addr)) {
 		DEBUG("%s() - no need to wait - filter has address", __func__);
 		return 0;
@@ -192,30 +200,30 @@ int mld_wait(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 	return mld_wait_notify(mld, iface, addr);
 }
 
-static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *saddr, int event)
+static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *grp, int event)
 {
 	lc_message_t msg = {0};
 	lc_socket_t *sock;
 	lc_channel_t *chan[MLD_EVENT_MAX];
 	struct addrinfo *ai;
-	char straddr1[INET6_ADDRSTRLEN];
-	char straddr2[INET6_ADDRSTRLEN];
+	char sgroup[INET6_ADDRSTRLEN];
+	char swatch[INET6_ADDRSTRLEN];
 	const int opt = 1;
 
 	// TODO notify event specific side channels
 	(void) event;
-	chan[0] = lc_channel_sidehash(mld->lctx, saddr, MLD_EVENT_ALL);
+	chan[0] = lc_channel_sidehash(mld->lctx, grp, MLD_EVENT_ALL);
 	if (!chan[0]) return;
 
 	/* check filter to see if anyone listening for notifications */
 	ai = lc_channel_addrinfo(chan[0]);
-	inet_ntop(AF_INET6, saddr, straddr1, INET6_ADDRSTRLEN);
-	inet_ntop(AF_INET6, aitoin6(ai), straddr2, INET6_ADDRSTRLEN);
+	inet_ntop(AF_INET6, grp, sgroup, INET6_ADDRSTRLEN);
+	inet_ntop(AF_INET6, aitoin6(ai), swatch, INET6_ADDRSTRLEN);
 	if (!mld_filter_grp_cmp(mld, iface, aitoin6(ai))) {
-		DEBUG("no one listening to %s - skipping notification for %s", straddr2, straddr1);
+		DEBUG("no one listening to %s - skipping notification for %s", swatch, sgroup);
 		return;
 	}
-	DEBUG("sending notification for event on %s to %s", straddr1, straddr2);
+	DEBUG("sending notification for event on %s to %s", sgroup, swatch);
 
 	if (!(sock = lc_socket_new(mld->lctx))) {
 		lc_channel_free(chan[0]);
@@ -302,7 +310,7 @@ int mld_filter_grp_del(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 #ifdef MLD_DEBUG
 	char straddr[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, saddr, straddr, INET6_ADDRSTRLEN);
-	DEBUG("%s(): %s", __func__, straddr);
+	DEBUG("%s(iface=%u): %s", __func__, iface, straddr);
 #endif
 	vec_t *grp = mld->filter[iface].grp;
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_del_f);
@@ -318,7 +326,7 @@ int mld_filter_grp_add(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 #ifdef MLD_DEBUG
 	char straddr[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, saddr, straddr, INET6_ADDRSTRLEN);
-	DEBUG("%s(): %s", __func__, straddr);
+	DEBUG("%s(iface=%u): %s", __func__, iface, straddr);
 #endif
 	vec_t *grp = mld->filter[iface].grp;
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_add_f);
