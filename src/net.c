@@ -446,14 +446,16 @@ static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 	TRACE("%s()", __func__);
 	unsigned channels = 1U << net_send_channels; // FIXME - get this from tree
 	job_t *job[channels];
-	size_t vlen = 2;
+	const size_t vlen = 2;
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * vlen;
 	net_data_t *data;
 	if (!(data = calloc(1, sz))) return -1;
 	data->len = vlen;
+#ifdef NET_DEBUG
 	DEBUG("root hashes differ:");
 	hash_hex_debug(mtree_root(stree), HASHSIZE);
 	hash_hex_debug(mtree_root(dtree), HASHSIZE);
+#endif
 	data->byt = mtree_len(stree);
 	data->iov[0].iov_len = mtree_treelen(stree);
 	data->iov[0].iov_base = stree;
@@ -467,9 +469,7 @@ static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 		struct timespec ts = { .tv_nsec = 100 };
 		while (sem_timedwait(&job[chan]->done, &ts) == -1 && errno == ETIMEDOUT && running);
 		free(job[chan]);
-		DEBUG("%s(): job completed", __func__);
 	}
-	free(data->map);
 	free(data);
 	return 0;
 }

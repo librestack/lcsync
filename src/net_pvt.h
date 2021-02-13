@@ -4,6 +4,8 @@
 #ifndef _NET_PRIV_H
 #define _NET_PRIV_H 1
 
+#define NET_DEBUG 1
+
 #include "net.h"
 
 static unsigned int hamm(unsigned char *map, size_t len);
