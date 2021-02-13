@@ -239,13 +239,13 @@ void *net_job_send_tree(void *arg)
 	if (!(lctx = lc_ctx_new()))
 		return NULL;
 	if (!(sock = lc_socket_new(lctx)))
-		goto exit_err_0;
+		goto err_0;
 	if (lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof on))
-		goto exit_err_1;
+		goto err_1;
 	if (!(chan = lc_channel_nnew(lctx, data->alias, HASHSIZE)))
-		goto exit_err_1;
+		goto err_1;
 	if (lc_channel_bind(sock, chan))
-		goto exit_err_2;
+		goto err_2;
 	s = lc_channel_socket_raw(chan);
 	addr = lc_channel_addrinfo(chan);
 	grp = aitoin6(addr);
@@ -279,11 +279,11 @@ void *net_job_send_tree(void *arg)
 		iov[1].iov_base = base;
 		net_send_tree(s, addr, vlen, iov);
 	}
-exit_err_2:
+err_2:
 	lc_channel_free(chan);
-exit_err_1:
+err_1:
 	lc_socket_close(sock);
-exit_err_0:
+err_0:
 	lc_ctx_free(lctx);
 	return NULL;
 }
@@ -359,25 +359,25 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 	ssize_t byt = -1;
 	int s;
 	if (!(lctx = lc_ctx_new()))
-		goto exit_err_0;
+		goto err_0;
 	if (!(sock = lc_socket_new(lctx)))
-		goto exit_err_1;
+		goto err_1;
 	if (!(chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE)))
-		goto exit_err_2;
+		goto err_2;
 	if (lc_channel_bind(sock, chan) || lc_channel_join(chan))
-		goto exit_err_3;
+		goto err_3;
 	s = lc_socket_raw(sock);
 	if (hex) mtree_hexdump(stree, stderr);
 	DEBUG("recving subtree with root %zu", root);
 	byt = net_recv_subtree(s, stree, dtree, root);
 	lc_channel_part(chan);
-exit_err_3:
+err_3:
 	lc_channel_free(chan);
-exit_err_2:
+err_2:
 	lc_socket_close(sock);
-exit_err_1:
+err_1:
 	lc_ctx_free(lctx);
-exit_err_0:
+err_0:
 	return byt;
 }
 
@@ -501,21 +501,21 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 	size_t blocksz;
 	TRACE("%s()", __func__);
 	if (!(q = job_queue_create(1U << net_send_channels))) return -1;
-	if (net_fetch_tree(hash, &stree) == -1) goto exit_err_0;
+	if (net_fetch_tree(hash, &stree) == -1) goto err_0;
 	blocksz = mtree_blocksz(stree);
 	assert(len);
 	*len = mtree_len(stree);
 	dtree = mtree_create(*len, blocksz);
-	if (!dtree) goto exit_err_1;
+	if (!dtree) goto err_1;
 	mtree_build(dtree, dstdata, q);
 	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
 		rc = net_sync_trees(stree, dtree, q);
 	}
 	else rc = 0;
 	mtree_free(dtree);
-exit_err_1:
+err_1:
 	mtree_free(stree);
-exit_err_0:
+err_0:
 	job_queue_destroy(q);
 	return rc;
 }
@@ -565,14 +565,17 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 	lc_ctx_t *lctx;
 	lc_socket_t *sock;
 	lc_channel_t *chan;
-	if (!(lctx = lc_ctx_new())) return -1;
-	if (!(sock = lc_socket_new(lctx))) goto exit_err_0;
+	if (!(lctx = lc_ctx_new()))
+		return -1;
+	if (!(sock = lc_socket_new(lctx)))
+		goto err_0;
 	if (lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on)))
-		goto exit_err_1;
+		goto err_1;
 	if (!(chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE)))
-		goto exit_err_1;
-	if (lc_channel_bind(sock, chan)) goto exit_err_1;
-	if (!(s = lc_channel_socket_raw(chan))) goto exit_err_1;
+		goto err_1;
+	if (lc_channel_bind(sock, chan))
+		goto err_1;
+	s = lc_channel_socket_raw(chan);
 	addr = lc_channel_addrinfo(chan);
 	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
 	iov[0].iov_base = &hdr;
@@ -595,9 +598,9 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 	if (hex) mtree_hexdump(stree, stderr);
 	rc = 0;
 	lc_channel_free(chan);
-exit_err_1:
+err_1:
 	lc_socket_close(sock);
-exit_err_0:
+err_0:
 	lc_ctx_free(lctx);
 	return rc;
 }
@@ -631,19 +634,16 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	job_queue_t *q;
 	net_data_t *data;
 	job_t *job_tree, *job_data[channels];
-	if (!(tree = mtree_create(len, blocksize)))
-		goto exit_err_0;
-	if (!(q = job_queue_create(channels + 1)))
-		goto exit_err_1;
+	if (!(tree = mtree_create(len, blocksize))) goto err_0;
+	if (!(q = job_queue_create(channels + 1))) goto err_1;
 	assert(srcdata);
 	mtree_build(tree, srcdata, q);
 	DEBUG("%s(): source tree built", __func__);
-	if (mtree_verify(tree, mtree_treelen(tree)))
-		goto exit_err_2;
+	if (mtree_verify(tree, mtree_treelen(tree))) goto err_2;
 	blocks = mtree_blocks(tree);
 	if (!(data = calloc(1, sz))) {
 		perror("calloc");
-		goto exit_err_2;
+		goto err_2;
 	}
 	data->hash = mtree_root(tree);
 	data->alias = (hash) ? hash : data->hash;
@@ -652,7 +652,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->iov[0].iov_base = tree;
 	if (mld_enabled) {
 		data->mld = mld_start(&running);
-		goto exit_err_3;
+		goto err_3;
 	}
 	job_tree = job_push_new(q, &net_job_send_tree, data, sz, NULL, 0);
 	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
@@ -667,13 +667,13 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	rc = 0;
 	free(job_tree);
 	if (mld_enabled) mld_stop(data->mld);
-exit_err_3:
+err_3:
 	free(data);
-exit_err_2:
+err_2:
 	job_queue_destroy(q);
-exit_err_1:
+err_1:
 	mtree_free(tree);
-exit_err_0:
+err_0:
 	return rc;
 }
 
@@ -732,26 +732,26 @@ int net_sync(int *argc, char *argv[])
 	TRACE("%s('%s')", __func__, argv[0]);
 	sigaction(SIGINT, &sa_int, NULL);
 	crypto_generichash(hash, HASHSIZE, (unsigned char *)src, strlen(src), NULL, 0);
-	if (net_fetch_tree(hash, &stree) == -1) goto exit_err_0;
-	if (mtree_verify(stree, mtree_treelen(stree))) goto exit_err_0;
+	if (net_fetch_tree(hash, &stree) == -1) goto err_0;
+	if (mtree_verify(stree, mtree_treelen(stree))) goto err_0;
 	DEBUG("mapping dst: %s", dst);
 	len = mtree_len(stree);
 	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // TODO - set from packet data
 	if ((sz_d = file_map(dst, &fdd, &dmap, len, PROT_READ|PROT_WRITE, &sbd)) == -1) {
-		goto exit_err_0;
+		goto err_0;
 	}
 	blocksz = mtree_blocksz(stree);
 	len = mtree_len(stree);
 	dtree = mtree_create(len, blocksz);
 	mtree_build(dtree, dmap, NULL);
-	if (mtree_verify(dtree, mtree_treelen(dtree))) goto exit_err_1;
+	if (mtree_verify(dtree, mtree_treelen(dtree))) goto err_1;
 	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
 		net_sync_trees(stree, dtree, q);
 	}
 	rc = 0;
-exit_err_1:
+err_1:
 	mtree_free(dtree);
-exit_err_0:
+err_0:
 	mtree_free(stree);
 	job_queue_destroy(q);
 	return rc;
