@@ -8,6 +8,7 @@
 #include "../src/log.h"
 #include "../src/mld.h"
 #include "../src/job.h"
+#include "../src/macro.h"
 #include "../src/mtree.h"
 #include "../src/net.h"
 #include <errno.h>
@@ -23,9 +24,14 @@
 // FIXME - temp
 lc_channel_t * lc_channel_sidehash(lc_ctx_t *lctx, struct in6_addr *addr, int band);
 
+static const size_t sz = 4242;
+static const size_t blocksz = 512;
 static int pkts = 0; /* data packets to multicast group */
 static int tots = 0; /* data packets intercepted */
 static int running = 1;
+static lc_ctx_t *lctx;
+static lc_socket_t *sock;
+static lc_channel_t *chan, *chanside;
 
 /* sniff multicast packets for grp, without joining group */
 void *packet_sniff(void *arg)
@@ -70,47 +76,65 @@ void *packet_sniff(void *arg)
 	return arg;
 }
 
-int main(void)
+void pack_payload(net_data_t *data, unsigned char *hash, mtree_tree *stree)
 {
-	const size_t sz = 4242;
-	const size_t blocksz = 512;
-	unsigned char hash[HASHSIZE];
-	char channame[] = "somechan";
-	hash_generic(hash, HASHSIZE, (unsigned char *)channame, strlen(channame));
-	lc_ctx_t *lctx = lc_ctx_new();
-	lc_socket_t *sock = lc_socket_new(lctx);
-	lc_channel_t *chan = lc_channel_nnew(lctx, hash, HASHSIZE);
-	lc_channel_t *chanside;
-	pthread_t thread_count, thread_serv;
-	pthread_attr_t attr = {0};
-	struct addrinfo *p, *pn;
-	struct sockaddr_in6 *sad, *sadn;
-	struct in6_addr *grp, *grpn;
-	net_data_t *data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
-	char *srcdata = calloc(1, sz);
-	mtree_tree *stree = mtree_create(sz, blocksz);
-	mtree_build(stree, srcdata, NULL);
-
-	p = lc_channel_addrinfo(chan);
-	sad = (struct sockaddr_in6 *)p->ai_addr;
-	grp = &(sad->sin6_addr);
-
 	data->alias = hash;
 	data->hash = hash;
 	data->iov[0].iov_base = stree;
 	data->iov[0].iov_len = sz;
 	data->byt = sz;
 	data->mld = mld_start(NULL);
+}
 
+struct in6_addr * prepare_multicast_channel(unsigned char *hash, unsigned char *channame, size_t len)
+{
+	hash_generic(hash, HASHSIZE, channame, len);
+	lctx = lc_ctx_new();
+	test_assert(lctx != NULL, "lc_ctx_new()");
+	sock = lc_socket_new(lctx);
+	test_assert(sock != NULL, "lc_socket_new()");
+	chan = lc_channel_nnew(lctx, hash, HASHSIZE);
+	test_assert(chan != NULL, "lc_channel_nnew()");
+	return aitoin6(lc_channel_addrinfo(chan));
+}
+
+void build_src_and_tree(net_data_t **data, mtree_tree **stree)
+{
+	char *srcdata;
+	*data = calloc(1, sizeof(net_data_t) + sizeof(struct iovec));
+	test_assert(*data != NULL, "calloc(data)");
+	srcdata = calloc(1, sz);
+	test_assert(srcdata != NULL, "calloc(srcdata)");
+	*stree = mtree_create(sz, blocksz);
+	mtree_build(*stree, srcdata, NULL);
+}
+
+void do_test_init(void)
+{
 	loginit();
 	test_name("net_job_send_tree() - MLD trigger");
-
 	mld_enabled = 1;
+}
 
+int main(void)
+{
+	unsigned char hash[HASHSIZE];
+	char channame[] = "somechan";
+	pthread_t thread_count, thread_serv;
+	pthread_attr_t attr = {0};
+	struct in6_addr *grp, *grpn;
+	mtree_tree *stree;
+	net_data_t *data;
+
+	do_test_init();
+	build_src_and_tree(&data, &stree);
+	grp = prepare_multicast_channel(hash, (unsigned char *)channame, strlen(channame));
+	pack_payload(data, hash, stree);
+
+	/* get side channel for grp to monitor join events */
 	chanside = lc_channel_sidehash(lctx, grp, MLD_EVENT_ALL);
-	pn = lc_channel_addrinfo(chanside);
-	sadn = (struct sockaddr_in6 *)pn->ai_addr;
-	grpn = &(sadn->sin6_addr);
+	grpn = aitoin6(lc_channel_addrinfo(chanside));
+
 	test_assert(!mld_filter_grp_cmp(data->mld, 0, grpn), "filter doesn't contain notify group (0)");
 
 	/* start thread to count packets to dst grp */
@@ -119,7 +143,7 @@ int main(void)
 	pthread_create(&thread_serv, &attr, &net_job_send_tree, data);
 	pthread_attr_destroy(&attr);
 
-	/* wait a moment, ensure no packets received */
+	/* wait a moment, ensure no packets received before join */
 	usleep(10000);
 	test_assert(pkts == 0, "pkts received=%i (before join)", pkts);
 
@@ -132,15 +156,14 @@ int main(void)
 	lc_channel_join(chan);
 	test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (2b)");
 	usleep(10000);
-	test_assert(pkts > 0, "pkts received=%i (joined)", pkts); // FIXME
+	test_assert(pkts > 0, "pkts received=%i (joined)", pkts);
 	test_log("pkts received (total) = %i\n", tots);
 
 	//test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (3)");
 
 	/* leave group, reset counters, make sure sending has stopped */
-	// FIXME hang on one dang minute! aren't we sending notifications to *start*
-	// sending when we part...
 	test_assert(!lc_channel_part(chan), "lc_channel_part()");
+
 	usleep(100000);
 	pkts = 0;
 	usleep(100000);
@@ -153,7 +176,6 @@ int main(void)
 	free(data->iov[0].iov_base);
 	mld_stop(data->mld);
 	free(data);
-	//lc_channel_part(chan);
 	lc_ctx_free(lctx);
 	return fails;
 }
