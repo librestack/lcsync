@@ -476,23 +476,29 @@ static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 
 ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 {
+	int rc = -1;
 	mtree_tree *stree = NULL, *dtree = NULL;
 	job_queue_t *q;
 	size_t blocksz;
 	TRACE("%s()", __func__);
-	q = job_queue_create(1U << net_send_channels);
-	if (net_fetch_tree(hash, &stree) == -1) return -1;
+	if (!(q = job_queue_create(1U << net_send_channels))) return -1;
+	if (net_fetch_tree(hash, &stree) == -1) goto exit_err_0;
 	blocksz = mtree_blocksz(stree);
+	assert(len);
 	*len = mtree_len(stree);
 	dtree = mtree_create(*len, blocksz);
+	if (!dtree) goto exit_err_1;
 	mtree_build(dtree, dstdata, q);
 	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
-		net_sync_trees(stree, dtree, q);
+		rc = net_sync_trees(stree, dtree, q);
 	}
-	job_queue_destroy(q);
-	mtree_free(stree);
+	else rc = 0;
 	mtree_free(dtree);
-	return 0;
+exit_err_1:
+	mtree_free(stree);
+exit_err_0:
+	job_queue_destroy(q);
+	return rc;
 }
 
 /* break a block into DATA_FIXED size pieces and send with header
