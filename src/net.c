@@ -498,21 +498,21 @@ ssize_t net_recv_data(unsigned char *hash, char *dstdata, size_t *len)
 /* break a block into DATA_FIXED size pieces and send with header
  * header is in iov[0], data in iov[1] 
  * idx and len need updating */
-static ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov, size_t blk)
+static void net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov, size_t blk)
 {
-	ssize_t byt = 0;
-	size_t sz;
+	ssize_t byt;
 	size_t len = iov[1].iov_len;
 	char * ptr = iov[1].iov_base;
 	net_blockhead_t *hdr = iov[0].iov_base;
 	unsigned bits = howmany(len, DATA_FIXED);
-	struct msghdr msgh = {0};
 	for (size_t idx = blk * bits; running && len; idx++) {
-		sz = MIN(len, DATA_FIXED);
-		msgh.msg_name = addr->ai_addr;
-		msgh.msg_namelen = addr->ai_addrlen;
-		msgh.msg_iov = iov;
-		msgh.msg_iovlen = vlen;
+		size_t sz = MIN(len, DATA_FIXED);
+		struct msghdr msgh = {
+			.msg_name = addr->ai_addr,
+			.msg_namelen = addr->ai_addrlen,
+			.msg_iov = iov,
+			.msg_iovlen = vlen,
+		};
 		iov[1].iov_len = sz;
 		iov[1].iov_base = ptr;
 		hdr->len = htobe32(sz);
@@ -525,7 +525,6 @@ static ssize_t net_send_block(int sock, struct addrinfo *addr, size_t vlen, stru
 		ptr += sz;
 		DEBUG("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
 	}
-	return byt;
 }
 
 ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
@@ -534,7 +533,8 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 	const int on = 1;
 	int s;
 	ssize_t rc = -1;
-	size_t vlen = 2, base, min, max;
+	size_t base, min, max;
+	const size_t vlen = 2;
 	struct iovec iov[vlen];
 	struct addrinfo *addr;
 	lc_ctx_t *lctx;
