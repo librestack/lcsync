@@ -294,15 +294,14 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	DEBUG("%s(): bits    = %u", __func__, bits);
 	DEBUG("%s(): maplen  = %zu", __func__, maplen);
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
-	if (bitmap) {
-		DEBUG("packets required=%u", hamm(bitmap, maplen));
-		printmap(bitmap, mtree_base_subtree(stree, root) * bits);
-	}
+	if (!bitmap) return -1;
+	DEBUG("packets required=%u", hamm(bitmap, maplen));
+	printmap(bitmap, mtree_base_subtree(stree, root) * bits);
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 	iov[1].iov_base = buf;
 	iov[1].iov_len = DATA_FIXED;
-	if (!dryrun) while (running && bitmap && hamm(bitmap, maplen) && PKTS) {
+	if (!dryrun) while (running && hamm(bitmap, maplen) && PKTS) {
 		DEBUG("%s() recvmsg", __func__);
 		while (running && !(rc = poll(&fds, 1, 100)));
 		if (rc > 0 && (msglen = recvmsg(sock, &msgh, 0)) == -1) {
