@@ -178,6 +178,10 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 	struct msghdr msgh = {0};
 	hdr->pkts = htobe32(howmany(iov[1].iov_len, DATA_FIXED));
 	char *data = calloc(1, len);
+	if (!data) {
+		perror("calloc");
+		return -1;
+	}
 	memcpy(data, iov[1].iov_base, len);
 	while (running && len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
@@ -193,7 +197,7 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 		len -= sz;
 		if ((rc = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
-			break;
+			byt = -1; break;
 		}
 		DEBUG("%zi bytes sent", rc); 
 		byt += rc;
