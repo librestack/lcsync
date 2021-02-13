@@ -128,28 +128,25 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 	lc_channel_t *chan;
 	struct iovec *iov = calloc(1, sizeof(struct iovec) * 2);
 	if (!iov) return -1;
-	lctx = lc_ctx_new();
-	if (!lctx) goto exit_err_0;
-	sock = lc_socket_new(lctx);
-	if (!sock) goto exit_err_1;
-	chan = lc_channel_nnew(lctx, hash, HASHSIZE);
-	if (!chan) goto exit_err_2;
-	if (!lc_channel_bind(sock, chan) && !lc_channel_join(chan)) {
-		s = lc_socket_raw(sock);
-		byt = net_recv_tree(s, iov, &blocksz);
-		if (byt > 0) {
-			DEBUG("%s(): tree received (%zi bytes)", __func__, byt);
-			*tree = mtree_create(iov[1].iov_len, blocksz);
-			mtree_setdata(*tree, iov[0].iov_base);
-		}
-		lc_channel_part(chan);
+	if (!(lctx = lc_ctx_new())) goto err_0;
+	if (!(sock = lc_socket_new(lctx))) goto err_1;
+	if (!(chan = lc_channel_nnew(lctx, hash, HASHSIZE))) goto err_2;
+	if (lc_channel_bind(sock, chan) || lc_channel_join(chan)) goto err_3;
+	s = lc_socket_raw(sock);
+	byt = net_recv_tree(s, iov, &blocksz);
+	if (byt > 0) {
+		DEBUG("%s(): tree received (%zi bytes)", __func__, byt);
+		*tree = mtree_create(iov[1].iov_len, blocksz);
+		mtree_setdata(*tree, iov[0].iov_base);
 	}
+	lc_channel_part(chan);
+err_3:
 	lc_channel_free(chan);
-exit_err_2:
+err_2:
 	lc_socket_close(sock);
-exit_err_1:
+err_1:
 	lc_ctx_free(lctx);
-exit_err_0:
+err_0:
 	free(iov);
 	return byt;
 }
@@ -165,25 +162,20 @@ void *net_job_recv_tree(void *arg)
 	lc_socket_t *sock;
 	lc_channel_t *chan;
 	struct iovec *iov = NULL;
-	lctx = lc_ctx_new();
-	if (!lctx) return NULL;
-	sock = lc_socket_new(lctx);
-	if (!sock) goto exit_err_0;
-	chan = lc_channel_nnew(lctx, data->alias, HASHSIZE);
-	if (!chan) goto exit_err_1;
-	iov = calloc(1, sizeof(struct iovec) * 2);
-	if (!iov) goto exit_err_2;
-	if (!lc_channel_bind(sock, chan) && !lc_channel_join(chan)) {
-		s = lc_socket_raw(sock);
-		byt = net_recv_tree(s, iov, &blocksz);
-		DEBUG("%s(): tree received (%zi bytes)", __func__, byt);
-		lc_channel_part(chan);
-	}
-exit_err_2:
+	if (!(lctx = lc_ctx_new())) return NULL;
+	if (!(sock = lc_socket_new(lctx))) goto err_0;
+	if (!(chan = lc_channel_nnew(lctx, data->alias, HASHSIZE))) goto err_1;
+	if (!(iov = calloc(1, sizeof(struct iovec) * 2))) goto err_2;
+	if (lc_channel_bind(sock, chan) || lc_channel_join(chan)) goto err_2;
+	s = lc_socket_raw(sock);
+	byt = net_recv_tree(s, iov, &blocksz);
+	DEBUG("%s(): tree received (%zi bytes)", __func__, byt);
+	lc_channel_part(chan);
+err_2:
 	lc_channel_free(chan);
-exit_err_1:
+err_1:
 	lc_socket_close(sock);
-exit_err_0:
+err_0:
 	lc_ctx_free(lctx);
 	return iov;
 }
