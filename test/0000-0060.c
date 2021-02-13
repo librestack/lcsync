@@ -159,16 +159,14 @@ int main(void)
 	test_assert(pkts > 0, "pkts received=%i (joined)", pkts);
 	test_log("pkts received (total) = %i\n", tots);
 
-	//test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (3)");
-
 	/* leave group, reset counters, make sure sending has stopped */
 	test_assert(!lc_channel_part(chan), "lc_channel_part()");
-
 	usleep(100000);
 	pkts = 0;
 	usleep(100000);
 	test_assert(pkts == 0, "pkts received=%i (parted)", pkts);
 
+	/* clean up */
 	running = 0;
 	net_stop(SIGINT);
 	pthread_cancel(thread_count); pthread_cancel(thread_serv);
