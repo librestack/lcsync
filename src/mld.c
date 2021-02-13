@@ -156,7 +156,7 @@ lc_channel_t * lc_channel_sideband(lc_ctx_t *lctx, struct in6_addr *addr, int ba
 }
 #endif
 
-static int mld_wait_notify(mld_t *mld, unsigned int iface, struct in6_addr *addr)
+static int mld_wait_poll(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 {
 	lc_socket_t *sock;
 	lc_channel_t *chan;
@@ -197,7 +197,7 @@ int mld_wait(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 		DEBUG("%s() - no need to wait - filter has address", __func__);
 		return 0;
 	}
-	return mld_wait_notify(mld, iface, addr);
+	return mld_wait_poll(mld, iface, addr);
 }
 
 static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *grp, int event)
