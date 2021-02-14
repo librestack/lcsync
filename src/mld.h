@@ -4,6 +4,7 @@
 #ifndef _MLD_H
 #define _MLD_H 1
 
+#include <librecast.h>
 #include <limits.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -68,6 +69,9 @@ mld_t *mld_start(volatile int *cont);
 
 /* stop MLD snooping */
 void mld_stop(mld_t *mld);
+
+/* create notification channel */
+lc_channel_t *mld_channel_notify(mld_t *mld, struct in6_addr *addr, int events);
 
 /* decrement all the counters. */
 void mld_timer_tick(mld_t *mld, unsigned int iface, size_t idx);

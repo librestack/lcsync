@@ -17,12 +17,10 @@
 #include <linux/if_packet.h>
 #include <net/ethernet.h>
 #include <arpa/inet.h>
+#include <semaphore.h>
 #include <librecast.h>
 #include <netdb.h>
 #include <unistd.h>
-
-// FIXME - temp
-lc_channel_t * lc_channel_sidehash(lc_ctx_t *lctx, struct in6_addr *addr, int band);
 
 static const size_t sz = 4242;
 static const size_t blocksz = 512;
@@ -31,7 +29,8 @@ static int tots = 0; /* data packets intercepted */
 static int running = 1;
 static lc_ctx_t *lctx;
 static lc_socket_t *sock;
-static lc_channel_t *chan, *chanside;
+static lc_channel_t *chan;
+sem_t sempkt;
 
 /* sniff multicast packets for grp, without joining group */
 void *packet_sniff(void *arg)
@@ -69,7 +68,10 @@ void *packet_sniff(void *arg)
 		inet_ntop(AF_INET6, &hdr.dst, strdst, INET6_ADDRSTRLEN);
 		test_log("src: %s\n", strsrc);
 		test_log("dst: %s\n", strdst);
-		if (!memcmp(grp, &hdr.dst, sizeof (struct in6_addr))) pkts++;
+		if (!memcmp(grp, &hdr.dst, sizeof (struct in6_addr))) {
+			pkts++;
+			sem_post(&sempkt);
+		}
 		tots++;
 	}
 	pthread_exit(arg);
@@ -95,6 +97,7 @@ struct in6_addr * prepare_multicast_channel(unsigned char *hash, unsigned char *
 	test_assert(sock != NULL, "lc_socket_new()");
 	chan = lc_channel_nnew(lctx, hash, HASHSIZE);
 	test_assert(chan != NULL, "lc_channel_nnew()");
+	lc_channel_bind(sock, chan);
 	return aitoin6(lc_channel_addrinfo(chan));
 }
 
@@ -114,6 +117,7 @@ void do_test_init(void)
 	loginit();
 	test_name("net_job_send_tree() - MLD trigger");
 	mld_enabled = 1;
+	sem_init(&sempkt, 0, 0);
 }
 
 int main(void)
@@ -122,49 +126,56 @@ int main(void)
 	char channame[] = "somechan";
 	pthread_t thread_count, thread_serv;
 	pthread_attr_t attr = {0};
-	struct in6_addr *grp, *grpn;
+	struct in6_addr *grp;
 	mtree_tree *stree;
 	net_data_t *data;
+	struct timespec timeout = { .tv_sec = 1 };
 
 	do_test_init();
 	build_src_and_tree(&data, &stree);
 	grp = prepare_multicast_channel(hash, (unsigned char *)channame, strlen(channame));
 	pack_payload(data, hash, stree);
 
-	/* get side channel for grp to monitor join events */
-	chanside = lc_channel_sidehash(lctx, grp, MLD_EVENT_ALL);
-	grpn = aitoin6(lc_channel_addrinfo(chanside));
+	// FIXME
+	struct in6_addr *mon, *monmon;
+	//lc_channel_t *chanmon = mld_channel_notify(lctx, grp, MLD_EVENT_ALL);
+	lc_channel_t *chanmon = lc_channel_sideband(chan, 0);
+	mon = aitoin6(lc_channel_addrinfo(chanmon));
+	test_assert(memcmp(grp, mon, sizeof(struct in6_addr)), "grp and mon are the same");
+	//lc_channel_t *chanmonmon = mld_channel_notify(lctx, mon, MLD_EVENT_ALL);
+	lc_channel_t *chanmonmon = lc_channel_sideband(chanmon, 0);
+	monmon = aitoin6(lc_channel_addrinfo(chanmonmon));
+	test_assert(memcmp(grp, monmon, sizeof(struct in6_addr)), "grp and monmon are the same");
 
-	test_assert(!mld_filter_grp_cmp(data->mld, 0, grpn), "filter doesn't contain notify group (0)");
 
 	/* start thread to count packets to dst grp */
 	pthread_attr_init(&attr);
 	pthread_create(&thread_count, &attr, &packet_sniff, grp);
 	pthread_create(&thread_serv, &attr, &net_job_send_tree, data);
 	pthread_attr_destroy(&attr);
+	usleep(10000); /* give threads a chance to warm up */
 
 	/* wait a moment, ensure no packets received before join */
-	usleep(10000);
-	test_assert(pkts == 0, "pkts received=%i (before join)", pkts);
-
-	/* check filter for notification side-channel */
-	test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (1)");
+	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
+	timeout.tv_nsec += 1000;
+	sem_timedwait(&sempkt, &timeout);
+	test_assert(errno == ETIMEDOUT, "pkts received=%i (before join)", pkts);
 
 	/* join grp, wait, ensure packets received */
-	lc_channel_bind(sock, chan);
-	test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (2)");
 	lc_channel_join(chan);
-	test_assert(mld_filter_grp_cmp(data->mld, 0, grpn), "filter contains notify group (2b)");
-	usleep(10000);
-	test_assert(pkts > 0, "pkts received=%i (joined)", pkts);
-	test_log("pkts received (total) = %i\n", tots);
-
+	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
+	timeout.tv_nsec += 10000;
+	sem_timedwait(&sempkt, &timeout);
+	test_assert(!sem_timedwait(&sempkt, &timeout), "pkts received=%i (joined)", pkts);
+	test_log("pkts received (pkts/total) = %i/%i\n", pkts, tots);
+#if 0
 	/* leave group, reset counters, make sure sending has stopped */
 	test_assert(!lc_channel_part(chan), "lc_channel_part()");
 	usleep(100000);
 	pkts = 0;
 	usleep(100000);
 	test_assert(pkts == 0, "pkts received=%i (parted)", pkts);
+#endif
 
 	/* clean up */
 	running = 0;

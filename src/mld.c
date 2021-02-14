@@ -121,40 +121,18 @@ static void mld_timer_ticker(mld_t *mld, unsigned int iface, size_t idx)
 	}
 }
 
-/* create side channel by hashing event type with main channel addr */
-/* FIXME this belongs in the main librecast net API */
-
-// FIXME - grp and watch channels are reversable the watch for one is the grp
-// for the other and vice-versa.  We don't want notifications for the watch
-// channel on the main channel
-lc_channel_t * lc_channel_sidehash(lc_ctx_t *lctx, struct in6_addr *addr, int band)
+lc_channel_t *mld_channel_notify(mld_t *mld, struct in6_addr *addr, int events)
 {
 	char base[INET6_ADDRSTRLEN] = "";
-	char hash[INET6_ADDRSTRLEN] = "";
-	int rc;
+	lc_channel_t *tmp;
 	if (!inet_ntop(AF_INET6, addr, base, INET6_ADDRSTRLEN)) {
 		ERROR("inet_ntop()");
 		return NULL;
 	}
-	if ((rc = lc_hashgroup(base, (unsigned char *)&band, sizeof band, hash, 0))) {
-		ERROR("ERROR: lc_hashgroup = %i", rc);
-		return NULL;
-	}
-	DEBUG("%s() channel group address: %s", __func__, hash);
-	return lc_channel_init(lctx, hash, MLD_EVENT_SERV);
+	tmp = lc_channel_init(mld->lctx, base, MLD_EVENT_SERV);
+	if (!tmp) return NULL;
+	return lc_channel_sidehash(tmp, (unsigned char *)&events, sizeof(int));
 }
-#if 0
-lc_channel_t * lc_channel_sideband(lc_ctx_t *lctx, struct in6_addr *addr, int band)
-{
-	/* create side band by XORing byte of address corresponding to band */
-#if 0
-	band &= 0xe;
-	(char)addr[band] ^= (char)addr[band];
-	return lc_channel_init(lctx, addr, MLD_EVENT_SERV);
-#endif
-	return NULL;
-}
-#endif
 
 static int mld_wait_poll(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 {
@@ -164,7 +142,7 @@ static int mld_wait_poll(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 	const int timeout = 100; /* affects responsiveness of exit */
 	int rc = 0;
 	if (!(sock = lc_socket_new(mld->lctx))) return -1;
-	if (!(chan = lc_channel_sidehash(mld->lctx, addr, MLD_EVENT_ALL))) {
+	if (!(chan = mld_channel_notify(mld, addr, MLD_EVENT_ALL))) {
 		rc = -1;
 		goto exit_err_0;
 	}
@@ -212,7 +190,7 @@ static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *grp, int eve
 
 	// TODO notify event specific side channels
 	(void) event;
-	chan[0] = lc_channel_sidehash(mld->lctx, grp, MLD_EVENT_ALL);
+	chan[0] = mld_channel_notify(mld, grp, MLD_EVENT_ALL);
 	if (!chan[0]) return;
 
 	/* check filter to see if anyone listening for notifications */

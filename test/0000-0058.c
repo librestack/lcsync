@@ -8,9 +8,6 @@
 #include <netdb.h>
 #include <unistd.h>
 
-// FIXME - temp
-lc_channel_t * lc_channel_sidehash(lc_ctx_t *lctx, struct in6_addr *addr, int band);
-
 enum {
 	CHANMAIN,
 	CHANSIDE,
@@ -45,21 +42,20 @@ int main(void)
 	test_assert(mld != NULL, "mld_start()");
 	
 	/* join side channel for MLD events */
-	/* TODO an API call for side channels would be nice */
-	chan[CHANSIDE] = lc_channel_sidehash(lctx, addr, MLD_EVENT_ALL);
+	chan[CHANSIDE] = mld_channel_notify(mld, addr, MLD_EVENT_ALL);
 
 	/* join notification channel and wait for notify msg */
-	test_assert((sock[0] = lc_socket_new(lctx)) != NULL, "lc_socket_new()");
-	test_assert((sock[1] = lc_socket_new(lctx)) != NULL, "lc_socket_new()");
-	test_assert(!lc_channel_bind(sock[0], chan[CHANSIDE]), "lc_channel_bind() SIDE");
+	test_assert((sock[CHANMAIN] = lc_socket_new(lctx)) != NULL, "lc_socket_new()");
+	test_assert((sock[CHANSIDE] = lc_socket_new(lctx)) != NULL, "lc_socket_new()");
+	test_assert(!lc_channel_bind(sock[CHANSIDE], chan[CHANSIDE]), "lc_channel_bind() SIDE");
 	test_assert(!lc_channel_join(chan[CHANSIDE]), "join notification channel");
-	lc_socket_listen(sock[0], &gotmsg, NULL);
+	lc_socket_listen(sock[CHANSIDE], &gotmsg, NULL);
 
 	/* give MLD listener a few cycles to wake up */
 	usleep(5000);
 
 	/* trigger join notification */
-	test_assert(!lc_channel_bind(sock[1], chan[CHANMAIN]), "lc_channel_bind() MAIN");
+	test_assert(!lc_channel_bind(sock[CHANMAIN], chan[CHANMAIN]), "lc_channel_bind() MAIN");
 	test_assert(!lc_channel_join(chan[CHANMAIN]), "join main channel");
 
 	/* wait a moment, and check for messages */

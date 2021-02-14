@@ -8,7 +8,6 @@
 #include "macro.h"
 #include "job.h"
 #include <assert.h>
-#include <librecast.h>
 
 #define MLD_DEBUG 1
 #define BUFSIZE 1500
