@@ -29,9 +29,10 @@ typedef enum {
 
 struct mld_timerjob_s {
 	mld_t *mld;
-	void (*f)(mld_t *, unsigned int iface, size_t idx);
+	void (*f)(mld_t *, unsigned int, size_t, uint8_t);
 	size_t idx;
 	unsigned int iface;
+	uint8_t val;
 };
 
 struct mld_filter_s {

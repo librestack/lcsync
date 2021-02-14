@@ -14,7 +14,7 @@
 #define BLOOM_SZ 16777216
 #define BLOOM_VECTORS BLOOM_SZ / VECTOR_BITS
 #define BLOOM_HASHES 8 /* optimal = LOG2(BLOOM_SZ / ENTRIES) */
-#define MLD_TIMEOUT 120 /* seconds before MLD record expires */
+#define MLD_TIMEOUT 125 /* seconds before MLD record expires */
 #define MLD_TIMER_INTERVAL 1 /* length of timer tick in seconds */
 #define IPV6_BYTES 16
 
@@ -26,6 +26,8 @@
 #define MLD2_ROBUSTNESS 2               /* 9.14.1.  Robustness Variable */
 #define MLD2_CAPABLE_ROUTERS "ff02::16" /* all MLDv2-capable routers */
 #define MLD2_LISTEN_REPORT 143          /* Multicast Listener Report messages */
+#define MLD2_QI MLD_TIMEOUT		/* Query Interval */
+#define MLD2_QRI 10000			/* Query Response Interval */
 
 /* Current State Record */
 #define MODE_IS_INCLUDE 1
@@ -74,13 +76,17 @@ void mld_stop(mld_t *mld);
 lc_channel_t *mld_channel_notify(mld_t *mld, struct in6_addr *addr, int events);
 
 /* decrement all the counters. */
-void mld_timer_tick(mld_t *mld, unsigned int iface, size_t idx);
+void mld_timer_tick(mld_t *mld, unsigned int iface, size_t idx, uint8_t val);
+
+/* set specific timer to val */
+void mld_timer_set(mld_t *mld, unsigned int iface, size_t idx, uint8_t val);
 
 /* reset specific timer to MLD_TIMEOUT */
-void mld_timer_refresh(mld_t *mld, unsigned int iface, size_t idx);
+void mld_timer_refresh(mld_t *mld, unsigned int iface, size_t idx, uint8_t val);
 
-/* inspect timer for group address */
+/* get/set timer for group address */
 int mld_filter_timer_get(mld_t *mld, unsigned int iface, struct in6_addr *saddr);
+int mld_filter_timer_set(mld_t *mld, unsigned int iface, struct in6_addr *saddr, uint8_t val);
 
 /* add group address to interface bloom filter */
 int mld_filter_grp_add(mld_t *mld, unsigned int iface, struct in6_addr *addr);

@@ -76,9 +76,9 @@ void vec_dump(vec_t *vec, int idx)
 }
 
 /* decrement all the counters. There are 16.7 million of them, use SIMD */
-void mld_timer_tick(mld_t *mld, unsigned int iface, size_t idx)
+void mld_timer_tick(mld_t *mld, unsigned int iface, size_t idx, uint8_t val)
 {
-	(void)iface; (void)idx;
+	(void)iface; (void)idx; (void)val;
 	vec_t *t;
 	vec_t mask = {0};
 	for (int i = 0; i < mld->len; i++) {
@@ -92,23 +92,29 @@ void mld_timer_tick(mld_t *mld, unsigned int iface, size_t idx)
 	DEBUG("%s() - update complete", __func__);
 }
 
-void mld_timer_refresh(mld_t *mld, unsigned int iface, size_t idx)
+void mld_timer_set(mld_t *mld, unsigned int iface, size_t idx, uint8_t val)
 {
 	vec_t *t = mld->filter[iface].t;
-	vec_set_epi8(t, idx, MLD_TIMEOUT);
-	DEBUG("timer refreshed (%zu)", idx);
+	vec_set_epi8(t, idx, val);
+}
+
+void mld_timer_refresh(mld_t *mld, unsigned int iface, size_t idx, uint8_t val)
+{
+	(void) val;
+	mld_timer_set(mld, iface, idx, MLD_TIMEOUT);
 }
 
 static void *mld_timer_job(void *arg)
 {
 	mld_timerjob_t *tj = (mld_timerjob_t *)arg;
-	tj->f(tj->mld, tj->iface, tj->idx);
+	tj->f(tj->mld, tj->iface, tj->idx, tj->val);
 	return arg;
 }
 
 /* this thread handles the clock ticks, creating a job for the timer thread */
-static void mld_timer_ticker(mld_t *mld, unsigned int iface, size_t idx)
+static void mld_timer_ticker(mld_t *mld, unsigned int iface, size_t idx, uint8_t val)
 {
+	(void) val;
 	struct timespec ts;
 	sem_t sem;
 	mld_timerjob_t tj = { .mld = mld, .iface = iface, .idx = idx, .f = &mld_timer_tick };
@@ -140,15 +146,13 @@ static int mld_wait_poll(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 	lc_channel_t *chan;
 	struct pollfd fds = { .events = POLL_IN };
 	const int timeout = 100; /* affects responsiveness of exit */
-	int rc = 0;
+	int rc = -1;
 	if (!(sock = lc_socket_new(mld->lctx))) return -1;
 	if (!(chan = mld_channel_notify(mld, addr, MLD_EVENT_ALL))) {
-		rc = -1;
 		goto exit_err_0;
 	}
 	mld_filter_grp_add_ai(mld, iface, lc_channel_addrinfo(chan)); /* avoid race */
 	if ((lc_channel_bind(sock, chan)) || (lc_channel_join(chan))) {
-		rc = -1;
 		goto exit_err_1;
 	}
 	fds.fd = lc_socket_raw(sock);
@@ -237,6 +241,19 @@ static int mld_filter_timer_get_f(mld_t *mld, unsigned int iface, size_t idx, ve
 	return vec_get_epi8(v, idx);
 }
 
+#if 0
+static int mld_filter_timer_set_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
+{
+	// FIXME - where does val come from?
+	mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_set };
+	if (vec_get_epi8(v, idx) != CHAR_MAX) vec_inc_epi8(v, idx);
+	tj.idx = idx;
+	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
+	//vec_set_epi8(v, idx, (uint8_t)val);
+	return 0;
+}
+#endif
+
 static int mld_filter_grp_cmp_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 {
 	(void)mld; (void)iface;
@@ -277,8 +294,26 @@ int mld_filter_timer_get(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 	return mld_filter_grp_call(mld, iface, saddr, t, &mld_filter_timer_get_f);
 }
 
+int mld_filter_timer_set(mld_t *mld, unsigned int iface, struct in6_addr *saddr, uint8_t val)
+{
+	vec_t *v = mld->filter[iface].t;
+	size_t idx;
+	uint32_t hash[BLOOM_HASHES];
+	hash_generic((unsigned char *)hash, sizeof hash, saddr->s6_addr, IPV6_BYTES);
+	for (int i = 0; i < BLOOM_HASHES; i++) {
+		idx = hash[i] % BLOOM_SZ;
+		mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_set, .val = val };
+		if (vec_get_epi8(v, idx) != CHAR_MAX) vec_inc_epi8(v, idx);
+		tj.idx = idx;
+		job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
+	}
+	return 0;
+	//return mld_filter_grp_call(mld, (unsigned int)val, saddr, t, &mld_filter_timer_set_f);
+}
+
 int mld_filter_grp_cmp(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
+	// FIXME - must check timer too
 	vec_t *grp = mld->filter[iface].grp;
 	return !mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_cmp_f);
 }

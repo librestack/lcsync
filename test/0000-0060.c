@@ -136,24 +136,14 @@ int main(void)
 	grp = prepare_multicast_channel(hash, (unsigned char *)channame, strlen(channame));
 	pack_payload(data, hash, stree);
 
-	// FIXME
-	struct in6_addr *mon, *monmon;
-	//lc_channel_t *chanmon = mld_channel_notify(lctx, grp, MLD_EVENT_ALL);
-	lc_channel_t *chanmon = lc_channel_sideband(chan, 0);
-	mon = aitoin6(lc_channel_addrinfo(chanmon));
-	test_assert(memcmp(grp, mon, sizeof(struct in6_addr)), "grp and mon are the same");
-	//lc_channel_t *chanmonmon = mld_channel_notify(lctx, mon, MLD_EVENT_ALL);
-	lc_channel_t *chanmonmon = lc_channel_sideband(chanmon, 0);
-	monmon = aitoin6(lc_channel_addrinfo(chanmonmon));
-	test_assert(memcmp(grp, monmon, sizeof(struct in6_addr)), "grp and monmon are the same");
-
-
 	/* start thread to count packets to dst grp */
 	pthread_attr_init(&attr);
 	pthread_create(&thread_count, &attr, &packet_sniff, grp);
 	pthread_create(&thread_serv, &attr, &net_job_send_tree, data);
 	pthread_attr_destroy(&attr);
 	usleep(10000); /* give threads a chance to warm up */
+
+	test_log("TEST BEGINS\n");
 
 	/* wait a moment, ensure no packets received before join */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
@@ -162,20 +152,23 @@ int main(void)
 	test_assert(errno == ETIMEDOUT, "pkts received=%i (before join)", pkts);
 
 	/* join grp, wait, ensure packets received */
+	test_log("JOIN TARGET CHANNEL\n");
 	lc_channel_join(chan);
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
-	timeout.tv_nsec += 10000;
+	timeout.tv_sec++;
 	sem_timedwait(&sempkt, &timeout);
-	test_assert(!sem_timedwait(&sempkt, &timeout), "pkts received=%i (joined)", pkts);
+	test_assert(!sem_timedwait(&sempkt, &timeout), "pkts received=%i (joined) - %s", pkts,
+			strerror(errno));
 	test_log("pkts received (pkts/total) = %i/%i\n", pkts, tots);
-#if 0
+
+	test_log("PART TARGET CHANNEL\n");
+
 	/* leave group, reset counters, make sure sending has stopped */
 	test_assert(!lc_channel_part(chan), "lc_channel_part()");
 	usleep(100000);
 	pkts = 0;
 	usleep(100000);
 	test_assert(pkts == 0, "pkts received=%i (parted)", pkts);
-#endif
 
 	/* clean up */
 	running = 0;
