@@ -654,7 +654,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->iov[0].iov_base = tree;
 	if (mld_enabled) {
 		data->mld = mld_start(&running);
-		goto err_3;
+		if (!data->mld) goto err_3;
 	}
 	job_tree = job_push_new(q, &net_job_send_tree, data, sz, NULL, 0);
 	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
