@@ -151,7 +151,7 @@ static int mld_wait_poll(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 	const int timeout = 100; /* affects responsiveness of exit */
 	int rc = -1;
 	if (!(sock = lc_socket_new(mld->lctx))) return -1;
-	if (!(chan = mld_channel_notify(mld, addr, MLD_EVENT_ALL))) {
+	if (!(chan = mld_channel_notify(mld, addr, MLD_EVENT_JOIN))) {
 		goto exit_err_0;
 	}
 	mld_filter_grp_add_ai(mld, iface, lc_channel_addrinfo(chan)); /* avoid race */
@@ -185,41 +185,53 @@ int mld_wait(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 	return mld_wait_poll(mld, iface, addr);
 }
 
-static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *grp, int event)
+static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, int event)
 {
 	lc_message_t msg = {0};
 	lc_socket_t *sock;
-	lc_channel_t *chan[MLD_EVENT_MAX];
+	lc_channel_t *chan;
 	struct addrinfo *ai;
 	char sgroup[INET6_ADDRSTRLEN];
 	char swatch[INET6_ADDRSTRLEN];
 	const int opt = 1;
 
-	// TODO notify event specific side channels
-	(void) event;
-	chan[0] = mld_channel_notify(mld, grp, MLD_EVENT_ALL);
-	if (!chan[0]) return;
+	chan = mld_channel_notify(mld, grp, event);
+	if (!chan) return;
 
 	/* check filter to see if anyone listening for notifications */
-	ai = lc_channel_addrinfo(chan[0]);
-	inet_ntop(AF_INET6, grp, sgroup, INET6_ADDRSTRLEN);
-	inet_ntop(AF_INET6, aitoin6(ai), swatch, INET6_ADDRSTRLEN);
+	ai = lc_channel_addrinfo(chan);
+	if (loglevel & LOG_DEBUG) {
+		inet_ntop(AF_INET6, grp, sgroup, INET6_ADDRSTRLEN);
+		inet_ntop(AF_INET6, aitoin6(ai), swatch, INET6_ADDRSTRLEN);
+	}
 	if (!mld_filter_grp_cmp(mld, iface, aitoin6(ai))) {
-		DEBUG("no one listening to %s - skipping notification for %s", swatch, sgroup);
-		return;
+		DEBUG("no one listening to %s (%i) - skipping notification for %s",
+				swatch, event, sgroup);
+		goto err_0;
 	}
-	DEBUG("sending notification for event on %s to %s", sgroup, swatch);
+	DEBUG("sending notification for event %i on %s to %s", event, sgroup, swatch);
 
-	if (!(sock = lc_socket_new(mld->lctx))) {
-		lc_channel_free(chan[0]);
-		return;
-	}
+	sock = lc_socket_new(mld->lctx);
+	if (!sock) goto err_0;
+
 	/* set loopback so machine-local listeners are notified */
 	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &opt, sizeof(opt));
+
 	/* set TTL to 1 so notification doesn't leave local segment */
 	lc_socket_setopt(sock, IPV6_MULTICAST_HOPS, &opt, sizeof(opt));
-	lc_channel_bind(sock, chan[0]);
-	lc_msg_send(chan[0], &msg);
+
+	lc_channel_bind(sock, chan);
+	lc_msg_send(chan, &msg);
+	lc_socket_close(sock);
+err_0:
+	lc_channel_free(chan);
+}
+
+static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *grp, int event)
+{
+
+	mld_notify_send(mld, iface, grp, event);
+	mld_notify_send(mld, iface, grp, MLD_EVENT_ALL);
 }
 
 static int mld_filter_grp_del_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
