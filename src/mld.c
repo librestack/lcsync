@@ -229,9 +229,11 @@ err_0:
 
 static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *grp, int event)
 {
-
+	struct in6_addr all = IN6ADDR_ANY_INIT;
 	mld_notify_send(mld, iface, grp, event);
 	mld_notify_send(mld, iface, grp, MLD_EVENT_ALL);
+	mld_notify_send(mld, iface, &all, event);
+	mld_notify_send(mld, iface, &all, MLD_EVENT_ALL);
 }
 
 static int mld_filter_grp_del_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
