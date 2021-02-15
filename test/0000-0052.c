@@ -44,18 +44,18 @@ int main(void)
 	test_assert(pop == 0, "pop == %u", pop);
 
 	/* timer tick on zero vectors has no effect */
-	mld_timer_tick(mld, 0, 0);
+	mld_timer_tick(mld, 0, 0, 0);
 	pop = vec_pop(mld->filter[0].t);
 	test_assert(pop == 0, "pop == %u", pop);
 
 	/* set a timer, check pop has gone up */
-	mld_timer_refresh(mld, 0, 42);
+	mld_timer_refresh(mld, 0, 42, 0);
 	pop = vec_pop(mld->filter[0].t);
 	test_assert(pop > 0, "pop == %u", pop);
 
 	/* tick down the timer to zero and check again */
 	for (int i = 0; i < MLD_TIMEOUT; i++) {
-		mld_timer_tick(mld, 0, 0);
+		mld_timer_tick(mld, 0, 0, 0);
 	}
 	pop = vec_pop(mld->filter[0].t);
 	test_assert(pop == 0, "pop == %u", pop);
