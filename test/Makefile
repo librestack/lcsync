@@ -46,6 +46,7 @@ build:
 0000-0060.test: CAPS = cap_net_raw=eip
 0000-0061.test: CAPS = cap_net_raw=eip
 0000-0062.test: CAPS = cap_net_raw=eip
+0000-0064.test: CAPS = cap_net_raw=eip
 
 %.test: %.c $(OBJS)
 	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)

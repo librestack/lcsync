@@ -79,13 +79,16 @@ void vec_dump(vec_t *vec, int idx)
 void mld_timer_tick(mld_t *mld, unsigned int iface, size_t idx, uint8_t val)
 {
 	(void)iface; (void)idx; (void)val;
-	vec_t *t;
+	vec_t *t, *grp;
 	vec_t mask = {0};
 	for (int i = 0; i < mld->len; i++) {
 		t = mld->filter[i].t;
+		grp = mld->filter[i].grp;
 		for (size_t z = 0; z < BLOOM_VECTORS; z++) {
 			mask.u8 = t[z].u8 > 0;
-			t[z].u8 += mask.u8;
+			t[z].u8 += mask.u8;	/* decrement timers */
+			mask.u8 = t[z].u8 == 0;
+			grp[z].u8 &= ~mask.u8;	/* clear expired groups */
 			if (*(mld->cont) == 0) return;
 		}
 	}
@@ -241,19 +244,6 @@ static int mld_filter_timer_get_f(mld_t *mld, unsigned int iface, size_t idx, ve
 	return vec_get_epi8(v, idx);
 }
 
-#if 0
-static int mld_filter_timer_set_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
-{
-	// FIXME - where does val come from?
-	mld_timerjob_t tj = { .mld = mld, .iface = iface, .f = &mld_timer_set };
-	if (vec_get_epi8(v, idx) != CHAR_MAX) vec_inc_epi8(v, idx);
-	tj.idx = idx;
-	job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
-	//vec_set_epi8(v, idx, (uint8_t)val);
-	return 0;
-}
-#endif
-
 static int mld_filter_grp_cmp_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
 {
 	(void)mld; (void)iface;
@@ -308,12 +298,10 @@ int mld_filter_timer_set(mld_t *mld, unsigned int iface, struct in6_addr *saddr,
 		job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
 	}
 	return 0;
-	//return mld_filter_grp_call(mld, (unsigned int)val, saddr, t, &mld_filter_timer_set_f);
 }
 
 int mld_filter_grp_cmp(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
-	// FIXME - must check timer too
 	vec_t *grp = mld->filter[iface].grp;
 	return !mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_cmp_f);
 }
