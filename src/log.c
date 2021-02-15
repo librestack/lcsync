@@ -29,7 +29,7 @@
 #include <time.h>
 #include "log.h"
 
-#define LOG_BUFSIZE 128
+#define LOG_BUFSIZE 256
 
 unsigned int loglevel = LOG_LOGLEVEL_DEFAULT;
 static int uselock;
@@ -61,7 +61,7 @@ void logmsg(unsigned int level, const char *fmt, ...)
 	if ((level & loglevel) != level) return;
 	va_start(argp, fmt);
 	len = vsnprintf(buf, LOG_BUFSIZE, fmt, argp);
-	if (len > LOG_BUFSIZE) {
+	if (len >= LOG_BUFSIZE) {
 		/* need a bigger buffer, resort to malloc */
 		mbuf = malloc(len + 1);
 		va_end(argp);
