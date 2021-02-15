@@ -122,7 +122,7 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 	TRACE("%s()", __func__);
 	int s;
 	size_t blocksz;
-	ssize_t byt;
+	ssize_t byt = -1;
 	lc_ctx_t *lctx;
 	lc_socket_t *sock;
 	lc_channel_t *chan;
@@ -224,10 +224,10 @@ void *net_job_send_tree(void *arg)
 	TRACE("%s()", __func__);
 	const int on = 1;
 	int s;
-	const size_t vlen = 2;
+	enum { vlen = 2 };
+	struct iovec iov[vlen];
 	struct addrinfo *addr;
 	struct in6_addr *grp;
-	struct iovec iov[vlen];
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *tree = (mtree_tree *)data->iov[0].iov_base;
 	unsigned char * base = mtree_data(tree, 0);
@@ -561,7 +561,7 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 	int s;
 	ssize_t rc = -1;
 	size_t base, min, max;
-	const size_t vlen = 2;
+	enum { vlen = 2 };
 	struct iovec iov[vlen];
 	struct addrinfo *addr;
 	lc_ctx_t *lctx;

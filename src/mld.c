@@ -87,12 +87,13 @@ void mld_timer_tick(mld_t *mld, unsigned int iface, size_t idx, uint8_t val)
 		for (size_t z = 0; z < BLOOM_VECTORS; z++) {
 			mask.u8 = t[z].u8 > 0;
 			t[z].u8 += mask.u8;	/* decrement timers */
-			mask.u8 = t[z].u8 == 0;
-			grp[z].u8 &= ~mask.u8;	/* clear expired groups */
-			if (*(mld->cont) == 0) return;
+			/* CPU is critical here - do this on read instead ? */
+			mask.u8 = t[z].u8 != 0;
+			grp[z].u8 &= mask.u8;	/* clear expired groups */
 		}
+		if (*(mld->cont) == 0) break;
 	}
-	DEBUG("%s() - update complete", __func__);
+	DEBUG("%s()", __func__);
 }
 
 void mld_timer_set(mld_t *mld, unsigned int iface, size_t idx, uint8_t val)
@@ -332,8 +333,10 @@ int mld_filter_grp_del(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
 #ifdef MLD_DEBUG
 	char straddr[INET6_ADDRSTRLEN];
+	char ifname[IF_NAMESIZE];
+	unsigned nface = mld->ifx[iface];
 	inet_ntop(AF_INET6, saddr, straddr, INET6_ADDRSTRLEN);
-	DEBUG("%s(iface=%u): %s", __func__, iface, straddr);
+	DEBUG("%s %s(%u): %s", __func__, if_indextoname(nface, ifname),nface, straddr);
 #endif
 	vec_t *grp = mld->filter[iface].grp;
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_del_f);
@@ -348,8 +351,10 @@ int mld_filter_grp_add(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
 #ifdef MLD_DEBUG
 	char straddr[INET6_ADDRSTRLEN];
+	char ifname[IF_NAMESIZE];
+	unsigned nface = mld->ifx[iface];
 	inet_ntop(AF_INET6, saddr, straddr, INET6_ADDRSTRLEN);
-	DEBUG("%s(iface=%u): %s", __func__, iface, straddr);
+	DEBUG("%s %s(%u): %s", __func__, if_indextoname(nface, ifname),nface, straddr);
 #endif
 	vec_t *grp = mld->filter[iface].grp;
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_add_f);
@@ -461,7 +466,6 @@ int mld_listen(mld_t *mld)
 				perror("recvmsg()");
 				return -1;
 			}
-			DEBUG("%s(): msg received", __func__);
 			mld_msg_handle(mld, &msg);
 		}
 	}

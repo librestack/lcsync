@@ -121,8 +121,6 @@ int main(void)
 	pthread_create(&thread_serv, &attr, &thread_send_data, srcdata);
 	pthread_attr_destroy(&attr);
 
-	// FIXME join from mld_wait() never gets into filter
-	
 	/* wait a moment, ensure no packets received */
 	usleep(10000);
 	test_assert(pkts == 0, "pkts received=%i (before join)", pkts);
@@ -153,8 +151,10 @@ int main(void)
 
 	running = 0;
 	net_stop(SIGINT);
-	pthread_cancel(thread_count); pthread_cancel(thread_serv);
-	pthread_join(thread_count, NULL); pthread_join(thread_serv, NULL);
+	pthread_cancel(thread_count);
+	pthread_cancel(thread_serv);
+	pthread_join(thread_count, NULL);
+	pthread_join(thread_serv, NULL);
 	free(srcdata);
 	lc_channel_part(chan);
 	lc_ctx_free(lctx);

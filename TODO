@@ -8,7 +8,7 @@ NEXT ACTIONS:
 
 ----------------------------------------------------------------------
 * net_sync_trees() - get channel # to use from sender
-* AVX2 dispatcher, function pointers etc.
+* SSE*/AVX/AVX2 dispatcher, function pointers etc.
 * bredth-first search.
 * # channels should be set by sender - receiver gets channel info with tree
 * reduce verbosity of sender/receiver modes
@@ -34,3 +34,4 @@ NEXT ACTIONS:
 * work out network saturation %
 * stats - calculate transfer speed bps etc.
 * net_send_subtree() / net_send_data() - return bytes or -1
+* detect hotplug interfaces

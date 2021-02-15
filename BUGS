@@ -1,4 +1,25 @@
 -------------------------------------------------------------------------------
+Ubuntu 16.04 LTS - segfault when serving files in --mld mode
+
+works when not in mld mode
+
+bacs@graupius:~/lcsync$ lcsync -v --mld src/lcsync
+1551: loglevel=127
+1574: blocksize=1024
+1582: channels=8
+1590: net_send('src/lcsync')
+1597: mapping src: src/lcsync
+1635: net_send_data()
+1665: creating 9 threads
+3040: net_send_data(): source tree built
+Segmentation fault (core dumped)
+
+-------------------------------------------------------------------------------
+mld_filter_grp_add() appears to be adding groups only to lo(1)
+-------------------------------------------------------------------------------
+test 0027 requires bsd/md5.h, which Ubuntu 20.04 doesn't have, at least not
+there.  Remove dependency.  We have libsodiium - use it.
+-------------------------------------------------------------------------------
 test 0035 (check mode)
 net.c:495 (again)
 Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)
