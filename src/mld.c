@@ -154,7 +154,13 @@ static int mld_wait_poll(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 	if (!(chan = mld_channel_notify(mld, addr, MLD_EVENT_JOIN))) {
 		goto exit_err_0;
 	}
-	mld_filter_grp_add_ai(mld, iface, lc_channel_addrinfo(chan)); /* avoid race */
+	/* avoid race by directly adding addr to filter */
+	if (iface == 0) { /* 0 => all interfaces */
+		for (int i = 0; i < mld->len; i++) {
+			 mld_filter_grp_add_ai(mld, i, lc_channel_addrinfo(chan));
+		}
+	}
+	else mld_filter_grp_add_ai(mld, iface, lc_channel_addrinfo(chan));
 	if ((lc_channel_bind(sock, chan)) || (lc_channel_join(chan))) {
 		goto exit_err_1;
 	}
@@ -229,11 +235,13 @@ err_0:
 
 static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *grp, int event)
 {
-	struct in6_addr all = IN6ADDR_ANY_INIT;
+	struct in6_addr any = IN6ADDR_ANY_INIT;
+	any.s6_addr[0] = 0xff;
+	any.s6_addr[1] = 0x1e;
 	mld_notify_send(mld, iface, grp, event);
 	mld_notify_send(mld, iface, grp, MLD_EVENT_ALL);
-	mld_notify_send(mld, iface, &all, event);
-	mld_notify_send(mld, iface, &all, MLD_EVENT_ALL);
+	mld_notify_send(mld, iface, &any, event);
+	mld_notify_send(mld, iface, &any, MLD_EVENT_ALL);
 }
 
 static int mld_filter_grp_del_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)

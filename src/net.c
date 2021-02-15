@@ -273,8 +273,10 @@ void *net_job_send_tree(void *arg)
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 	while (running) {
-		// FIXME - how to handle interfaces - send on all?
-		if (mld_enabled && data->mld) mld_wait(data->mld, 0, grp); // FIXME - iface
+		// FIXME - sending needs to be triggered by a join on a specific
+		// interface.  We don't want to block for a join on each
+		// interface, but only fire up our threads when there is a join
+		if (mld_enabled && data->mld) mld_wait(data->mld, 0, grp);
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
 		net_send_tree(s, addr, vlen, iov);

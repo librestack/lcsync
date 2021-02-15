@@ -92,7 +92,7 @@ void gentestdata(char *srcdata)
 int main(void)
 {
 	loginit();
-	char channame[] = "somechan";
+	char channame[] = "and now for something completely different...";
 	hash_generic(hash, HASHSIZE, (unsigned char *)channame, strlen(channame));
 	lc_ctx_t *lctx = lc_ctx_new();
 	lc_socket_t *sock = lc_socket_new(lctx);
@@ -121,10 +121,6 @@ int main(void)
 	pthread_create(&thread_serv, &attr, &thread_send_data, srcdata);
 	pthread_attr_destroy(&attr);
 
-	// FIXME - mld_notify thinks no one is listening to side channel for grp
-	// is this a timing issue, or is something broken?
-	// mld_filter_grp_add(): ff3e:ba5b:2812:9174:980b:632b:8f5c:9d81
-	// no one listening to ff3e:5513:4ada:6a77:84de:ed91:b4d4:b808 - skipping notification for ff3e:ba5b:2812:9174:980b:632b:8f5c:9d81
 	// FIXME join from mld_wait() never gets into filter
 	
 	/* wait a moment, ensure no packets received */
@@ -135,16 +131,23 @@ int main(void)
 	for (int i = 0; i < 1; i++) {
 		/* join grp, wait, ensure packets received */
 		pkts = 0;
+		DEBUG("JOINING");
 		lc_channel_join(chan);
-		usleep(10000);
+		DEBUG("WAITING");
+		usleep(1000000);
+		DEBUG("TESTING");
 		test_assert(pkts > 0, "%i:pkts received=%i (joined)", i, pkts); // FIXME
 		test_log("pkts received (total) = %i\n", tots);
 
 		/* leave group, reset counters, make sure sending has stopped */
+		DEBUG("PARTING");
 		lc_channel_part(chan);
+		DEBUG("WAITING");
 		usleep(10000); /* leave channel, wait before resetting counter */
+		DEBUG("RESET COUNTER");
 		pkts = 0;
 		usleep(10000); /* counter reset, wait not to see what arrives */
+		DEBUG("TESTING");
 		test_assert(pkts == 0, "%i: pkts received=%i (parted)", i, pkts);
 	}
 
