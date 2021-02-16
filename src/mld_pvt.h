@@ -86,4 +86,7 @@ struct mld_lrm_t {
 } __attribute__((__packed__));
 #endif
 
+/* convert network index to mld filter array index */
+unsigned int mld_idx_iface(mld_t *mld, unsigned int idx);
+
 #endif /* MLD_PVT_H */

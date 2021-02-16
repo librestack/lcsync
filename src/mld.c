@@ -42,7 +42,7 @@ static unsigned int interface_index(struct msghdr *msg)
 	return ifidx;
 }
 
-static unsigned int mld_idx_iface(mld_t *mld, unsigned int idx)
+unsigned int mld_idx_iface(mld_t *mld, unsigned int idx)
 {
 	for (int i = 0; i < mld->len; i++) {
 		if (mld->ifx[i] == idx) return i;
