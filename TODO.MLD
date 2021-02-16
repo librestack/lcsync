@@ -1,13 +1,7 @@
-FIXME - notifications are all sent on the same sidechannel, joins and parts
 FIXME - parts are not taking effect
 FIXME - set timer low on part
 FIXME - send listner query
 FIXME - expire records properly
-
-IPV6_MULTICAST_ALL - unset
-
-* mld_filter_grp_del() possibly not working  - various cap tests failing when
-parted (0060, 0061, 0062 at least)
 
 blocking mode for small number of files
 otherwise start new job for each subscribe notification (requires file index)
@@ -16,7 +10,6 @@ otherwise start new job for each subscribe notification (requires file index)
 
 MLD timer stop ticking when all zero
 MLD timer start ticking when reset
-MLD timer - test what happens when ticking reaches zero
 
 See 7.2.  MLD State Maintained by Multicast Routers of RFC 3810:
 	  https://tools.ietf.org/html/rfc3810#section-7.2

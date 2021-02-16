@@ -34,6 +34,7 @@ int main(void)
 	struct icmp6_hdr icmpv6 = {0};
 	struct msghdr msg = {0};
 	unsigned int iface = if_nametoindex("lo");
+	const unsigned ifidx = 0;
 
 	test_name("mld_listen_report() / mld_msg_handle()");
 
@@ -53,7 +54,7 @@ int main(void)
 	memcpy(CMSG_DATA(cmsgh), &pi, sizeof(struct in6_pktinfo));
 
 	mld = mld_init(interfaces);
-	mld->ifx[0] = iface; /* this normally happens in mld_start() */
+	mld->ifx[ifidx] = iface; /* this normally happens in mld_start() */
 
 	test_assert(!mld_filter_grp_cmp(mld, iface, &addr), "test filter before adding any records");
 
@@ -72,12 +73,11 @@ int main(void)
 	msg.msg_iovlen = 2;
 
 	mld_listen_report(mld, &msg);
-	// FIXME FIXME FIXME - failing
-	test_assert(mld_filter_grp_cmp(mld, iface, &addr), "test filter after EXCLUDE(NULL) => join");
+	test_assert(mld_filter_grp_cmp(mld, ifidx, &addr), "test filter after EXCLUDE(NULL) => join");
 
 	mrec->type = MODE_IS_INCLUDE;
 	mld_msg_handle(mld, &msg);
-	test_assert(!mld_filter_grp_cmp(mld, iface, &addr), "test filter after INCLUDE(NULL) => leave");
+	test_assert(!mld_filter_grp_cmp(mld, ifidx, &addr), "test filter after INCLUDE(NULL) => leave");
 
 	// TODO some more tests here - multiple records etc.
 
