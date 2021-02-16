@@ -76,6 +76,7 @@ void *packet_sniff(void *arg)
 		}
 		tots++;
 	}
+	close(sock);
 	pthread_exit(arg);
 	return arg;
 }
