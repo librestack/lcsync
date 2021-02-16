@@ -9,9 +9,6 @@
 intermittent, possibly timing - seems to pass when run separately to other
 tests.
 -------------------------------------------------------------------------------
-0060 sometimes fails with:
-test_assert(): pkts received=1 (joined) - Address already in use
--------------------------------------------------------------------------------
 0027 aborts with Unexpected error 9 on netlink descriptor 0.
 Doesn't happen under valgrind.
 -------------------------------------------------------------------------------

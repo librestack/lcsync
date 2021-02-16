@@ -55,6 +55,8 @@ void *packet_sniff(void *arg)
 	//int sock = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IPV6));
 	int sock = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
 	test_assert(sock != -1, "socket(): %s", strerror(errno));
+	const int opt = 1;
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt);
 
 	inet_ntop(AF_INET6, grp, strsrc, INET6_ADDRSTRLEN);
 	test_log("snoop group: %s\n", strsrc);
@@ -168,7 +170,7 @@ int main(void)
 	usleep(100000);
 	pkts = 0;
 	usleep(100000);
-	test_assert(pkts == 0, "pkts received=%i (parted)", pkts); // FIXME
+	test_assert(pkts == 0, "pkts received=%i (parted)", pkts);
 
 	/* clean up */
 	running = 0;

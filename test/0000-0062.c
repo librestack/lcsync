@@ -16,13 +16,13 @@
 static void channel_part(lc_channel_t *chan)
 {
 	test_assert(!lc_channel_part(chan), "lc_channel_part()");
-	usleep(10000);
+	usleep(100000);
 }
 
 static void channel_join(lc_channel_t *chan)
 {
 	test_assert(!lc_channel_join(chan), "lc_channel_join()");
-	usleep(10000);
+	usleep(100000);
 }
 
 /* find an interface that supports multicast */
