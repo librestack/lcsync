@@ -4,6 +4,7 @@
 #include "test.h"
 #include "../src/mld_pvt.h"
 #include <net/if.h>
+#include <netinet/ip6.h>
 #include <netinet/icmp6.h>
 #include <netdb.h>
 #include <librecast.h>
@@ -36,11 +37,17 @@ int main(void)
 
 	test_name("mld_listen_report() / mld_msg_handle()");
 
-	// FIXME - calling mld_listen_report() without iface hits assert() in
-	// interface_index()
-
-
 	create_channel(&addr, channame);
+
+	/* pack the ancillary data with interface index */
+	struct in6_pktinfo pi = { .ipi6_ifindex = htonl(iface) };
+	socklen_t cmsg_len = sizeof(struct cmsghdr) + sizeof(struct in6_pktinfo);
+	struct cmsghdr *cmsgh = calloc(1, cmsg_len);
+	cmsgh->cmsg_len = cmsg_len;
+	cmsgh->cmsg_level = IPPROTO_IPV6;
+	cmsgh->cmsg_type = IPV6_PKTINFO;
+	memcpy(CMSG_DATA(cmsgh), &pi, sizeof(struct in6_pktinfo));
+
 	mld = mld_init(interfaces);
 
 	test_assert(!mld_filter_grp_cmp(mld, iface, &addr), "test filter before adding any records");
@@ -54,13 +61,10 @@ int main(void)
 	iov[0].iov_len = sizeof icmpv6;
 	iov[1].iov_base = mrec;
 	iov[1].iov_len = sizeof mrec;
-	//msg.msg_name = buf_name;
-	//msg.msg_namelen = IPV6_BYTES;
-	//msg.msg_control = buf_ctrl;
-	//msg.msg_controllen = BUFSIZE;
+	msg.msg_control = cmsgh;
+	msg.msg_controllen = cmsg_len;
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 2;
-	//msg.msg_flags = 0;
 
 	mld_listen_report(mld, &msg);
 	test_assert(mld_filter_grp_cmp(mld, iface, &addr), "test filter after EXCLUDE(NULL) => join");
@@ -70,7 +74,8 @@ int main(void)
 	test_assert(!mld_filter_grp_cmp(mld, iface, &addr), "test filter after INCLUDE(NULL) => leave");
 
 	// TODO some more tests here - multiple records etc.
-	
+
+	free(cmsgh);
 	free(mrec);
 	mld_free(mld);
 	lc_ctx_free(lctx);
