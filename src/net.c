@@ -730,7 +730,7 @@ int net_sync(int *argc, char *argv[])
 	struct sigaction sa_int = { .sa_handler = net_stop };
 	unsigned char hash[HASHSIZE];
 	job_queue_t *q = job_queue_create(1U << net_send_channels);
-	mtree_tree *stree, *dtree;
+	mtree_tree *stree = NULL, *dtree = NULL;
 	TRACE("%s('%s')", __func__, argv[0]);
 	sigaction(SIGINT, &sa_int, NULL);
 	crypto_generichash(hash, HASHSIZE, (unsigned char *)src, strlen(src), NULL, 0);

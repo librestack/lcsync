@@ -1,10 +1,4 @@
 -------------------------------------------------------------------------------
-==22685== Conditional jump or move depends on uninitialised value(s)
-==22685==    at 0x10F2D0: mtree_free (mtree.c:413)
-==22685==    by 0x112D05: net_sync (net.c:757)
-==22685==    by 0x10A722: main (lcsync.c:24)
-
--------------------------------------------------------------------------------
 Ubuntu 16.04 LTS - segfault when serving files in --mld mode
 
 works when not in mld mode
