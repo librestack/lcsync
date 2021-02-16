@@ -3,6 +3,7 @@
 
 #include "test.h"
 #include "../src/mld_pvt.h"
+#include <arpa/inet.h>
 #include <net/if.h>
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>
@@ -13,13 +14,12 @@ lc_ctx_t *lctx;
 
 void create_channel(struct in6_addr *addr, char *name)
 {
-	struct sockaddr_in6 *sad;
 	struct addrinfo *ai;
 	snprintf(name, 16, "channel 0");
 	lc_channel_t *chan = lc_channel_new(lctx, name);
 	ai = lc_channel_addrinfo(chan);
-	sad = (struct sockaddr_in6 *)ai->ai_addr;
-	memcpy(&addr, &(sad->sin6_addr), sizeof (struct in6_addr));
+	memcpy(addr, aitoin6(ai), sizeof (struct in6_addr));
+
 }
 
 int main(void)
@@ -39,6 +39,10 @@ int main(void)
 
 	create_channel(&addr, channame);
 
+	char straddr[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, &addr, straddr, INET6_ADDRSTRLEN);
+	test_log("addr = %s\n", straddr);
+
 	/* pack the ancillary data with interface index */
 	struct in6_pktinfo pi = { .ipi6_ifindex = htonl(iface) };
 	socklen_t cmsg_len = sizeof(struct cmsghdr) + sizeof(struct in6_pktinfo);
@@ -49,6 +53,7 @@ int main(void)
 	memcpy(CMSG_DATA(cmsgh), &pi, sizeof(struct in6_pktinfo));
 
 	mld = mld_init(interfaces);
+	mld->ifx[0] = iface; /* this normally happens in mld_start() */
 
 	test_assert(!mld_filter_grp_cmp(mld, iface, &addr), "test filter before adding any records");
 
@@ -67,6 +72,7 @@ int main(void)
 	msg.msg_iovlen = 2;
 
 	mld_listen_report(mld, &msg);
+	// FIXME FIXME FIXME - failing
 	test_assert(mld_filter_grp_cmp(mld, iface, &addr), "test filter after EXCLUDE(NULL) => join");
 
 	mrec->type = MODE_IS_INCLUDE;
