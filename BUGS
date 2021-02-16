@@ -1,4 +1,20 @@
 -------------------------------------------------------------------------------
+0058 intermittently fails to recv msgs - timing?
+-------------------------------------------------------------------------------
+0000-0062  MLD filter testing - joining via multicast
+	mld_filter_grp_cmp() - added (0)
+	0: timer set to 0
+	mld_filter_grp_cmp() - before part (0)                           FAIL
+
+intermittent, possibly timing - seems to pass when run separately to other
+tests.
+-------------------------------------------------------------------------------
+0060 sometimes fails with:
+test_assert(): pkts received=1 (joined) - Address already in use
+-------------------------------------------------------------------------------
+0027 aborts with Unexpected error 9 on netlink descriptor 0.
+Doesn't happen under valgrind.
+-------------------------------------------------------------------------------
 Ubuntu 16.04 LTS - segfault when serving files in --mld mode
 
 works when not in mld mode
