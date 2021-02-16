@@ -1,4 +1,7 @@
 -------------------------------------------------------------------------------
+Sometimes in non-MLD node, network syncing does not work first time. A second
+run is required for the checksums to match.
+-------------------------------------------------------------------------------
 0058 intermittently fails to recv msgs - timing?
 -------------------------------------------------------------------------------
 0000-0062  MLD filter testing - joining via multicast
@@ -76,7 +79,4 @@ SIGTERM works
 intermittent fail in 0062
 mld_filter_grp_cmp() - false (1241374768)
 integer overflow not possible, so probably writing where we shouldn't
--------------------------------------------------------------------------------
-mld_listen_report() assumes interface_index() will return an index within bounds
-of our array.  It doesn't.
 -------------------------------------------------------------------------------
