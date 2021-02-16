@@ -28,12 +28,13 @@ static volatile int cont = 1;
 static unsigned int interface_index(struct msghdr *msg)
 {
 	struct cmsghdr *cmsg;
-	struct in6_pktinfo *pi;
+	struct in6_pktinfo pi = {0};
 	unsigned int ifidx = 0;
-	for (cmsg = CMSG_FIRSTHDR(msg); cmsg != NULL; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-		if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_PKTINFO) {
-			pi = (struct in6_pktinfo *) CMSG_DATA(cmsg);
-			ifidx = pi->ipi6_ifindex;
+	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
+		if (cmsg->cmsg_type == IPV6_PKTINFO) {
+			/* may not be aligned, copy */
+			memcpy(&pi, CMSG_DATA(cmsg), sizeof pi);
+			ifidx = pi.ipi6_ifindex;
 			break;
 		}
 	}

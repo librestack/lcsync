@@ -50,7 +50,7 @@ int main(void)
 
 		/* test false before adding */
 		test_log("testing '%s' (false)\n", channame);
-		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]),
+		test_assert(!mld_filter_grp_cmp(mld, 1, addr[i]),
 				"mld_filter_grp_cmp() - before adding (%i)", i);
 
 		/* now join the channel */
@@ -58,21 +58,24 @@ int main(void)
 		test_assert(!lc_channel_bind(sock[i], chan[i]), "lc_channel_bind()");
 		channel_join(chan[i]);
 
+		usleep(10000);
+
 		/* test positive after adding */
 		test_log("testing '%s' (true)\n", channame);
-		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]),
+		test_assert(mld_filter_grp_cmp(mld, 1, addr[i]),
 				"mld_filter_grp_cmp() - added (%i)", i);
 
 		/* and check the timer is set */
-		t = mld_filter_timer_get(mld, 0, addr[i]);
+		t = mld_filter_timer_get(mld, 1, addr[i]);
 		test_assert(t == MLD_TIMEOUT, "%i: timer set to %i", i, t);
 	}
 	/* test we can remove groups too */
 	for (int i = 0; i < limit; i++) {
-		test_assert(mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - before part (%i)", i);
+		test_assert(mld_filter_grp_cmp(mld, 1, addr[i]), "mld_filter_grp_cmp() - before part (%i)", i);
 		/* remove group and check again */
 		channel_part(chan[i]);
-		test_assert(!mld_filter_grp_cmp(mld, 0, addr[i]), "mld_filter_grp_cmp() - parted (%i)", i);
+		usleep(1000000);
+		test_assert(!mld_filter_grp_cmp(mld, 1, addr[i]), "mld_filter_grp_cmp() - parted (%i)", i);
 	}
 
 	mld_stop(mld);
