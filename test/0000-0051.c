@@ -19,7 +19,7 @@ int main(void)
 	struct addrinfo *ai;
 	char channame[16] = "";
 	int t;
-	unsigned int iface = if_nametoindex("lo");
+	unsigned int iface = 0;
 	lc_ctx_t *lctx;
 	lc_channel_t *chan;
 	test_name("mld_filter_grp_add() / mld_filter_grp_cmp()");
