@@ -324,7 +324,7 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	iov[1].iov_base = buf;
 	iov[1].iov_len = DATA_FIXED;
 	if (!dryrun) while (running && hamm(bitmap, maplen) && PKTS) {
-		DEBUG("%s() recvmsg", __func__);
+		DEBUG("%s() recvmsg", __func__); // FIXME - blocking here
 		while (running && !(rc = poll(&fds, 1, 100)));
 		if (rc > 0 && (msglen = recvmsg(sock, &msgh, 0)) == -1) {
 			perror("recv()");
@@ -587,6 +587,10 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 	while (running) {
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
+			/* FIXME - we don't want to block here in MLD mode - we
+			 * should subscribe for notifications on all addresses
+			 * on all interfaces and wait to be told what blocks to
+			 * send, firing up a thread only when required */
 			if (mld_enabled && mld) mld_wait(mld, 0, aitoin6(addr));
 			DEBUG("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_base = mtree_blockn(stree, blk);
@@ -656,6 +660,8 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 		data->mld = mld_start(&running);
 		if (!data->mld) goto err_3;
 	}
+	/* TODO in MLD mode we will block here waiting to find out which blocks and
+	 * trees are requested, creating jobs when the state changes */
 	job_tree = job_push_new(q, &net_job_send_tree, data, sz, NULL, 0);
 	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
 		data->n = channels - 1 + chan;

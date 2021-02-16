@@ -1,4 +1,12 @@
-FIXME - parts are not taking effect
+* test / support multiple interfaces
+
+sending needs to be triggered by a join on a specific interface.  We don't want
+to block for a join on each interface, but only fire up our threads when there
+is a join.  Dispatcher loop at line 663 of net.c
+
+But first, lets write some more mld_* callbacks etc.
+--------------------------------------------------------------------------------
+
 FIXME - set timer low on part
 FIXME - send listner query
 FIXME - expire records properly
@@ -17,8 +25,6 @@ See 7.2.  MLD State Maintained by Multicast Routers of RFC 3810:
 TODO: add src arg to mld_filter_grp_*()
 
 * more work todo in test 0054, testing mld_address_record() with different combos
-
-* test / support multiple interfaces
 
 --------------------------------------------------------------------------------
 
