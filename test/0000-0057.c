@@ -4,6 +4,7 @@
 #include "test.h"
 #include "../src/mld_pvt.h"
 #include "../src/job.h"
+#include <net/if.h>
 #include <netinet/icmp6.h>
 #include <netdb.h>
 #include <pthread.h>
@@ -17,13 +18,11 @@ lc_ctx_t *lctx;
 void create_channel(struct in6_addr *addr, char *name)
 {
 	test_log("%()\n", __func__);
-	struct sockaddr_in6 *sad;
 	struct addrinfo *ai;
 	snprintf(name, 16, "channel 0");
 	lc_channel_t *chan = lc_channel_new(lctx, name);
 	ai = lc_channel_addrinfo(chan);
-	sad = (struct sockaddr_in6 *)ai->ai_addr;
-	memcpy(&addr, &(sad->sin6_addr), sizeof (struct in6_addr));
+	memcpy(&addr, aitoin6(ai), sizeof (struct in6_addr));
 }
 
 void *listen_thread(void *arg)
@@ -44,6 +43,7 @@ int main(void)
 	struct icmp6_hdr icmpv6 = {0};
 	struct msghdr msg = {0};
 	const int interfaces = 1;
+	unsigned int iface;
 	int rc;
 	int sock[2];
 	mld_t *mld;
@@ -52,6 +52,9 @@ int main(void)
 
 	test_name("mld_listen()");
 
+	// FIXME - need to use correct interface to match sendmsg()
+	iface = if_nametoindex("lo");
+	test_assert(iface, "iface = %u: %s", iface, strerror(errno));
 	mld = mld_init(interfaces);
 
 	test_assert(mld_listen(mld) == -1, "mld_listen() - return -1 when socket not initialized");
@@ -68,9 +71,7 @@ int main(void)
 	pthread_create(&thread, &attr, &listen_thread, mld);
 
 	create_channel(&addr, channame);
-	test_assert(!mld_filter_grp_cmp(mld, 0, &addr), "test filter before adding any records");
-
-
+	test_assert(!mld_filter_grp_cmp(mld, iface, &addr), "test filter before adding any records");
 
 	/* create MLD2_LISTEN_REPORT */
 	mrec->type = MODE_IS_EXCLUDE;
@@ -87,13 +88,13 @@ int main(void)
 	rc = sendmsg(sock[0], &msg, 0);
 	if (rc == -1) perror("sendmsg()");
 	usleep(1000);
-	test_assert(mld_filter_grp_cmp(mld, 0, &addr), "test filter after EXCLUDE(NULL) => join");
+	test_assert(mld_filter_grp_cmp(mld, iface, &addr), "test filter after EXCLUDE(NULL) => join");
 
 	mrec->type = MODE_IS_INCLUDE;
 	rc = sendmsg(sock[0], &msg, 0);
 	if (rc == -1) perror("sendmsg()");
 	usleep(1000);
-	test_assert(!mld_filter_grp_cmp(mld, 0, &addr), "test filter after INCLUDE(NULL) => leave");
+	test_assert(!mld_filter_grp_cmp(mld, iface, &addr), "test filter after INCLUDE(NULL) => leave");
 
 	pthread_cancel(thread);
 	pthread_join(thread, NULL);

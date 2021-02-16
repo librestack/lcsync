@@ -3,6 +3,7 @@
 
 #include "test.h"
 #include "../src/mld_pvt.h"
+#include <net/if.h>
 #include <netinet/icmp6.h>
 #include <netdb.h>
 #include <librecast.h>
@@ -31,14 +32,18 @@ int main(void)
 	struct iovec iov[2] = {0};
 	struct icmp6_hdr icmpv6 = {0};
 	struct msghdr msg = {0};
+	unsigned int iface = if_nametoindex("lo");
 
 	test_name("mld_listen_report() / mld_msg_handle()");
+
+	// FIXME - calling mld_listen_report() without iface hits assert() in
+	// interface_index()
 
 
 	create_channel(&addr, channame);
 	mld = mld_init(interfaces);
 
-	test_assert(!mld_filter_grp_cmp(mld, 0, &addr), "test filter before adding any records");
+	test_assert(!mld_filter_grp_cmp(mld, iface, &addr), "test filter before adding any records");
 
 	/* create MLD2_LISTEN_REPORT */
 	mrec->type = MODE_IS_EXCLUDE;
@@ -58,11 +63,11 @@ int main(void)
 	//msg.msg_flags = 0;
 
 	mld_listen_report(mld, &msg);
-	test_assert(mld_filter_grp_cmp(mld, 0, &addr), "test filter after EXCLUDE(NULL) => join");
+	test_assert(mld_filter_grp_cmp(mld, iface, &addr), "test filter after EXCLUDE(NULL) => join");
 
 	mrec->type = MODE_IS_INCLUDE;
 	mld_msg_handle(mld, &msg);
-	test_assert(!mld_filter_grp_cmp(mld, 0, &addr), "test filter after INCLUDE(NULL) => leave");
+	test_assert(!mld_filter_grp_cmp(mld, iface, &addr), "test filter after INCLUDE(NULL) => leave");
 
 	// TODO some more tests here - multiple records etc.
 	

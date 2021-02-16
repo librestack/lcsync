@@ -38,6 +38,7 @@ static unsigned int interface_index(struct msghdr *msg)
 			break;
 		}
 	}
+	assert(ifidx);
 	return ifidx;
 }
 
