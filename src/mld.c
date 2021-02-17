@@ -180,14 +180,12 @@ static void mld_watch_callback(mld_watch_t *watch, struct msghdr *msg)
 	struct in6_pktinfo hdr = {0};
 
 	event = calloc(1, sizeof(mld_watch_t));
-
+	if (!event) return;
 	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
 		if (cmsg->cmsg_type == IPV6_PKTINFO) {
 			memcpy(&hdr, CMSG_DATA(cmsg), sizeof hdr);
 			event->grp = &hdr.ipi6_addr;
 			event->ifx = hdr.ipi6_ifindex;
-			char straddr[INET6_ADDRSTRLEN];
-			inet_ntop(AF_INET6, &hdr.ipi6_addr, straddr, INET6_ADDRSTRLEN);
 			break;
 		}
 	}
