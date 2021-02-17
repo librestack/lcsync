@@ -139,9 +139,9 @@ lc_channel_t *mld_channel_notify(mld_t *mld, struct in6_addr *addr, int events)
 	char base[INET6_ADDRSTRLEN] = "";
 	lc_channel_t *tmp;
 	struct in6_addr any = IN6ADDR_ANY_INIT;
-	if (!addr) {
-		any.s6_addr[0] = 0xff;
-		any.s6_addr[1] = 0x1e;
+	if (!addr) { /* NULL => watch any/all */
+		any.s6_addr[0] = 0xff; /* set multicast bits */
+		any.s6_addr[1] = 0x1e; /* flags + scope */
 		addr = &any;
 	}
 	if (!inet_ntop(AF_INET6, addr, base, INET6_ADDRSTRLEN)) {
@@ -168,47 +168,90 @@ mld_watch_t *mld_watch_init(mld_t *mld, unsigned int ifx, struct in6_addr *grp, 
 
 int mld_watch_stop(mld_watch_t *watch)
 {
-	// TODO
+	pthread_cancel(watch->thread);
+	pthread_join(watch->thread, NULL);
 	return 0;
+}
+
+static void mld_watch_callback(mld_watch_t *watch, struct msghdr *msg)
+{
+	mld_watch_t *event;
+	struct cmsghdr *cmsg;
+	struct in6_pktinfo hdr;
+
+	event = calloc(1, sizeof(mld_watch_t));
+	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
+		if (cmsg->cmsg_type == IPV6_PKTINFO) {
+			memcpy(&hdr, CMSG_DATA(cmsg), sizeof hdr);
+			//memcpy(event->grp, &hdr.ipi6_addr, sizeof(struct in6_addr));
+			event->grp = &hdr.ipi6_addr;
+			event->ifx = htonl(hdr.ipi6_ifindex);
+			DEBUG("interface is %u", htonl(hdr.ipi6_ifindex));
+			break;
+		}
+	}
+	watch->f(event, watch);
+}
+
+void *mld_watch_thread(void *arg)
+{
+	mld_watch_t *watch = (mld_watch_t *)arg;
+	struct iovec iov[1] = {0};
+	struct msghdr msg = {0};
+	char ctrl[sizeof(struct in6_pktinfo)];
+	int s;
+
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = &ctrl;
+	msg.msg_controllen = sizeof ctrl;
+
+	s = lc_socket_raw(watch->sock);
+	assert(s);
+	for (;;) {
+		recvmsg(s, &msg, 0);
+		mld_watch_callback(watch, &msg);
+	}
+
+	return NULL;
 }
 
 int mld_watch_start(mld_watch_t *watch)
 {
-	lc_ctx_t *lctx = watch->mld->lctx;
-	lc_socket_t *sock;
-	lc_channel_t *chan;
 	pthread_attr_t attr = {0};
-	char strchan[INET6_ADDRSTRLEN];
-	int rc = -1;
+	int rc;
 
 	assert(watch->mld);
 
-	sock = lc_socket_new(lctx);
-	if (!sock) return -1;
-	chan = mld_channel_notify(watch->mld, watch->grp, watch->events);
-	if (!chan) goto err_0;
-
-	struct addrinfo *ai = lc_channel_addrinfo(chan);
-	inet_ntop(AF_INET6, aitoin6(ai), strchan, INET6_ADDRSTRLEN);
-	DEBUG("%s(): joining %s", __func__, strchan);
-
-	if ((lc_channel_bind(sock, chan)) || (lc_channel_join(chan))) {
+	watch->sock = lc_socket_new(watch->mld->lctx);
+	if (!watch->sock) return -1;
+	watch->chan = mld_channel_notify(watch->mld, watch->grp, watch->events);
+	if (!watch->chan) goto err_0;
+	/* avoid race by directly adding addr to filter */
+	if (watch->ifx == 0) { /* 0 => all interfaces */
+		for (int i = 0; i < watch->mld->len; i++) {
+			 mld_filter_grp_add_ai(watch->mld, i, lc_channel_addrinfo(watch->chan));
+		}
+	}
+	else mld_filter_grp_add_ai(watch->mld, watch->ifx, lc_channel_addrinfo(watch->chan));
+	if ((rc = lc_channel_bind(watch->sock, watch->chan))) {
+		ERROR("lc_channel_bind(): %s", lc_error_msg(rc));
+		goto err_1;
+	}
+	if ((rc = lc_channel_join(watch->chan))) {
 		ERROR("lc_channel_join(): %s", lc_error_msg(rc));
 		goto err_1;
 	}
-
-	// TODO wait for notification, check for stop
-	//
-	// TODO use job or pthread? simple needs - use thread
 	pthread_attr_init(&attr);
+	pthread_create(&watch->thread, &attr, &mld_watch_thread, watch);
 	pthread_attr_destroy(&attr);
 
-	rc = 0;
+	return 0;
 err_1:
-	lc_channel_free(chan);
+	lc_channel_free(watch->chan);
 err_0:	
-	lc_socket_close(sock);
-	return rc;
+	lc_socket_close(watch->sock);
+	return -1;
 }
 
 void mld_watch_free(mld_watch_t *watch)
@@ -303,7 +346,12 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 	/* check filter to see if anyone listening for notifications */
 	ai = lc_channel_addrinfo(chan);
 	if (loglevel & LOG_DEBUG) {
-		inet_ntop(AF_INET6, grp, sgroup, INET6_ADDRSTRLEN);
+		if (grp) {
+			inet_ntop(AF_INET6, grp, sgroup, INET6_ADDRSTRLEN);
+		}
+		else {
+			strcpy(sgroup, "any");
+		}
 		inet_ntop(AF_INET6, aitoin6(ai), swatch, INET6_ADDRSTRLEN);
 	}
 	if (!mld_filter_grp_cmp(mld, iface, aitoin6(ai))) {

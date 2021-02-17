@@ -5,22 +5,28 @@
 #include "../src/globals.h"
 #include "../src/log.h"
 #include "../src/mld_pvt.h"
+#include <arpa/inet.h>
 #include <net/if.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
 #include <librecast.h>
+#include <unistd.h>
 
 static int calls;
 
 void watch_callback(mld_watch_t *event, mld_watch_t *orig)
 {
-	(void)event; (void)orig;
 	calls++;
+	test_assert(event != NULL, "event allocated");
+	test_assert(event != orig, "event new");
+	test_assert(event->ifx == orig->ifx, "event ifx set=%u", event->ifx);
+	test_assert(event->grp != NULL, "event grp set");
+	free(event);
 }
 
 // FIXME - split this out into test_misc.c
 /* find an interface that supports multicast */
-static unsigned get_multicast_if(void)
+static unsigned get_multicast_ifx(void)
 {
 	unsigned ifidx = 0;
 	struct ifaddrs *ifa, *ifap;
@@ -37,7 +43,7 @@ static unsigned get_multicast_if(void)
 	return ifidx;
 }
 
-void do_join(void)
+void do_join()
 {
 	lc_ctx_t *lctx;
 	lc_socket_t *sock;
@@ -67,10 +73,10 @@ int main(void)
 
 	test_name("mld_watch_init() / mld_watch_free()");
 
-	mld = mld_init(1);
+	mld = mld_start(NULL);
 	assert(mld);
 
-	ifx = get_multicast_if();
+	ifx = get_multicast_ifx();
 	test_assert(ifx, "get_multicast_if() returned interface idx=%u", ifx);
 	
 	watch = mld_watch_init(mld, ifx, NULL, events, &watch_callback, flags);
@@ -87,20 +93,23 @@ int main(void)
 
 	test_assert(!mld_watch_start(watch), "watch started");
 
+	usleep(10000);
+
 	do_join();
 
+	usleep(10000);
+
 	/* we joined and left a channel - check callback counter */
-	test_assert(calls == 1, "callbacks=%i\n", calls);
+	test_assert(calls > 0, "callbacks=%i", calls);
 
 	test_assert(!mld_watch_stop(watch), "watch stopped");
-	// TODO test mld_watch_stop()
 
 	mld_watch_free(watch);
 
 	watch = mld_watch(mld, ifx, NULL, events, &watch_callback, flags);
 	mld_watch_cancel(watch);
 
-	mld_free(mld);
+	mld_stop(mld);
 
 	return fails;
 }

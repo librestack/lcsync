@@ -65,8 +65,9 @@ struct mld_s {
 struct mld_watch_s {
 	mld_t *mld;
 	pthread_t thread;
+	lc_socket_t *sock;
+	lc_channel_t *chan;
 	void (*f)(mld_watch_t *, mld_watch_t *);
-//	void *arg;
 	struct in6_addr *grp;
 	unsigned int ifx;
 	int events;
