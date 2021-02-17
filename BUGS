@@ -2,6 +2,15 @@
 Sometimes in non-MLD node, network syncing does not work first time. A second
 run is required for the checksums to match.
 -------------------------------------------------------------------------------
+0061 intermittent failure
+0:pkts received=0 (joined)
+intermittent, but quite frequent (happens more often than not)
+also sometimes just blocks and doesnt complete
+-------------------------------------------------------------------------------
+0060 pkts received=1 (joined) - Address already in use
+despite SO_REUSEADDR
+intermittent, but quite frequent
+-------------------------------------------------------------------------------
 0058 intermittently fails to recv msgs - timing?
 -------------------------------------------------------------------------------
 0000-0062  MLD filter testing - joining via multicast
