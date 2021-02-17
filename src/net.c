@@ -629,6 +629,22 @@ void *net_job_send_subtree(void *arg)
 	return arg;
 }
 
+static void net_send_queue_jobs(job_queue_t *q, net_data_t *data, size_t sz, size_t blocks, unsigned channels)
+{
+	job_t *job_tree, *job_data[channels];
+	job_tree = job_push_new(q, &net_job_send_tree, data, sz, NULL, 0);
+	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
+		data->n = channels - 1 + chan;
+		job_data[chan] = job_push_new(q, &net_job_send_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
+	}
+	sem_wait(&job_tree->done);
+	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
+		sem_wait(&job_data[chan]->done);
+		free(job_data[chan]);
+	}
+	free(job_tree);
+}
+
 ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 {
 	TRACE("%s()", __func__);
@@ -639,7 +655,6 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	mtree_tree *tree;
 	job_queue_t *q;
 	net_data_t *data;
-	job_t *job_tree, *job_data[channels];
 	if (!(tree = mtree_create(len, blocksize))) goto err_0;
 	if (!(q = job_queue_create(channels + 1))) goto err_1;
 	assert(srcdata);
@@ -656,25 +671,18 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->byt = len;
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = tree;
+
 	if (mld_enabled) {
 		data->mld = mld_start(&running);
 		if (!data->mld) goto err_3;
+
+		/* TODO in MLD mode we will block here waiting to find out which blocks and
+		 * trees are requested, creating jobs when the state changes */
+
+		mld_stop(data->mld);
 	}
-	/* TODO in MLD mode we will block here waiting to find out which blocks and
-	 * trees are requested, creating jobs when the state changes */
-	job_tree = job_push_new(q, &net_job_send_tree, data, sz, NULL, 0);
-	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
-		data->n = channels - 1 + chan;
-		job_data[chan] = job_push_new(q, &net_job_send_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
-	}
-	sem_wait(&job_tree->done);
-	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
-		sem_wait(&job_data[chan]->done);
-		free(job_data[chan]);
-	}
+	else net_send_queue_jobs(q, data, sz, blocks, channels);
 	rc = 0;
-	free(job_tree);
-	if (mld_enabled) mld_stop(data->mld);
 err_3:
 	free(data);
 err_2:
