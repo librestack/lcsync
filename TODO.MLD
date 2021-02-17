@@ -1,3 +1,7 @@
+--------------------------------------------------------------------------------
+send MLD info with notification
+eg. interface and address.  Basically the contents of struct in6_pktinfo
+--------------------------------------------------------------------------------
 * test / support multiple interfaces
 
 sending needs to be triggered by a join on a specific interface.  We don't want
@@ -5,6 +9,14 @@ to block for a join on each interface, but only fire up our threads when there
 is a join.  Dispatcher loop at line 663 of net.c
 
 But first, lets write some more mld_* callbacks etc.
+Can we get what we want from mld_notify()?
+
+TODO: need a way to send in librecast on a specific interface ie.
+	setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_IF, &i, sizeof(i)
+lc_msg_send() presently uses tap or default (0)
+
+--------------------------------------------------------------------------------
+how do we handle timer expiry as an event?  Do we bother?  Probably not.
 --------------------------------------------------------------------------------
 
 FIXME - set timer low on part

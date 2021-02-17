@@ -35,3 +35,11 @@ NEXT ACTIONS:
 * stats - calculate transfer speed bps etc.
 * net_send_subtree() / net_send_data() - return bytes or -1
 * detect hotplug interfaces
+* gettext - international msgs
+* peer to peer - reshare files - de-duping of multiple sends
+* atomic replication via temporary file and mv - COW?
+* encryption, obviously
+* chroot
+* container API (cgroups, namespaces)
+* document all our headers etc in RFC format with header structures mapped out in ASCII
+
