@@ -30,17 +30,17 @@ static unsigned int interface_index(struct msghdr *msg)
 {
 	struct cmsghdr *cmsg;
 	struct in6_pktinfo pi = {0};
-	unsigned int ifidx = 0;
+	unsigned int ifx = 0;
 	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
 		if (cmsg->cmsg_type == IPV6_PKTINFO) {
 			/* may not be aligned, copy */
 			memcpy(&pi, CMSG_DATA(cmsg), sizeof pi);
-			ifidx = pi.ipi6_ifindex;
+			ifx = pi.ipi6_ifindex;
 			break;
 		}
 	}
-	assert(ifidx);
-	return ifidx;
+	assert(ifx);
+	return ifx;
 }
 
 unsigned int mld_idx_iface(mld_t *mld, unsigned int idx)
@@ -177,16 +177,17 @@ static void mld_watch_callback(mld_watch_t *watch, struct msghdr *msg)
 {
 	mld_watch_t *event;
 	struct cmsghdr *cmsg;
-	struct in6_pktinfo hdr;
+	struct in6_pktinfo hdr = {0};
 
 	event = calloc(1, sizeof(mld_watch_t));
+
 	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
 		if (cmsg->cmsg_type == IPV6_PKTINFO) {
 			memcpy(&hdr, CMSG_DATA(cmsg), sizeof hdr);
-			//memcpy(event->grp, &hdr.ipi6_addr, sizeof(struct in6_addr));
 			event->grp = &hdr.ipi6_addr;
-			event->ifx = htonl(hdr.ipi6_ifindex);
-			DEBUG("interface is %u", htonl(hdr.ipi6_ifindex));
+			event->ifx = hdr.ipi6_ifindex;
+			char straddr[INET6_ADDRSTRLEN];
+			inet_ntop(AF_INET6, &hdr.ipi6_addr, straddr, INET6_ADDRSTRLEN);
 			break;
 		}
 	}
@@ -198,16 +199,21 @@ void *mld_watch_thread(void *arg)
 	mld_watch_t *watch = (mld_watch_t *)arg;
 	struct iovec iov[1] = {0};
 	struct msghdr msg = {0};
-	char ctrl[sizeof(struct in6_pktinfo)];
+	char ctrl[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+	const int opt = 1;
 	int s;
 
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 1;
-	msg.msg_control = &ctrl;
+	msg.msg_control = ctrl;
 	msg.msg_controllen = sizeof ctrl;
 
 	s = lc_socket_raw(watch->sock);
 	assert(s);
+	if (setsockopt(s, IPPROTO_IPV6, IPV6_RECVPKTINFO, &opt, sizeof(opt))) {
+		ERROR("%s() setsockopt: %s", __func__, strerror(errno));
+		return NULL;
+	}
 	for (;;) {
 		recvmsg(s, &msg, 0);
 		mld_watch_callback(watch, &msg);
@@ -574,7 +580,7 @@ int mld_listen(mld_t *mld)
 	struct icmp6_hdr icmpv6 = {0};
 	struct msghdr msg = {0};
 	struct pollfd fds = { .fd = mld->sock, .events = POLL_IN };
-	char buf_ctrl[BUFSIZE];
+	char ctrl[CMSG_SPACE(sizeof(struct in6_pktinfo))];
 	char buf_name[IPV6_BYTES];
 	int rc = 0;
 	assert(mld);
@@ -588,8 +594,8 @@ int mld_listen(mld_t *mld)
 	iov[1].iov_len = sizeof mrec;
 	msg.msg_name = buf_name;
 	msg.msg_namelen = IPV6_BYTES;
-	msg.msg_control = buf_ctrl;
-	msg.msg_controllen = BUFSIZE;
+	msg.msg_control = ctrl;
+	msg.msg_controllen = sizeof ctrl;
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 2;
 	msg.msg_flags = 0;
