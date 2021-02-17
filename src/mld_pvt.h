@@ -62,6 +62,17 @@ struct mld_s {
 	mld_filter_t filter[];
 };
 
+struct mld_watch_s {
+	mld_t *mld;
+	pthread_t thread;
+	void (*f)(mld_watch_t *, mld_watch_t *);
+//	void *arg;
+	struct in6_addr *grp;
+	unsigned int ifx;
+	int events;
+	int flags;
+};
+
 /* Multicast Address Record */
 struct mld_addr_rec_s {
 	uint8_t         type;    /* Record Type */

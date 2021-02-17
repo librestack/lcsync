@@ -647,7 +647,6 @@ static void net_send_queue_jobs(job_queue_t *q, net_data_t *data, size_t sz, siz
 
 ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 {
-	TRACE("%s()", __func__);
 	unsigned channels = 1U << net_send_channels;
 	ssize_t rc = -1;
 	size_t blocks;
@@ -655,6 +654,8 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	mtree_tree *tree;
 	job_queue_t *q;
 	net_data_t *data;
+
+	TRACE("%s()", __func__);
 	if (!(tree = mtree_create(len, blocksize))) goto err_0;
 	if (!(q = job_queue_create(channels + 1))) goto err_1;
 	assert(srcdata);
@@ -671,14 +672,30 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->byt = len;
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = tree;
-
 	if (mld_enabled) {
 		data->mld = mld_start(&running);
 		if (!data->mld) goto err_3;
+		while (running) { // TODO - make running a semaphore?
 
-		/* TODO in MLD mode we will block here waiting to find out which blocks and
-		 * trees are requested, creating jobs when the state changes */
+			/* TODO in MLD mode we will block here waiting to find out which blocks and
+			 * trees are requested, creating jobs when the state changes */
 
+			/* wait for join on any interface, any address */
+			//struct in6_addr any = IN6ADDR_ANY_INIT;
+			//unsigned iface = 0;
+
+			/* FIXME FIXME FIXME wouldn't a callback be better? this will miss events */
+			// TODO implement callback and test for same
+			//mld_wait(data->mld, &iface, &any);
+
+			//mld_watch_t watch; // typedef'd job_t
+			//watch = mld_watch(data->mld, 0, &any, MLD_EVENT_ALL, &callback_here, data, flags);
+
+			//mld_watch_cancel(watch);
+
+			// TODO get interface and address
+
+		}
 		mld_stop(data->mld);
 	}
 	else net_send_queue_jobs(q, data, sz, blocks, channels);

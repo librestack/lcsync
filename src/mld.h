@@ -56,9 +56,10 @@ typedef enum {
 #define MLD_EVENT_SERV "4242"
 
 typedef struct mld_s mld_t;
+typedef struct mld_addr_rec_s mld_addr_rec_t;
 typedef struct mld_filter_s mld_filter_t;
 typedef struct mld_timerjob_s mld_timerjob_t;
-typedef struct mld_addr_rec_s mld_addr_rec_t;
+typedef struct mld_watch_s mld_watch_t;
 
 /* initialize / free state machine */
 mld_t *mld_init(int ifaces);
@@ -66,7 +67,7 @@ mld_t *mld_init(int ifaces);
 /* free MLD objects */
 void mld_free(mld_t *mld);
 
-/* start MLD snooping */
+/* start MLD snooping. will stop when *cont zero (pass NULL to ignore) */
 mld_t *mld_start(volatile int *cont);
 
 /* stop MLD snooping */
@@ -112,7 +113,31 @@ int mld_listen(mld_t *mld);
 
 /* query state */
 
-/* block until notification received for addr */
-int mld_wait(mld_t *mld, unsigned int iface, struct in6_addr *addr);
+/* block until notification received for addr on interface index ifx. If ifx is
+ * NULL or points to a zero value, all interfaces are watched */
+int mld_wait(mld_t *mld, unsigned int *ifx, struct in6_addr *addr);
+
+/* allocate new watch on specifed interface ifx, grp and events. free with mld_watch_free()
+ * f is a function pointer to a function with two watch args.  Unless NULL, the
+ * first will be a pointer to a watch populated with the event, the second will
+ * be the original watch */
+mld_watch_t *mld_watch_init(mld_t *mld, unsigned int ifx, struct in6_addr *grp, int events,
+	void (*f)(mld_watch_t *, mld_watch_t *), int flags);
+
+/* start watch */
+int mld_watch_start(mld_watch_t *watch);
+
+/* mld_watch_init() + mld_watch_start() */
+mld_watch_t *mld_watch(mld_t *mld, unsigned int ifx, struct in6_addr *grp, int events,
+	void (*f)(mld_watch_t *, mld_watch_t *), int flags);
+
+/* stop watch. watch is still valid, can be started again with mld_watch_start() */
+int mld_watch_stop(mld_watch_t *watch);
+
+/* shorthand for mld_watch_stop() + mld_watch_free() */
+int mld_watch_cancel(mld_watch_t *watch);
+
+/* free watch */
+void mld_watch_free(mld_watch_t *watch);
 
 #endif /* _MLD_H */

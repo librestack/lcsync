@@ -42,4 +42,6 @@ NEXT ACTIONS:
 * chroot
 * container API (cgroups, namespaces)
 * document all our headers etc in RFC format with header structures mapped out in ASCII
-
+* man pages for each function
+* merge file/net/mtree into librecast API
+* merge MLD into librecast API

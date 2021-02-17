@@ -22,7 +22,6 @@
 static const time_t waits = 1;
 static int events;
 static mld_t *mld;
-static int iface;
 
 /* mld_wait(), increment events counter, return */
 void *do_mld_watch(void *arg)
@@ -31,7 +30,7 @@ void *do_mld_watch(void *arg)
 	char straddr[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, addr, straddr, INET6_ADDRSTRLEN);
 	test_log("watching %s\n", straddr);
-	if (!mld_wait(mld, iface, addr)) events++;
+	if (!mld_wait(mld, NULL, addr)) events++;
 	test_log("notify received for %s\n", straddr);
 	return arg;
 }

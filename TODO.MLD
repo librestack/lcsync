@@ -1,4 +1,7 @@
 --------------------------------------------------------------------------------
+consistently use iface / ifx to refer to the array index and interface index
+respectively
+--------------------------------------------------------------------------------
 send MLD info with notification
 eg. interface and address.  Basically the contents of struct in6_pktinfo
 --------------------------------------------------------------------------------

@@ -21,7 +21,6 @@ static const int waits = 1;
 static int events;
 static sem_t sem;
 static mld_t *mld;
-static int iface = 0;
 
 void *do_join(void *arg)
 {
@@ -36,7 +35,7 @@ void *do_mld_watch(void *arg)
 	inet_ntop(AF_INET6, addr, straddr, INET6_ADDRSTRLEN);
 	test_log("watching %s\n", straddr);
 	sem_post(&sem);
-	if (!mld_wait(mld, iface, addr)) events++;
+	if (!mld_wait(mld, NULL, addr)) events++;
 	test_log("notify received for %s\n", straddr);
 	return arg;
 }

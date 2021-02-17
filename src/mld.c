@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <ifaddrs.h>
 #include <poll.h>
+#include <librecast/types.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <netinet/icmp6.h>
@@ -146,7 +147,93 @@ lc_channel_t *mld_channel_notify(mld_t *mld, struct in6_addr *addr, int events)
 	return lc_channel_sidehash(tmp, (unsigned char *)&events, sizeof(int));
 }
 
-static int mld_wait_poll(mld_t *mld, unsigned int iface, struct in6_addr *addr)
+mld_watch_t *mld_watch_init(mld_t *mld, unsigned int ifx, struct in6_addr *grp, int events,
+	void (*f)(mld_watch_t *, mld_watch_t *), int flags)
+{
+	mld_watch_t *w = calloc(1, sizeof(mld_watch_t));
+	w->mld = mld;
+	w->grp = grp;
+	w->ifx = ifx;
+	w->events = events;
+	w->flags = flags;
+	w->f = f;
+	return w;
+}
+
+int mld_watch_stop(mld_watch_t *watch)
+{
+	// TODO
+	return 0;
+}
+
+int mld_watch_start(mld_watch_t *watch)
+{
+	lc_ctx_t *lctx = watch->mld->lctx;
+	lc_socket_t *sock;
+	lc_channel_t *chan;
+	pthread_attr_t attr = {0};
+	char strchan[INET6_ADDRSTRLEN];
+	int rc = -1;
+
+	assert(watch->mld);
+	assert(watch->grp);
+
+	inet_ntop(AF_INET6, watch->grp, strchan, INET6_ADDRSTRLEN);
+	DEBUG("%s(): watching for %s", __func__, strchan);
+
+	sock = lc_socket_new(lctx);
+	if (!sock) return -1;
+	chan = mld_channel_notify(watch->mld, watch->grp, watch->events);
+	if (!chan) goto err_0;
+
+	struct addrinfo *ai = lc_channel_addrinfo(chan);
+	inet_ntop(AF_INET6, aitoin6(ai), strchan, INET6_ADDRSTRLEN);
+	DEBUG("%s(): joining %s", __func__, strchan);
+
+	if ((lc_channel_bind(sock, chan)) || (lc_channel_join(chan))) {
+		ERROR("lc_channel_join(): %s", lc_error_msg(rc));
+		goto err_1;
+	}
+
+	// TODO wait for notification, check for stop
+	//
+	// TODO use job or pthread? simple needs - use thread
+	pthread_attr_init(&attr);
+	pthread_attr_destroy(&attr);
+
+	rc = 0;
+err_1:
+	lc_channel_free(chan);
+err_0:	
+	lc_socket_close(sock);
+	return rc;
+}
+
+void mld_watch_free(mld_watch_t *watch)
+{
+	free(watch);
+}
+
+int mld_watch_cancel(mld_watch_t *watch)
+{
+	int rc = mld_watch_stop(watch);
+	mld_watch_free(watch);
+	return rc;
+}
+
+mld_watch_t *mld_watch(mld_t *mld, unsigned int ifx, struct in6_addr *grp, int events,
+	void (*f)(mld_watch_t *, mld_watch_t *), int flags)
+{
+	mld_watch_t *watch = mld_watch_init(mld, ifx, grp, events, f, flags);
+	if (!watch) return NULL;
+	if (mld_watch_start(watch) == -1) {
+		mld_watch_free(watch);
+		watch = NULL;
+	}
+	return watch;
+}
+
+static int mld_wait_poll(mld_t *mld, unsigned int *ifx, struct in6_addr *addr)
 {
 	lc_socket_t *sock;
 	lc_channel_t *chan;
@@ -158,17 +245,20 @@ static int mld_wait_poll(mld_t *mld, unsigned int iface, struct in6_addr *addr)
 		goto exit_err_0;
 	}
 	/* avoid race by directly adding addr to filter */
-	if (iface == 0) { /* 0 => all interfaces */
+	if (!ifx || *ifx == 0) { /* 0 => all interfaces */
 		for (int i = 0; i < mld->len; i++) {
 			 mld_filter_grp_add_ai(mld, i, lc_channel_addrinfo(chan));
 		}
 	}
-	else mld_filter_grp_add_ai(mld, iface, lc_channel_addrinfo(chan));
+	else mld_filter_grp_add_ai(mld, *ifx, lc_channel_addrinfo(chan));
 	if ((lc_channel_bind(sock, chan)) || (lc_channel_join(chan))) {
 		goto exit_err_1;
 	}
 	fds.fd = lc_socket_raw(sock);
 	while (!(rc = poll(&fds, 1, timeout)) && (*(mld->cont)));
+
+	// TODO - return addr and iface TODO TODO TODO
+
 	if (rc > 0) DEBUG("%s() notify received", __func__);
 	lc_channel_part(chan);
 	rc = 0;
@@ -180,14 +270,15 @@ exit_err_0:
 }
 
 /* wait on a specific address */
-int mld_wait(mld_t *mld, unsigned int iface, struct in6_addr *addr)
+int mld_wait(mld_t *mld, unsigned int *iface, struct in6_addr *addr)
 {
+	unsigned ifn = (!iface) ? 0 : *iface;
 #ifdef MLD_DEBUG
 	char straddr[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, addr, straddr, INET6_ADDRSTRLEN);
-	DEBUG("%s(iface=%u): %s", __func__, iface, straddr);
+	DEBUG("%s(iface=%u): %s", __func__, ifn, straddr);
 #endif
-	if (mld_filter_grp_cmp(mld, iface, addr)) {
+	if (mld_filter_grp_cmp(mld, ifn, addr)) {
 		DEBUG("%s() - no need to wait - filter has address", __func__);
 		return 0;
 	}
@@ -354,9 +445,9 @@ int mld_filter_grp_add(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 #ifdef MLD_DEBUG
 	char straddr[INET6_ADDRSTRLEN];
 	char ifname[IF_NAMESIZE];
-	unsigned nface = mld->ifx[iface];
+	unsigned ifx = mld->ifx[iface];
 	inet_ntop(AF_INET6, saddr, straddr, INET6_ADDRSTRLEN);
-	DEBUG("%s %s(%u): %s", __func__, if_indextoname(nface, ifname),nface, straddr);
+	DEBUG("%s %s(%u): %s", __func__, if_indextoname(ifx, ifname), ifx, straddr);
 #endif
 	vec_t *grp = mld->filter[iface].grp;
 	return mld_filter_grp_call(mld, iface, saddr, grp, &mld_filter_grp_add_f);
