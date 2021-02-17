@@ -138,6 +138,12 @@ lc_channel_t *mld_channel_notify(mld_t *mld, struct in6_addr *addr, int events)
 {
 	char base[INET6_ADDRSTRLEN] = "";
 	lc_channel_t *tmp;
+	struct in6_addr any = IN6ADDR_ANY_INIT;
+	if (!addr) {
+		any.s6_addr[0] = 0xff;
+		any.s6_addr[1] = 0x1e;
+		addr = &any;
+	}
 	if (!inet_ntop(AF_INET6, addr, base, INET6_ADDRSTRLEN)) {
 		ERROR("inet_ntop()");
 		return NULL;
@@ -176,10 +182,6 @@ int mld_watch_start(mld_watch_t *watch)
 	int rc = -1;
 
 	assert(watch->mld);
-	assert(watch->grp);
-
-	inet_ntop(AF_INET6, watch->grp, strchan, INET6_ADDRSTRLEN);
-	DEBUG("%s(): watching for %s", __func__, strchan);
 
 	sock = lc_socket_new(lctx);
 	if (!sock) return -1;
@@ -329,13 +331,10 @@ err_0:
 
 static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *grp, int event)
 {
-	struct in6_addr any = IN6ADDR_ANY_INIT;
-	any.s6_addr[0] = 0xff;
-	any.s6_addr[1] = 0x1e;
 	mld_notify_send(mld, iface, grp, event);
 	mld_notify_send(mld, iface, grp, MLD_EVENT_ALL);
-	mld_notify_send(mld, iface, &any, event);
-	mld_notify_send(mld, iface, &any, MLD_EVENT_ALL);
+	mld_notify_send(mld, iface, NULL, event);
+	mld_notify_send(mld, iface, NULL, MLD_EVENT_ALL);
 }
 
 static int mld_filter_grp_del_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)

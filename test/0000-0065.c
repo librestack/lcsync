@@ -59,10 +59,6 @@ int main(void)
 {
 	mld_t *mld;
 	mld_watch_t *watch;
-	// FIXME - this needs to be defined somewhere
-	struct in6_addr any = IN6ADDR_ANY_INIT;
-	any.s6_addr[0] = 0xff;
-	any.s6_addr[1] = 0x1e;
 	int events = MLD_EVENT_JOIN | MLD_EVENT_PART;
 	int flags = 42;
 	unsigned int ifx;
@@ -77,11 +73,11 @@ int main(void)
 	ifx = get_multicast_if();
 	test_assert(ifx, "get_multicast_if() returned interface idx=%u", ifx);
 	
-	watch = mld_watch_init(mld, ifx, &any, events, &watch_callback, flags);
+	watch = mld_watch_init(mld, ifx, NULL, events, &watch_callback, flags);
 
 	test_assert(watch != NULL, "mld_watch_init() - watch allocated");
 	test_assert(watch->mld == mld, "mld ptr set");
-	test_assert(watch->grp == &any, "group set");
+	test_assert(watch->grp == NULL, "group set");
 	test_assert(watch->ifx == ifx, "ifx set");
 	test_assert(watch->events == events, "events set");
 	test_assert(watch->flags == flags, "flags set");
@@ -101,7 +97,7 @@ int main(void)
 
 	mld_watch_free(watch);
 
-	watch = mld_watch(mld, ifx, &any, events, &watch_callback, flags);
+	watch = mld_watch(mld, ifx, NULL, events, &watch_callback, flags);
 	mld_watch_cancel(watch);
 
 	mld_free(mld);
