@@ -61,6 +61,19 @@ typedef struct mld_filter_s mld_filter_t;
 typedef struct mld_timerjob_s mld_timerjob_t;
 typedef struct mld_watch_s mld_watch_t;
 
+struct mld_watch_s {
+	mld_t *mld;
+	pthread_t thread;
+	lc_socket_t *sock;
+	lc_channel_t *chan;
+	void (*f)(mld_watch_t *, mld_watch_t *);
+	void *arg;
+	struct in6_addr *grp;
+	unsigned int ifx;
+	int events;
+	int flags;
+};
+
 /* initialize / free state machine */
 mld_t *mld_init(int ifaces);
 

@@ -64,6 +64,7 @@ struct net_data_s {
 	unsigned char * hash;		/* hash of file/data */
 	unsigned char * map;		/* channel bitmap */
 	mld_t         * mld;		/* MLD handle */
+	job_queue_t   * q;		/* job queue */
 	size_t		byt;		/* data bytes */
 	size_t		chan;		/* channels */
 	size_t		n;		/* node */

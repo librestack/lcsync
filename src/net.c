@@ -631,13 +631,13 @@ void *net_job_send_subtree(void *arg)
 	return arg;
 }
 
-static void net_send_queue_jobs(job_queue_t *q, net_data_t *data, size_t sz, size_t blocks, unsigned channels)
+static void net_send_queue_jobs(net_data_t *data, size_t sz, size_t blocks, unsigned channels)
 {
 	job_t *job_tree, *job_data[channels];
-	job_tree = job_push_new(q, &net_job_send_tree, data, sz, NULL, 0);
+	job_tree = job_push_new(data->q, &net_job_send_tree, data, sz, NULL, 0);
 	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
 		data->n = channels - 1 + chan;
-		job_data[chan] = job_push_new(q, &net_job_send_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
+		job_data[chan] = job_push_new(data->q, &net_job_send_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
 	}
 	sem_wait(&job_tree->done);
 	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
@@ -649,7 +649,13 @@ static void net_send_queue_jobs(job_queue_t *q, net_data_t *data, size_t sz, siz
 
 void net_send_event(mld_watch_t *event, mld_watch_t *watch)
 {
-	/* someone rang? */
+	char strgrp[INET6_ADDRSTRLEN];
+	struct in6_addr *grp;
+
+	// TODO figure out which hash to send and queue job
+
+	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
+	DEBUG("received request on grp %s, if=%u", strgrp, event->ifx);
 }
 
 ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
@@ -674,6 +680,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 		perror("calloc");
 		goto err_2;
 	}
+	data->q = q;
 	data->hash = mtree_root(tree);
 	data->alias = (hash) ? hash : data->hash;
 	data->byt = len;
@@ -689,12 +696,12 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 		mld_watch_cancel(watch);
 		mld_stop(data->mld);
 	}
-	else net_send_queue_jobs(q, data, sz, blocks, channels);
+	else net_send_queue_jobs(data, sz, blocks, channels);
 	rc = 0;
 err_3:
 	free(data);
 err_2:
-	job_queue_destroy(q);
+	job_queue_destroy(data->q);
 err_1:
 	mtree_free(tree);
 err_0:
