@@ -19,7 +19,7 @@ void watch_callback(mld_watch_t *event, mld_watch_t *orig)
 	calls++;
 	test_assert(event != NULL, "event allocated");
 	test_assert(event != orig, "event new");
-	test_assert(event->ifx == orig->ifx, "event ifx set=%u", event->ifx);
+	test_assert(event->ifx > 0, "event ifx set=%u", event->ifx);
 	test_assert(event->grp != NULL, "event grp set");
 	free(event);
 }
