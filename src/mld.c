@@ -174,22 +174,12 @@ int mld_watch_stop(mld_watch_t *watch)
 	return 0;
 }
 
-static void mld_watch_callback(mld_watch_t *watch, struct msghdr *msg)
+static void mld_watch_callback(mld_watch_t *watch, struct in6_pktinfo *pi)
 {
-	mld_watch_t *event;
-	struct cmsghdr *cmsg;
-	struct in6_pktinfo hdr = {0};
-
-	event = calloc(1, sizeof(mld_watch_t));
-	if (!event) return;
-	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
-		if (cmsg->cmsg_type == IPV6_PKTINFO) {
-			memcpy(&hdr, CMSG_DATA(cmsg), sizeof hdr);
-			event->grp = &hdr.ipi6_addr;
-			event->ifx = hdr.ipi6_ifindex;
-			break;
-		}
-	}
+	mld_watch_t *event = calloc(1, sizeof(mld_watch_t));
+	if (!event) return; /* return to fight another day! */
+	event->ifx = ntohl(pi->ipi6_ifindex);
+	event->grp = &pi->ipi6_addr;
 	watch->f(event, watch);
 }
 
@@ -201,6 +191,10 @@ void *mld_watch_thread(void *arg)
 	char ctrl[CMSG_SPACE(sizeof(struct in6_pktinfo))];
 	const int opt = 1;
 	int s;
+
+	struct in6_pktinfo pi = {0};
+	iov[0].iov_base = &pi;
+	iov[0].iov_len = sizeof pi;
 
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 1;
@@ -215,7 +209,7 @@ void *mld_watch_thread(void *arg)
 	}
 	for (;;) {
 		recvmsg(s, &msg, 0);
-		mld_watch_callback(watch, &msg);
+		mld_watch_callback(watch, &pi);
 	}
 
 	return NULL;
@@ -337,13 +331,14 @@ int mld_wait(mld_t *mld, unsigned int *iface, struct in6_addr *addr)
 
 static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, int event)
 {
-	lc_message_t msg = {0};
 	lc_socket_t *sock;
 	lc_channel_t *chan;
 	struct addrinfo *ai;
+	struct in6_pktinfo pi = {0};
 	char sgroup[INET6_ADDRSTRLEN];
 	char swatch[INET6_ADDRSTRLEN];
 	const int opt = 1;
+	int s;
 
 	chan = mld_channel_notify(mld, grp, event);
 	if (!chan) return;
@@ -376,7 +371,10 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 	lc_socket_setopt(sock, IPV6_MULTICAST_HOPS, &opt, sizeof(opt));
 
 	lc_channel_bind(sock, chan);
-	lc_msg_send(chan, &msg);
+	s = lc_socket_raw(sock);
+	pi.ipi6_ifindex = htonl(mld->ifx[iface]);
+	sendto(s, &pi, sizeof pi, 0, (const struct sockaddr *)ai->ai_addr, ai->ai_addrlen);
+
 	lc_socket_close(sock);
 err_0:
 	lc_channel_free(chan);

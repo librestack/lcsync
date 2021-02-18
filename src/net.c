@@ -649,13 +649,43 @@ static void net_send_queue_jobs(net_data_t *data, size_t sz, size_t blocks, unsi
 
 void net_send_event(mld_watch_t *event, mld_watch_t *watch)
 {
+	net_data_t *data = (net_data_t *)watch->arg;
+	mtree_tree *stree = data->iov[0].iov_base;
+#ifdef NET_DEBUG
 	char strgrp[INET6_ADDRSTRLEN];
-	struct in6_addr *grp;
-
-	// TODO figure out which hash to send and queue job
-
 	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
 	DEBUG("received request on grp %s, if=%u", strgrp, event->ifx);
+#endif
+
+	lc_ctx_t *lctx = lc_ctx_new(); // FIXME - reuse mld->lctx
+	lc_channel_t *chan;
+	struct addrinfo *ai;
+	// TODO figure out which hash to send and queue job
+	chan = lc_channel_nnew(lctx, data->alias, HASHSIZE); // FIXME - are we reading garbage here?
+	ai = lc_channel_addrinfo(chan);
+	inet_ntop(AF_INET6, aitoin6(ai), strgrp, INET6_ADDRSTRLEN);
+
+
+	/* FIXME FIXME FIXME - are we checking the right thing? Notifications come on side channels
+	 * need to get the original grp address */
+
+
+	DEBUG("checking %s if is MTREE", strgrp);
+	if (!memcmp(event->grp, (aitoin6(ai)), 16)) {
+		DEBUG("MTREE REQUESTED MON COLONEL");
+	}
+	DEBUG("data->chan=%zu, blocks=%zu", data->chan, mtree_blocks(stree));
+	for (unsigned i = 0; i < MIN(data->chan, mtree_blocks(stree)); i++) {
+		chan = lc_channel_nnew(lctx, mtree_nnode(stree, i), HASHSIZE);
+		ai = lc_channel_addrinfo(chan);
+		inet_ntop(AF_INET6, aitoin6(ai), strgrp, INET6_ADDRSTRLEN);
+		DEBUG("checking %s", strgrp);
+		if (!memcmp(event->grp, aitoin6(ai), sizeof(struct in6_addr))) {
+			DEBUG("I have that hash right here !!!!!!!!!!!!!!!!");
+		}
+		DEBUG("noise!");
+	}
+	lc_ctx_free(lctx);
 }
 
 ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
@@ -681,6 +711,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 		goto err_2;
 	}
 	data->q = q;
+	data->chan = channels;
 	data->hash = mtree_root(tree);
 	data->alias = (hash) ? hash : data->hash;
 	data->byt = len;
