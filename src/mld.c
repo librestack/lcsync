@@ -625,6 +625,16 @@ static void *mld_listen_job(void *arg)
 	return arg;
 }
 
+lc_ctx_t *mld_lctx(mld_t *mld)
+{
+	return mld->lctx;
+}
+
+unsigned int mld_ifaces(mld_t *mld)
+{
+	return mld->len;
+}
+
 mld_t *mld_init(int ifaces)
 {
 	mld_t *mld = calloc(1, sizeof(mld_t) + ifaces * sizeof(mld_filter_t));

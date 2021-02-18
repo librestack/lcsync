@@ -58,6 +58,7 @@ void net_stop(int signo)
 ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 {
 	TRACE("%s()", __func__);
+	struct pollfd fds = { .fd = sock, .events = POLL_IN };
 	size_t idx, off, len, maplen, pkts;
 	ssize_t byt = 0, msglen;
 	net_treehead_t *hdr;
@@ -65,7 +66,14 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 	unsigned char *bitmap = NULL;
 	uint64_t sz;
 	uint8_t mod;
+	const int timeout = 100;
+	int rc;
 	do {
+		while (!(rc = poll(&fds, 1, timeout)) && running);
+		if (!running) {
+			byt = -1;
+			break;
+		}
 		if ((msglen = recv(sock, buf, MTU_FIXED, 0)) == -1) {
 			perror("recv()");
 			byt = -1;
@@ -93,7 +101,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 		sz = (size_t)be64toh(hdr->size);
 		*blocksz = be32toh(hdr->blocksz);
 		if (!iov->iov_base) {
-			if (!(iov->iov_base = malloc(sz))) {
+			if (!(iov->iov_base = calloc(1, sz))) {
 				perror("malloc()");
 				byt = -1;
 				break;
@@ -112,7 +120,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 		printmap(bitmap, pkts);
 		DEBUG("packets still required=%u", hamm(bitmap, maplen));
 	}
-	while (hamm(bitmap, maplen));
+	while (running && hamm(bitmap, maplen));
 	// TODO verify tree (check hashes, mark bitmap with any that don't
 	// match, go again
 	free(bitmap);
@@ -305,7 +313,7 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	size_t min = mtree_subtree_data_min(mtree_base(stree), root);
 	ssize_t byt = 0, msglen = 0;
 	net_blockhead_t hdr = {0};
-	struct iovec iov[2];
+	struct iovec iov[2] = {0};
 	struct msghdr msgh = { .msg_iov = iov, .msg_iovlen = 2 };
 	struct pollfd fds = {
 		.fd = sock,
@@ -546,6 +554,7 @@ static void net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct 
 		iov[1].iov_base = ptr;
 		hdr->len = htobe32(sz);
 		hdr->idx = htobe32(idx);
+		// FIXME - Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
 			break;
@@ -633,6 +642,7 @@ void *net_job_send_subtree(void *arg)
 
 static void net_send_queue_jobs(net_data_t *data, size_t sz, size_t blocks, unsigned channels)
 {
+	TRACE("%s()", __func__);
 	job_t *job_tree, *job_data[channels];
 	job_tree = job_push_new(data->q, &net_job_send_tree, data, sz, NULL, 0);
 	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
@@ -647,45 +657,71 @@ static void net_send_queue_jobs(net_data_t *data, size_t sz, size_t blocks, unsi
 	free(job_tree);
 }
 
-void net_send_event(mld_watch_t *event, mld_watch_t *watch)
+/* Search lvl of tree for node whose hash corresponds to grp.  Return node
+ * number, -2 if mtree requested  or -1 if not found */
+static ssize_t net_tree_level_search(lc_ctx_t *lctx, mtree_tree *tree, size_t lvl, struct in6_addr *grp,
+		unsigned char *alias, lc_channel_t *chan)
+{
+	size_t n;
+	size_t first = (1 << lvl) - 1;
+	size_t last = (first + 1) * 2 - 1;
+	struct addrinfo *ai;
+#ifdef NET_DEBUG
+	char strgrp[INET6_ADDRSTRLEN];
+#endif
+
+	/* first check alias (mtree) hash */
+	chan = lc_channel_nnew(lctx, alias, HASHSIZE);
+	ai = lc_channel_addrinfo(chan);
+	inet_ntop(AF_INET6, aitoin6(ai), strgrp, INET6_ADDRSTRLEN);
+	if (!memcmp(grp, aitoin6(ai), IPV6_BYTES)) {
+			return -2;
+		}
+	lc_channel_free(chan);
+
+	for (n = first; n <= last; n++) {
+		chan = lc_channel_nnew(lctx, mtree_nnode(tree, n), HASHSIZE);
+		ai = lc_channel_addrinfo(chan);
+#ifdef NET_DEBUG
+		inet_ntop(AF_INET6, aitoin6(ai), strgrp, INET6_ADDRSTRLEN);
+		DEBUG("checking %s", strgrp);
+#endif
+		if (!memcmp(grp, aitoin6(ai), IPV6_BYTES)) {
+			return (ssize_t)n;
+		}
+		lc_channel_free(chan);
+	}
+	return -1;
+}
+
+/* this is a callback from within a watch loop
+ * it does not need to be reentrant, but we want to keep it tight
+ * just push a job and exit so the watch loop can proceed */
+static void net_send_event(mld_watch_t *event, mld_watch_t *watch)
 {
 	net_data_t *data = (net_data_t *)watch->arg;
 	mtree_tree *stree = data->iov[0].iov_base;
+	mld_t *mld = data->mld;
+	lc_ctx_t *lctx = mld_lctx(mld);
+	lc_channel_t *chan = NULL;
+	struct addrinfo *ai;
+	assert(event); assert(mld); assert(stree); assert(lctx);
+
 #ifdef NET_DEBUG
 	char strgrp[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
-	DEBUG("received request on grp %s, if=%u", strgrp, event->ifx);
+	DEBUG("received request for grp %s on if=%u", strgrp, event->ifx);
 #endif
 
-	lc_ctx_t *lctx = lc_ctx_new(); // FIXME - reuse mld->lctx
-	lc_channel_t *chan;
-	struct addrinfo *ai;
-	// TODO figure out which hash to send and queue job
-	chan = lc_channel_nnew(lctx, data->alias, HASHSIZE); // FIXME - are we reading garbage here?
-	ai = lc_channel_addrinfo(chan);
-	inet_ntop(AF_INET6, aitoin6(ai), strgrp, INET6_ADDRSTRLEN);
-
-
-	/* FIXME FIXME FIXME - are we checking the right thing? Notifications come on side channels
-	 * need to get the original grp address */
-
-
-	DEBUG("checking %s if is MTREE", strgrp);
-	if (!memcmp(event->grp, (aitoin6(ai)), 16)) {
-		DEBUG("MTREE REQUESTED MON COLONEL");
+	ssize_t n;
+	size_t lvl = net_send_channels; //FIXME - are you sure?
+	n = net_tree_level_search(lctx, stree, lvl, event->grp, data->alias, chan);
+	if (n == -2) { /* mtree requested */
+		unsigned int iface = mld_idx_iface(mld, event->ifx);
+		/* send tree */
+		DEBUG("------------------ MTREE REQUESTED MON COLONEL ------------------------------");
+		job_push_new(data->q, &net_job_send_tree, data, sizeof(net_data_t), NULL, 0);
 	}
-	DEBUG("data->chan=%zu, blocks=%zu", data->chan, mtree_blocks(stree));
-	for (unsigned i = 0; i < MIN(data->chan, mtree_blocks(stree)); i++) {
-		chan = lc_channel_nnew(lctx, mtree_nnode(stree, i), HASHSIZE);
-		ai = lc_channel_addrinfo(chan);
-		inet_ntop(AF_INET6, aitoin6(ai), strgrp, INET6_ADDRSTRLEN);
-		DEBUG("checking %s", strgrp);
-		if (!memcmp(event->grp, aitoin6(ai), sizeof(struct in6_addr))) {
-			DEBUG("I have that hash right here !!!!!!!!!!!!!!!!");
-		}
-		DEBUG("noise!");
-	}
-	lc_ctx_free(lctx);
 }
 
 ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
@@ -732,7 +768,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 err_3:
 	free(data);
 err_2:
-	job_queue_destroy(data->q);
+	job_queue_destroy(q);
 err_1:
 	mtree_free(tree);
 err_0:

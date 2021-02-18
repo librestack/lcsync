@@ -86,6 +86,15 @@ mld_t *mld_start(volatile int *cont);
 /* stop MLD snooping */
 void mld_stop(mld_t *mld);
 
+/* return Librecast context for mld */
+lc_ctx_t *mld_lctx(mld_t *mld);
+
+/* return number of interfaces */
+unsigned int mld_ifaces(mld_t *mld);
+
+/* convert network index to mld filter array index */
+unsigned int mld_idx_iface(mld_t *mld, unsigned int idx);
+
 /* create notification channel */
 lc_channel_t *mld_channel_notify(mld_t *mld, struct in6_addr *addr, int events);
 
