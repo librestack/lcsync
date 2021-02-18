@@ -21,6 +21,7 @@
 #include "file.h"
 
 static volatile int running = 1;
+static sem_t stop;
 
 /* return number of bits set in bitmap (Hamming Weight) */
 static unsigned int hamm(unsigned char *map, size_t len)
@@ -50,6 +51,7 @@ void net_stop(int signo)
 {
 	(void) signo;
 	running = 0;
+	sem_post(&stop);
 	DEBUG("stopping on signal");
 }
 
@@ -645,6 +647,11 @@ static void net_send_queue_jobs(job_queue_t *q, net_data_t *data, size_t sz, siz
 	free(job_tree);
 }
 
+void net_send_event(mld_watch_t *event, mld_watch_t *watch)
+{
+	/* someone rang? */
+}
+
 ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 {
 	unsigned channels = 1U << net_send_channels;
@@ -673,29 +680,13 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = tree;
 	if (mld_enabled) {
+		mld_watch_t *watch;
 		data->mld = mld_start(&running);
 		if (!data->mld) goto err_3;
-		while (running) { // TODO - make running a semaphore?
-
-			/* TODO in MLD mode we will block here waiting to find out which blocks and
-			 * trees are requested, creating jobs when the state changes */
-
-			/* wait for join on any interface, any address */
-			//struct in6_addr any = IN6ADDR_ANY_INIT;
-			//unsigned iface = 0;
-
-			/* FIXME FIXME FIXME wouldn't a callback be better? this will miss events */
-			// TODO implement callback and test for same
-			//mld_wait(data->mld, &iface, &any);
-
-			//mld_watch_t watch; // typedef'd job_t
-			//watch = mld_watch(data->mld, 0, &any, MLD_EVENT_ALL, &callback_here, data, flags);
-
-			//mld_watch_cancel(watch);
-
-			// TODO get interface and address
-
-		}
+		watch = mld_watch_init(data->mld, 0, NULL, MLD_EVENT_JOIN, &net_send_event, data, 0);
+		mld_watch_start(watch);
+		sem_wait(&stop);
+		mld_watch_cancel(watch);
 		mld_stop(data->mld);
 	}
 	else net_send_queue_jobs(q, data, sz, blocks, channels);

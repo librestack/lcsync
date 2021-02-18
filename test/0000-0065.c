@@ -79,7 +79,8 @@ int main(void)
 	ifx = get_multicast_ifx();
 	test_assert(ifx, "get_multicast_if() returned interface idx=%u", ifx);
 	
-	watch = mld_watch_init(mld, ifx, NULL, events, &watch_callback, flags);
+	char *arg = malloc(1024);
+	watch = mld_watch_init(mld, ifx, NULL, events, &watch_callback, arg, flags);
 
 	test_assert(watch != NULL, "mld_watch_init() - watch allocated");
 	test_assert(watch->mld == mld, "mld ptr set");
@@ -88,8 +89,7 @@ int main(void)
 	test_assert(watch->events == events, "events set");
 	test_assert(watch->flags == flags, "flags set");
 	test_assert(watch->f == &watch_callback, "callback set");
-
-	// TODO mld_watch_arg - get/set arg in struct
+	test_assert(watch->arg == arg, "arg set");
 
 	test_assert(!mld_watch_start(watch), "watch started");
 
@@ -105,8 +105,9 @@ int main(void)
 	test_assert(!mld_watch_stop(watch), "watch stopped");
 
 	mld_watch_free(watch);
+	free(arg);
 
-	watch = mld_watch(mld, ifx, NULL, events, &watch_callback, flags);
+	watch = mld_watch(mld, ifx, NULL, events, &watch_callback, NULL, flags);
 	mld_watch_cancel(watch);
 
 	mld_stop(mld);

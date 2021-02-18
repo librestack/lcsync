@@ -154,7 +154,7 @@ lc_channel_t *mld_channel_notify(mld_t *mld, struct in6_addr *addr, int events)
 }
 
 mld_watch_t *mld_watch_init(mld_t *mld, unsigned int ifx, struct in6_addr *grp, int events,
-	void (*f)(mld_watch_t *, mld_watch_t *), int flags)
+	void (*f)(mld_watch_t *, mld_watch_t *), void *arg, int flags)
 {
 	mld_watch_t *w = calloc(1, sizeof(mld_watch_t));
 	w->mld = mld;
@@ -163,6 +163,7 @@ mld_watch_t *mld_watch_init(mld_t *mld, unsigned int ifx, struct in6_addr *grp, 
 	w->events = events;
 	w->flags = flags;
 	w->f = f;
+	w->arg = arg;
 	return w;
 }
 
@@ -271,9 +272,9 @@ int mld_watch_cancel(mld_watch_t *watch)
 }
 
 mld_watch_t *mld_watch(mld_t *mld, unsigned int ifx, struct in6_addr *grp, int events,
-	void (*f)(mld_watch_t *, mld_watch_t *), int flags)
+	void (*f)(mld_watch_t *, mld_watch_t *), void *arg, int flags)
 {
-	mld_watch_t *watch = mld_watch_init(mld, ifx, grp, events, f, flags);
+	mld_watch_t *watch = mld_watch_init(mld, ifx, grp, events, f, arg, flags);
 	if (!watch) return NULL;
 	if (mld_watch_start(watch) == -1) {
 		mld_watch_free(watch);

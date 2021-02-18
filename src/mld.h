@@ -117,19 +117,20 @@ int mld_listen(mld_t *mld);
  * NULL or points to a zero value, all interfaces are watched */
 int mld_wait(mld_t *mld, unsigned int *ifx, struct in6_addr *addr);
 
-/* allocate new watch on specifed interface ifx, grp and events. free with mld_watch_free()
+/* Allocate new watch on specifed interface ifx (0 = all interfaces), grp and
+ * events.  Free with mld_watch_free()
  * f is a function pointer to a function with two watch args.  Unless NULL, the
  * first will be a pointer to a watch populated with the event, the second will
  * be the original watch */
 mld_watch_t *mld_watch_init(mld_t *mld, unsigned int ifx, struct in6_addr *grp, int events,
-	void (*f)(mld_watch_t *, mld_watch_t *), int flags);
+	void (*f)(mld_watch_t *, mld_watch_t *), void *arg, int flags);
 
 /* start watch */
 int mld_watch_start(mld_watch_t *watch);
 
 /* mld_watch_init() + mld_watch_start() */
 mld_watch_t *mld_watch(mld_t *mld, unsigned int ifx, struct in6_addr *grp, int events,
-	void (*f)(mld_watch_t *, mld_watch_t *), int flags);
+	void (*f)(mld_watch_t *, mld_watch_t *), void *arg, int flags);
 
 /* stop watch. watch is still valid, can be started again with mld_watch_start() */
 int mld_watch_stop(mld_watch_t *watch);
