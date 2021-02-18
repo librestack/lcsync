@@ -177,7 +177,7 @@ int mld_watch_stop(mld_watch_t *watch)
 static void mld_watch_callback(mld_watch_t *watch, struct in6_pktinfo *pi)
 {
 	mld_watch_t *event = calloc(1, sizeof(mld_watch_t));
-	if (!event) return; /* return to fight another day! */
+	if (!event) return;
 	event->ifx = ntohl(pi->ipi6_ifindex);
 	event->grp = &pi->ipi6_addr;
 	watch->f(event, watch);
@@ -329,12 +329,12 @@ int mld_wait(mld_t *mld, unsigned int *iface, struct in6_addr *addr)
 	return mld_wait_poll(mld, iface, addr);
 }
 
-static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, int event)
+static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, int event,
+		struct in6_pktinfo *pi)
 {
 	lc_socket_t *sock;
 	lc_channel_t *chan;
 	struct addrinfo *ai;
-	struct in6_pktinfo pi = {0};
 	char sgroup[INET6_ADDRSTRLEN];
 	char swatch[INET6_ADDRSTRLEN];
 	const int opt = 1;
@@ -372,8 +372,7 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 
 	lc_channel_bind(sock, chan);
 	s = lc_socket_raw(sock);
-	pi.ipi6_ifindex = htonl(mld->ifx[iface]);
-	sendto(s, &pi, sizeof pi, 0, (const struct sockaddr *)ai->ai_addr, ai->ai_addrlen);
+	sendto(s, pi, sizeof *pi, 0, (const struct sockaddr *)ai->ai_addr, ai->ai_addrlen);
 
 	lc_socket_close(sock);
 err_0:
@@ -382,10 +381,13 @@ err_0:
 
 static void mld_notify(mld_t *mld, unsigned iface, struct in6_addr *grp, int event)
 {
-	mld_notify_send(mld, iface, grp, event);
-	mld_notify_send(mld, iface, grp, MLD_EVENT_ALL);
-	mld_notify_send(mld, iface, NULL, event);
-	mld_notify_send(mld, iface, NULL, MLD_EVENT_ALL);
+	struct in6_pktinfo pi = {0};
+	pi.ipi6_ifindex = htonl(mld->ifx[iface]);
+	memcpy(&pi.ipi6_addr, grp, sizeof(struct in6_addr));
+	mld_notify_send(mld, iface, grp, event, &pi);
+	mld_notify_send(mld, iface, grp, MLD_EVENT_ALL, &pi);
+	mld_notify_send(mld, iface, NULL, event, &pi);
+	mld_notify_send(mld, iface, NULL, MLD_EVENT_ALL, &pi);
 }
 
 static int mld_filter_grp_del_f(mld_t *mld, unsigned int iface, size_t idx, vec_t *v)
