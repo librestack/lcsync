@@ -715,12 +715,21 @@ static void net_send_event(mld_watch_t *event, mld_watch_t *watch)
 
 	ssize_t n;
 	size_t lvl = net_send_channels; //FIXME - are you sure?
+	size_t sz = sizeof(net_data_t) + sizeof(struct iovec);
 	n = net_tree_level_search(lctx, stree, lvl, event->grp, data->alias, chan);
-	if (n == -2) { /* mtree requested */
+	if (n == -2) {		/* send mtree */
 		unsigned int iface = mld_idx_iface(mld, event->ifx);
 		/* send tree */
 		DEBUG("------------------ MTREE REQUESTED MON COLONEL ------------------------------");
-		job_push_new(data->q, &net_job_send_tree, data, sizeof(net_data_t), NULL, 0);
+		job_push_new(data->q, &net_job_send_tree, data, sz, NULL, 0); // FIXME
+	}
+	else if (n >= 0) {	/* send subtree */
+		DEBUG("------------------ BLOCK %zi REQUESTED MON COLONEL --------------------------", n);
+		data->n = (size_t)n;
+		job_push_new(data->q, &net_job_send_subtree, data, sz, &free, JOB_COPY|JOB_FREE);
+	}
+	else {
+		DEBUG("------------------ I HAVE NOT THE THING THAT YOU ARE LOOKING FOR ------------");
 	}
 }
 
