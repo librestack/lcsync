@@ -63,8 +63,14 @@ void mld_stop(mld_t *mld)
 {
 	if(!mld) return;
 	if (mld->sock) {
-		struct ipv6_mreq req;
-		setsockopt(mld->sock, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &req, sizeof(req));
+		struct ipv6_mreq req = {0};
+		for (int i = 0; i < mld->len; i++) {
+			if (inet_pton(AF_INET6, MLD2_CAPABLE_ROUTERS, &(req.ipv6mr_multiaddr)) != 1)
+				continue;
+			if (!(req.ipv6mr_interface = mld->ifx[i]))
+				continue;
+			setsockopt(mld->sock, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &req, sizeof(req));
+		}
 		close(mld->sock);
 	}
 	mld_free(mld);
