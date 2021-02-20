@@ -29,10 +29,16 @@ sparse: clean
 clang: clean
 	CC=clang $(MAKE) CFLAGS="$(CFLAGS-CLANG)" src
 
+clangtest: clean
+	CC=clang $(MAKE) CFLAGS="$(CFLAGS-CLANG)" test
+
 gcc: clean all
 
 cap check test sanitize: src
 	cd test && $(MAKE) $@
+
+%.clang:
+	CC=clang $(MAKE) CFLAGS="$(CFLAGS-CLANG)" -B -C test $@
 
 %.test %.check:
 	cd test && $(MAKE) -B $@

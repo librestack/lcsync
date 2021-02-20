@@ -36,20 +36,20 @@ build:
 	@echo -e "$(TIMESTAMP) - starting tests" >> $(LOGFILE)
 	@echo -e "\nRunning tests"
 
-0000-0027.test: LDFLAGS += -lbsd
+0000-0027.%: LDFLAGS += -lbsd
 
-#0000-0046.test: SHELL = capsh --is-uid=0 --caps=cap_net_raw+eip -- -c
-0000-0046.test: CAPS = cap_net_raw=eip
-0000-0047.test: CAPS = cap_net_raw=eip
-0000-0051.test: CAPS = cap_net_raw=eip
-0000-0058.test: CAPS = cap_net_raw=eip
-0000-0060.test: CAPS = cap_net_raw=eip
-0000-0061.test: CAPS = cap_net_raw=eip
-0000-0062.test: CAPS = cap_net_raw=eip
-0000-0064.test: CAPS = cap_net_raw=eip
-0000-0065.test: CAPS = cap_net_raw=eip
+#0000-0046.%: SHELL = capsh --is-uid=0 --caps=cap_net_raw+eip -- -c
+0000-0046.%: CAPS = cap_net_raw=eip
+0000-0047.%: CAPS = cap_net_raw=eip
+0000-0051.%: CAPS = cap_net_raw=eip
+0000-0058.%: CAPS = cap_net_raw=eip
+0000-0060.%: CAPS = cap_net_raw=eip
+0000-0061.%: CAPS = cap_net_raw=eip
+0000-0062.%: CAPS = cap_net_raw=eip
+0000-0064.%: CAPS = cap_net_raw=eip
+0000-0065.%: CAPS = cap_net_raw=eip
 
-%.test: %.c $(OBJS)
+%.test %.clang: %.c $(OBJS)
 	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 	@if [[ $EUID -eq 0 && -n $(CAPS) ]]; then setcap $(CAPS) $@; fi
 	@echo -ne "\e[2m" $* " "
