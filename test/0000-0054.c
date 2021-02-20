@@ -31,7 +31,7 @@ void create_channel(struct in6_addr *addr, char *name)
 	lc_channel_t *chan = lc_channel_new(lctx, name);
 	ai = lc_channel_addrinfo(chan);
 	sad = (struct sockaddr_in6 *)ai->ai_addr;
-	memcpy(&addr, &(sad->sin6_addr), sizeof (struct in6_addr));
+	memcpy(addr, &(sad->sin6_addr), sizeof (struct in6_addr));
 }
 
 int main(void)

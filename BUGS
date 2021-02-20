@@ -1,4 +1,6 @@
 -------------------------------------------------------------------------------
+make clangtest / make %clang - vector tests fail
+-------------------------------------------------------------------------------
 clang -Wall -Wextra -Wpedantic -g -Wno-gnu-zero-variadic-macro-arguments   -c -o net.o net.c
 net.c:707:6: warning: variable 'data' is used uninitialized whenever 'if' condition is true [-Wsometimes-uninitialized]
         if (mtree_verify(tree, mtree_treelen(tree))) goto err_2;
@@ -52,6 +54,26 @@ tests.
 -------------------------------------------------------------------------------
 0027 aborts with Unexpected error 9 on netlink descriptor 0.
 Doesn't happen under valgrind.
+
+This message is raised by __netlink_assert_response in glibc:
+
+grep -nr __netlink_assert_response *
+ChangeLog.old/ChangeLog.19:6428:        (__netlink_assert_response): Add additional missing newlines.
+ChangeLog.old/ChangeLog.19:13925:       (__netlink_assert_response): Likewise.
+ChangeLog.old/ChangeLog.19:37814:       (__netlink_assert_response): Remove internal_function.
+ChangeLog.old/ChangeLog.19:37816:       (__netlink_assert_response): Likewise.
+ChangeLog.old/ChangeLog.18:26872:       (__netlink_assert_response): Declare.
+ChangeLog.old/ChangeLog.18:26877:       __netlink_assert_response.
+ChangeLog.old/ChangeLog.18:26881:       __netlink_assert_response.
+sysdeps/unix/sysv/linux/check_pf.c:171:      __netlink_assert_response (fd, read_len);
+sysdeps/unix/sysv/linux/ifaddrs.c:174:      __netlink_assert_response (h->fd, read_len);
+sysdeps/unix/sysv/linux/netlink_assert_response.c:42:__netlink_assert_response (int fd, ssize_t result)
+sysdeps/unix/sysv/linux/netlink_assert_response.c:105:libc_hidden_def (__netlink_assert_response)
+sysdeps/unix/sysv/linux/check_native.c:124:      __netlink_assert_response (fd, read_len);
+sysdeps/unix/sysv/linux/Versions:181:    __netlink_assert_response;
+sysdeps/unix/sysv/linux/netlinkaccess.h:56:void __netlink_assert_response (int fd, ssize_t result);
+sysdeps/unix/sysv/linux/netlinkaccess.h:57:libc_hidden_proto (__netlink_assert_response)
+
 -------------------------------------------------------------------------------
 Ubuntu 16.04 LTS - segfault when serving files in --mld mode
 

@@ -60,7 +60,6 @@ int main(void)
 	/* queue up send / recv jobs */
 	jobq = job_queue_create(2);
 	job_send = job_push_new(jobq, &net_job_send_tree, odata, sizeof odata, NULL, 0);
-
 	job_recv = job_push_new(jobq, &net_job_recv_tree, idata, sizeof idata, NULL, 0);
 
 	/* wait for recv job to finish, check for timeout */

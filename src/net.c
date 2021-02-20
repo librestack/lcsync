@@ -334,11 +334,14 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	iov[1].iov_base = buf;
 	iov[1].iov_len = DATA_FIXED;
 	if (!dryrun) while (running && hamm(bitmap, maplen) && PKTS) {
-		DEBUG("%s() recvmsg", __func__); // FIXME - blocking here
+		DEBUG("%s() recvmsg", __func__);
 		while (running && !(rc = poll(&fds, 1, 100)));
 		if (rc > 0 && (msglen = recvmsg(sock, &msgh, 0)) == -1) {
 			perror("recv()");
 			byt = -1; break;
+		}
+		else if (rc == -1) {
+			perror("poll()");
 		}
 		DEBUG("%s(): recv %zi bytes", __func__, msglen);
 		idx = be32toh(hdr.idx);
@@ -704,10 +707,9 @@ static void net_send_event(mld_watch_t *event, mld_watch_t *watch)
 	mld_t *mld = data->mld;
 	lc_ctx_t *lctx = mld_lctx(mld);
 	lc_channel_t *chan = NULL;
-	struct addrinfo *ai;
-	assert(event); assert(mld); assert(stree); assert(lctx);
 
 #ifdef NET_DEBUG
+	assert(event); assert(mld); assert(stree); assert(lctx);
 	char strgrp[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
 	DEBUG("received request for grp %s on if=%u", strgrp, event->ifx);
@@ -718,8 +720,7 @@ static void net_send_event(mld_watch_t *event, mld_watch_t *watch)
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec);
 	n = net_tree_level_search(lctx, stree, lvl, event->grp, data->alias, chan);
 	if (n == -2) {		/* send mtree */
-		unsigned int iface = mld_idx_iface(mld, event->ifx);
-		/* send tree */
+		//unsigned int iface = mld_idx_iface(mld, event->ifx); // FIXME - use iface
 		DEBUG("------------------ MTREE REQUESTED MON COLONEL ------------------------------");
 		job_push_new(data->q, &net_job_send_tree, data, sz, NULL, 0); // FIXME
 	}

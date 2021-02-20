@@ -313,7 +313,7 @@ static void *mtree_hash_data(void *arg)
 	}
 
 	/* write rest of tree */
-	for (size_t lvl = 1; lvl < q->tree->lvls; lvl++) {
+	for (size_t lvl = 1; lvl < q->tree->lvls; lvl++) { // FIXME 210 bytes below stack pointer
 		level_nodes = mtree_level_nodes(q->tree, lvl);
 		if (mt->id >= level_nodes) return NULL;
 		t = (level_nodes < nthreads) ? level_nodes : nthreads;
@@ -553,10 +553,10 @@ void mtree_update(mtree_tree *tree, char *data, size_t n)
 	}
 }
 
+#if 0
 ssize_t mtree_level_search(mtree_tree *tree, size_t lvl, unsigned char *hash)
 {
 	// TODO
-#if 0
 	size_t n;
 	size_t first = (1 << lvl) - 1;
 	size_t last = (node + 1) * 2 - 1;
@@ -566,6 +566,6 @@ ssize_t mtree_level_search(mtree_tree *tree, size_t lvl, unsigned char *hash)
 			return (ssize_t)n;
 		}
 	}
-#endif
 	return -1;
 }
+#endif

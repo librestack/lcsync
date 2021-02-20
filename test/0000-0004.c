@@ -54,7 +54,7 @@ int main()
 			crypto_generichash_update(&state, mtree_data(tree, z+0), HASHSIZE);
 			crypto_generichash_update(&state, mtree_data(tree, z+1), HASHSIZE);
 			crypto_generichash_final(&state, hash, HASHSIZE);
-			fprintf(stderr, "inspecting parent %p (%ld)\n", parent, parent - mtree_node(tree, 1, 0));
+			fprintf(stderr, "inspecting parent %p (%ld)\n", (void *)parent, parent - mtree_node(tree, 1, 0));
 			test_assert(memcmp(hash, parent, HASHSIZE) == 0,
 					"checking node %zu + %zu", z, z + 1);
 			parent += HASHSIZE;

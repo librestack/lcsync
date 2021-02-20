@@ -7,6 +7,7 @@ NEXT ACTIONS:
 * run tests in separate namespace
 
 ----------------------------------------------------------------------
+* check we're only using one lctx, not re-creating it (send/recv)
 * net_sync_trees() - get channel # to use from sender
 * SSE*/AVX/AVX2 dispatcher, function pointers etc.
 * bredth-first search.

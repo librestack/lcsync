@@ -34,7 +34,7 @@ clangtest: clean
 
 gcc: clean all
 
-cap check test sanitize: src
+cap check test sanitize: clean src
 	cd test && $(MAKE) $@
 
 %.clang:

@@ -12,7 +12,7 @@
 
 int main(void)
 {
-	const int limit = 1; /* a modest number for normal test runs */
+	enum { limit = 1 }; /* a modest number for normal test runs */
 	mld_t *mld;
 	struct in6_addr *addr[limit];
 	struct sockaddr_in6 *sad;

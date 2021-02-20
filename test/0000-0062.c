@@ -46,7 +46,7 @@ static unsigned get_multicast_if(void)
 int main(void)
 {
 	//const int limit = 64; /* a modest number for normal test runs */
-	const int limit = 4;
+	enum { limit = 4 };
 	mld_t *mld;
 	struct in6_addr *addr[limit];
 	char channame[16] = "";
