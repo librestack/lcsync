@@ -1,23 +1,6 @@
 -------------------------------------------------------------------------------
 make clangtest / make %clang - vector tests fail
 -------------------------------------------------------------------------------
-clang -Wall -Wextra -Wpedantic -g -Wno-gnu-zero-variadic-macro-arguments   -c -o net.o net.c
-net.c:707:6: warning: variable 'data' is used uninitialized whenever 'if' condition is true [-Wsometimes-uninitialized]
-        if (mtree_verify(tree, mtree_treelen(tree))) goto err_2;
-            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-net.c:735:20: note: uninitialized use occurs here
-        job_queue_destroy(data->q);
-                          ^~~~
-net.c:707:2: note: remove the 'if' if its condition is always false
-        if (mtree_verify(tree, mtree_treelen(tree))) goto err_2;
-        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-net.c:699:18: note: initialize the variable 'data' to silence this warning
-        net_data_t *data;
-                        ^
-                         = NULL
-1 warning generated.
-
--------------------------------------------------------------------------------
 ==18660== Conditional jump or move depends on uninitialised value(s)
 ==18660==    at 0x10DD2D: mld_address_record (mld.c:550)
 ==18660==    by 0x10DE6F: mld_listen_report (mld.c:579)
