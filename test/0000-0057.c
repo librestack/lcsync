@@ -17,11 +17,9 @@ lc_ctx_t *lctx;
 
 void create_channel(struct in6_addr *addr, char *name)
 {
-	struct addrinfo *ai;
 	snprintf(name, 16, "channel 0");
 	lc_channel_t *chan = lc_channel_new(lctx, name);
-	ai = lc_channel_addrinfo(chan);
-	memcpy(addr, aitoin6(ai), sizeof (struct in6_addr));
+	memcpy(addr, lc_channel_in6addr(chan), sizeof (struct in6_addr));
 }
 
 void *listen_thread(void *arg)
