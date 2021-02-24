@@ -25,8 +25,8 @@ int main(void)
 	mld = mld_start(NULL);
 	chan[0] = lc_channel_new(lctx, channame[0]);
 	chan[1] = lc_channel_new(lctx, channame[1]);
-	addr[0] = aitoin6(lc_channel_addrinfo(chan[0]));
-	addr[1] = aitoin6(lc_channel_addrinfo(chan[1]));
+	addr[0] = lc_channel_in6addr(chan[0]);
+	addr[1] = lc_channel_in6addr(chan[1]);
 
 	test_log("adding '%s'\n", channame[0]);
 	mld_filter_grp_add(mld, 0, addr[0]);
