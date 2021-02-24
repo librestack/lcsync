@@ -38,9 +38,7 @@ void *do_mld_watch(void *arg)
 /* convert channel address and queue mld_wait() job */
 job_t *push_job(job_queue_t *q, lc_channel_t *chan)
 {
-	struct addrinfo *ai;
-	ai = lc_channel_addrinfo(chan);
-	return job_push_new(q, &do_mld_watch, aitoin6(ai), sizeof(struct in6_addr), NULL, JOB_COPY|JOB_FREE);
+	return job_push_new(q, &do_mld_watch, lc_channel_in6addr(chan), sizeof(struct in6_addr), NULL, JOB_COPY|JOB_FREE);
 }
 
 int main(void)
