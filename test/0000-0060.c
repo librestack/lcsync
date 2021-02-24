@@ -101,7 +101,7 @@ struct in6_addr * prepare_multicast_channel(unsigned char *hash, unsigned char *
 	chan = lc_channel_nnew(lctx, hash, HASHSIZE);
 	test_assert(chan != NULL, "lc_channel_nnew()");
 	lc_channel_bind(sock, chan);
-	return aitoin6(lc_channel_addrinfo(chan));
+	return lc_channel_in6addr(chan);
 }
 
 void build_src_and_tree(net_data_t **data, mtree_tree **stree)
