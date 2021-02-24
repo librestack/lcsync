@@ -2,7 +2,7 @@
 /* Copyright (c) 2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "test.h"
-#include "../src/mld.h"
+#include "../src/mld_pvt.h"
 #include <assert.h>
 #include <arpa/inet.h>
 #include <librecast.h>
@@ -14,24 +14,11 @@
 
 lc_ctx_t *lctx;
 
-/* Multicast Address Record */
-struct mld_addr_rec_s {
-	uint8_t         type;   /* Record Type */
-	uint8_t         auxl;   /* Aux Data Len */
-	uint16_t        srcs;   /* Number of Sources */
-	struct in6_addr addr;	/* Multicast Address */
-	struct in6_addr src[];	/* Source Addresses */
-} __attribute__((__packed__));
-
 void create_channel(struct in6_addr *addr, char *name)
 {
-	struct sockaddr_in6 *sad;
-	struct addrinfo *ai;
 	snprintf(name, 16, "channel 0");
 	lc_channel_t *chan = lc_channel_new(lctx, name);
-	ai = lc_channel_addrinfo(chan);
-	sad = (struct sockaddr_in6 *)ai->ai_addr;
-	memcpy(addr, &(sad->sin6_addr), sizeof (struct in6_addr));
+	memcpy(addr, lc_channel_in6addr(chan), sizeof (struct in6_addr));
 }
 
 int main(void)
