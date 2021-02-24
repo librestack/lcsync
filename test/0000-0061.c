@@ -99,17 +99,13 @@ int main(void)
 	lc_channel_t *chan = lc_channel_nnew(lctx, hash, HASHSIZE);
 	pthread_t thread_count, thread_serv;
 	pthread_attr_t attr = {0};
-	struct addrinfo *p;
-	struct sockaddr_in6 *sad;
 	struct in6_addr *grp;
 	char *srcdata = calloc(blocks, blocksz);
 	gentestdata(srcdata);
 	mtree_tree *stree = mtree_create(sz, blocksz);
 	mtree_build(stree, srcdata, NULL);
 
-	p = lc_channel_addrinfo(chan);
-	sad = (struct sockaddr_in6 *)p->ai_addr;
-	grp = &(sad->sin6_addr);
+	grp = lc_channel_in6addr(chan);
 
 	test_name("net_send_data() - MLD trigger");
 
