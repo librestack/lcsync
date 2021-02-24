@@ -24,7 +24,7 @@ int main(void)
 	lctx = lc_ctx_new();
 	mld = mld_init(1);
 	chan = lc_channel_new(lctx, channame);
-	addr = aitoin6(lc_channel_addrinfo(chan));
+	addr = lc_channel_in6addr(chan);
 
 	/* test false before adding */
 	test_assert(!mld_filter_grp_cmp(mld, 0, addr),
