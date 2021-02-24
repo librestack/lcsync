@@ -53,7 +53,26 @@ void do_join()
 	assert(lctx);
 	sock = lc_socket_new(lctx);
 	assert(sock);
-	chan = lc_channel_init(lctx, "ff1e:3:1415:9265:3589:7932:3846:2643", "3832");
+	struct sockaddr_in6 sa = {
+		.sin6_port = htons(3832),
+	};
+	sa.sin6_addr.s6_addr[0] = 0xff;
+	sa.sin6_addr.s6_addr[1] = 0x1e;
+	sa.sin6_addr.s6_addr[2] = 0x03;
+	sa.sin6_addr.s6_addr[3] = 0x14;
+	sa.sin6_addr.s6_addr[4] = 0x15;
+	sa.sin6_addr.s6_addr[5] = 0x92;
+	sa.sin6_addr.s6_addr[6] = 0x65;
+	sa.sin6_addr.s6_addr[7] = 0x35;
+	sa.sin6_addr.s6_addr[8] = 0x89;
+	sa.sin6_addr.s6_addr[9] = 0x79;
+	sa.sin6_addr.s6_addr[10] = 0x32;
+	sa.sin6_addr.s6_addr[11] = 0x38;
+	sa.sin6_addr.s6_addr[12] = 0x46;
+	sa.sin6_addr.s6_addr[13] = 0x26;
+	sa.sin6_addr.s6_addr[14] = 0x43;
+	sa.sin6_addr.s6_addr[15] = 0x38;
+	chan = lc_channel_init(lctx, &sa);
 	assert(chan);
 	test_assert(!lc_channel_bind(sock, chan), "bind channel");
 	test_assert(!lc_channel_join(chan), "join channel");
