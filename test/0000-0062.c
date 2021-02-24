@@ -69,7 +69,7 @@ int main(void)
 		snprintf(channame, 16, "channel %i", i);
 		sock[i] = lc_socket_new(lctx);
 		chan[i] = lc_channel_new(lctx, channame);
-		addr[i] = aitoin6(lc_channel_addrinfo(chan[i]));
+		addr[i] = lc_channel_in6addr(chan[i]);
 		assert(sock[i]); assert(chan[i]); assert(addr[i]);
 
 		/* test false before adding */
