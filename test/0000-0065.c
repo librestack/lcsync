@@ -54,7 +54,7 @@ void do_join()
 	sock = lc_socket_new(lctx);
 	assert(sock);
 	struct sockaddr_in6 sa = {
-		.sin6_port = htons(3832),
+		.sin6_port = htons(3279),
 	};
 	sa.sin6_addr.s6_addr[0] = 0xff;
 	sa.sin6_addr.s6_addr[1] = 0x1e;
