@@ -142,19 +142,28 @@ static void mld_timer_ticker(mld_t *mld, unsigned int iface, size_t idx, uint8_t
 
 lc_channel_t *mld_channel_notify(mld_t *mld, struct in6_addr *addr, int events)
 {
-	char base[INET6_ADDRSTRLEN] = "";
+//	char base[INET6_ADDRSTRLEN] = ""; FIXME
 	lc_channel_t *tmp;
 	struct in6_addr any = IN6ADDR_ANY_INIT;
+	struct sockaddr_in6 sa = {
+		.sin6_family = AF_INET6,
+		.sin6_port = htons(MLD_EVENT_SERV),
+	};
 	if (!addr) { /* NULL => watch any/all */
 		any.s6_addr[0] = 0xff; /* set multicast bits */
 		any.s6_addr[1] = 0x1e; /* flags + scope */
 		addr = &any;
 	}
-	if (!inet_ntop(AF_INET6, addr, base, INET6_ADDRSTRLEN)) {
+	memcpy(&sa.sin6_addr, addr, sizeof(struct in6_addr));
+#if 0
+	// FIXME
+	if (!inet_ntop(AF_INET6, addr, &sa.sin6_addr, INET6_ADDRSTRLEN)) {
 		ERROR("inet_ntop()");
 		return NULL;
 	}
-	tmp = lc_channel_init(mld->lctx, base, MLD_EVENT_SERV);
+#endif
+
+	tmp = lc_channel_init(mld->lctx, &sa);
 	if (!tmp) return NULL;
 	return lc_channel_sidehash(tmp, (unsigned char *)&events, sizeof(int));
 }

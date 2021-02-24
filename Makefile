@@ -23,6 +23,12 @@ clean realclean:
 	cd src && $(MAKE) $@
 	cd test && $(MAKE) $@
 
+fixme:
+	grep -n FIXME src/*.{c,h} test/*.{c,h}
+
+todo:
+	grep -n TODO src/*.{c,h} test/*.{c,h}
+
 sparse: clean
 	CC=cgcc $(MAKE) src
 

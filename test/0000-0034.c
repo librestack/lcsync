@@ -68,6 +68,10 @@ int main(void)
 	test_assert(!sem_timedwait(&job_recv->done, &timeout), "timeout - recv");
 
 	struct iovec *iov = (struct iovec *)job_recv->ret;
+	assert(job_recv->ret);
+	// FIXME - Invalid read of size 8
+	// at 0x10AA17: main (0000-0034.c:71)
+	// Address 0x0 is not stack'd, malloc'd or (recently) free'd
 	test_assert(iov->iov_base != NULL, "recv buffer allocated");
 	mtree_tree *dtree = mtree_create(blocks, blocksize);
 	mtree_setdata(dtree, iov->iov_base);

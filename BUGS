@@ -1,4 +1,17 @@
 -------------------------------------------------------------------------------
+0000-0034  net_send_tree() / net_recv_tree()
+/bin/bash: line 1:  8981 Segmentation fault      ./0000-0034.test 2>> lsdb-test-ap0ftN2P.log
+FAIL
+
+lastlog.log:
+sendmsg(): Cannot assign requested address
+sendmsg(): Cannot assign requested address
+sendmsg(): Cannot assign requested address
+
+occurs with both gcc and clang
+
+net.c:221
+-------------------------------------------------------------------------------
 make clangtest / make %clang - vector tests fail
 -------------------------------------------------------------------------------
 ==18660== Conditional jump or move depends on uninitialised value(s)

@@ -192,6 +192,7 @@ err_0:
 
 ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
 {
+	TRACE("%s()", __func__);
 	ssize_t byt = 0, rc;
 	size_t sz, off = 0;
 	size_t len = iov[1].iov_len;
@@ -217,6 +218,9 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 		hdr->len = htobe32(sz);
 		off += sz;
 		len -= sz;
+		// FIXME: Cannot assign requested address - test 0034
+		int on = 1;
+		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
 		if ((rc = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
 			byt = -1; break;
@@ -289,7 +293,10 @@ void *net_job_send_tree(void *arg)
 		if (mld_enabled && data->mld) mld_wait(data->mld, 0, grp);
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
-		net_send_tree(s, addr, vlen, iov);
+		if (net_send_tree(s, addr, vlen, iov) == -1) {
+			ERROR("error sending tree - aborting");
+			break;
+		}
 	}
 err_2:
 	lc_channel_free(chan);

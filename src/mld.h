@@ -53,7 +53,7 @@ typedef enum {
 #define MLD_EVENT_ALL ((MLD_EVENT_MAX - 1) << 1) - 1
 
 /* port (or service) to use for MLD event notifications */
-#define MLD_EVENT_SERV "4242"
+#define MLD_EVENT_SERV 4242
 
 typedef struct mld_s mld_t;
 typedef struct mld_addr_rec_s mld_addr_rec_t;
