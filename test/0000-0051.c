@@ -15,8 +15,6 @@ int main(void)
 	enum { limit = 1 }; /* a modest number for normal test runs */
 	mld_t *mld;
 	struct in6_addr *addr[limit];
-	struct sockaddr_in6 *sad;
-	struct addrinfo *ai;
 	char channame[16] = "";
 	int t;
 	unsigned int iface = 0;
@@ -29,9 +27,7 @@ int main(void)
 	for (int i = 0; i < limit; i++) {
 		snprintf(channame, 16, "channel %i", i);
 		chan = lc_channel_new(lctx, channame);
-		ai = lc_channel_addrinfo(chan);
-		sad = (struct sockaddr_in6 *)ai->ai_addr;
-		addr[i] = &(sad->sin6_addr);
+		addr[i] = lc_channel_in6addr(chan);
 		/* test false before adding */
 		test_log("testing '%s' (false)\n", channame);
 		test_assert(!mld_filter_grp_cmp(mld, iface, addr[i]),
