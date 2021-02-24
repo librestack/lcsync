@@ -42,12 +42,7 @@ void *do_mld_watch(void *arg)
 
 job_t *push_job(job_queue_t *q, lc_channel_t *chan)
 {
-	struct in6_addr *addr;
-	struct sockaddr_in6 *sad;
-	struct addrinfo *p;
-	p = lc_channel_addrinfo(chan);
-	sad = (struct sockaddr_in6 *)p->ai_addr;
-	addr = &(sad->sin6_addr);
+	struct in6_addr *addr = lc_channel_in6addr(chan);
 	return job_push_new(q, &do_mld_watch, addr, sizeof(struct in6_addr), NULL, JOB_COPY|JOB_FREE);
 }
 
@@ -55,8 +50,6 @@ int main(void)
 {
 	struct timespec timeout;
 	struct in6_addr *addr;
-	struct sockaddr_in6 *sad;
-	struct addrinfo *p;
 	job_queue_t *q;
 	job_t *job;
 	lc_ctx_t *lctx;
@@ -71,9 +64,7 @@ int main(void)
 	chan = lc_channel_new(lctx, "manually put this in filter");
 
 	/* we manually put this in the filter, so it must return immediately */
-	p = lc_channel_addrinfo(chan);
-	sad = (struct sockaddr_in6 *)p->ai_addr;
-	addr = &(sad->sin6_addr);
+	addr = lc_channel_in6addr(chan);
 	mld_filter_grp_add(mld, 0, addr);
 	job = push_job(q, chan);
 
