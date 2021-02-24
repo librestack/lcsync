@@ -27,17 +27,13 @@ int main(void)
 	lc_ctx_t *lctx;
 	lc_socket_t *sock[2];
 	lc_channel_t *chan[2];
-	struct addrinfo *ai;
-	struct sockaddr_in6 *sad;
 	struct in6_addr *addr;
 	mld_t *mld;
 
 	test_name("mld_notify()");
 	lctx = lc_ctx_new();
 	chan[CHANMAIN] = lc_channel_new(lctx, "Is it lunchtime yet?");
-	ai = lc_channel_addrinfo(chan[CHANMAIN]);
-	sad = (struct sockaddr_in6 *)ai->ai_addr;
-	addr = &(sad->sin6_addr);
+	addr = lc_channel_in6addr(chan[CHANMAIN]);
 	mld = mld_start(NULL);
 	test_assert(mld != NULL, "mld_start()");
 	
