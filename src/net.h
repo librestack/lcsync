@@ -98,7 +98,7 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree);
 	struct iovec	iov[];		scatter-gather array
 First iovec is assumed to be the header and will be sent with every packet.
 */
-ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov);
+ssize_t net_send_tree(int sock, struct sockaddr_in6 *sa, size_t vlen, struct iovec *iov);
 
 ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root);
 ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root);

@@ -190,7 +190,7 @@ err_0:
 	return iov;
 }
 
-ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov)
+ssize_t net_send_tree(int sock, struct sockaddr_in6 *sa, size_t vlen, struct iovec *iov)
 {
 	TRACE("%s()", __func__);
 	ssize_t byt = 0, rc;
@@ -210,8 +210,8 @@ ssize_t net_send_tree(int sock, struct addrinfo *addr, size_t vlen, struct iovec
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		iov[1].iov_len = sz;
 		iov[1].iov_base = data + off;
-		msgh.msg_name = addr->ai_addr;
-		msgh.msg_namelen = addr->ai_addrlen;
+		msgh.msg_name = sa;
+		msgh.msg_namelen = sizeof(struct sockaddr_in6);
 		msgh.msg_iov = iov;
 		msgh.msg_iovlen = vlen;
 		hdr->idx = htobe32(idx++);
@@ -240,7 +240,7 @@ void *net_job_send_tree(void *arg)
 	int s;
 	enum { vlen = 2 };
 	struct iovec iov[vlen];
-	struct addrinfo *addr;
+	struct sockaddr_in6 *sa;
 	struct in6_addr *grp;
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *tree = (mtree_tree *)data->iov[0].iov_base;
@@ -261,8 +261,8 @@ void *net_job_send_tree(void *arg)
 	if (lc_channel_bind(sock, chan))
 		goto err_2;
 	s = lc_channel_socket_raw(chan);
-	addr = lc_channel_addrinfo(chan);
-	grp = aitoin6(addr);
+	sa = lc_channel_sockaddr(chan);
+	grp = &sa->sin6_addr;
 	net_treehead_t hdr = {
 		.data = htobe64((uint64_t)data->byt),
 		.size = htobe64(data->iov[0].iov_len),
@@ -293,7 +293,7 @@ void *net_job_send_tree(void *arg)
 		if (mld_enabled && data->mld) mld_wait(data->mld, 0, grp);
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
-		if (net_send_tree(s, addr, vlen, iov) == -1) {
+		if (net_send_tree(s, sa, vlen, iov) == -1) {
 			ERROR("error sending tree - aborting");
 			break;
 		}
@@ -545,7 +545,7 @@ err_0:
 /* break a block into DATA_FIXED size pieces and send with header
  * header is in iov[0], data in iov[1] 
  * idx and len need updating */
-static void net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct iovec *iov, size_t blk)
+static void net_send_block(int sock, struct sockaddr_in6 *sa, size_t vlen, struct iovec *iov, size_t blk)
 {
 	ssize_t byt;
 	size_t len = iov[1].iov_len;
@@ -555,8 +555,8 @@ static void net_send_block(int sock, struct addrinfo *addr, size_t vlen, struct 
 	for (size_t idx = blk * bits; running && len; idx++) {
 		size_t sz = MIN(len, DATA_FIXED);
 		struct msghdr msgh = {
-			.msg_name = addr->ai_addr,
-			.msg_namelen = addr->ai_addrlen,
+			.msg_name = sa,
+			.msg_namelen = sizeof *sa,
 			.msg_iov = iov,
 			.msg_iovlen = vlen,
 		};
@@ -584,7 +584,7 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 	size_t base, min, max;
 	enum { vlen = 2 };
 	struct iovec iov[vlen];
-	struct addrinfo *addr;
+	struct sockaddr_in6 *sa;
 	lc_ctx_t *lctx;
 	lc_socket_t *sock;
 	lc_channel_t *chan;
@@ -599,7 +599,7 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 	if (lc_channel_bind(sock, chan))
 		goto err_1;
 	s = lc_channel_socket_raw(chan);
-	addr = lc_channel_addrinfo(chan);
+	sa = lc_channel_sockaddr(chan);
 	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
@@ -612,13 +612,13 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 			 * should subscribe for notifications on all addresses
 			 * on all interfaces and wait to be told what blocks to
 			 * send, firing up a thread only when required */
-			if (mld_enabled && mld) mld_wait(mld, 0, aitoin6(addr));
+			if (mld_enabled && mld) mld_wait(mld, 0, &sa->sin6_addr);
 			DEBUG("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_base = mtree_blockn(stree, blk);
 			if (!iov[1].iov_base) continue;
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
-			net_send_block(s, addr, vlen, iov, idx);
+			net_send_block(s, sa, vlen, iov, idx);
 			if (DELAY) usleep(DELAY);
 		}
 	}
@@ -675,28 +675,28 @@ static ssize_t net_tree_level_search(lc_ctx_t *lctx, mtree_tree *tree, size_t lv
 	size_t n;
 	size_t first = (1 << lvl) - 1;
 	size_t last = (first + 1) * 2 - 1;
-	struct addrinfo *ai;
+	struct sockaddr_in6 *sa;
 #ifdef NET_DEBUG
 	char strgrp[INET6_ADDRSTRLEN];
 #endif
 
 	/* first check alias (mtree) hash */
 	chan = lc_channel_nnew(lctx, alias, HASHSIZE);
-	ai = lc_channel_addrinfo(chan);
-	inet_ntop(AF_INET6, aitoin6(ai), strgrp, INET6_ADDRSTRLEN);
-	if (!memcmp(grp, aitoin6(ai), IPV6_BYTES)) {
+	sa = lc_channel_sockaddr(chan);
+	inet_ntop(AF_INET6, &sa->sin6_addr, strgrp, INET6_ADDRSTRLEN);
+	if (!memcmp(grp, &sa->sin6_addr, IPV6_BYTES)) {
 			return -2;
 		}
 	lc_channel_free(chan);
 
 	for (n = first; n <= last; n++) {
 		chan = lc_channel_nnew(lctx, mtree_nnode(tree, n), HASHSIZE);
-		ai = lc_channel_addrinfo(chan);
+		sa = lc_channel_sockaddr(chan);
 #ifdef NET_DEBUG
-		inet_ntop(AF_INET6, aitoin6(ai), strgrp, INET6_ADDRSTRLEN);
+		inet_ntop(AF_INET6, &sa->sin6_addr, strgrp, INET6_ADDRSTRLEN);
 		DEBUG("checking %s", strgrp);
 #endif
-		if (!memcmp(grp, aitoin6(ai), IPV6_BYTES)) {
+		if (!memcmp(grp, &sa->sin6_addr, IPV6_BYTES)) {
 			return (ssize_t)n;
 		}
 		lc_channel_free(chan);

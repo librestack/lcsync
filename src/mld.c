@@ -244,10 +244,10 @@ int mld_watch_start(mld_watch_t *watch)
 	/* avoid race by directly adding addr to filter */
 	if (watch->ifx == 0) { /* 0 => all interfaces */
 		for (int i = 0; i < watch->mld->len; i++) {
-			 mld_filter_grp_add_ai(watch->mld, i, lc_channel_addrinfo(watch->chan));
+			 mld_filter_grp_add(watch->mld, i, lc_channel_in6addr(watch->chan));
 		}
 	}
-	else mld_filter_grp_add_ai(watch->mld, watch->ifx, lc_channel_addrinfo(watch->chan));
+	else mld_filter_grp_add(watch->mld, watch->ifx, lc_channel_in6addr(watch->chan));
 	if ((rc = lc_channel_bind(watch->sock, watch->chan))) {
 		ERROR("lc_channel_bind(): %s", lc_error_msg(rc));
 		goto err_1;
@@ -306,10 +306,10 @@ static int mld_wait_poll(mld_t *mld, unsigned int *ifx, struct in6_addr *addr)
 	/* avoid race by directly adding addr to filter */
 	if (!ifx || *ifx == 0) { /* 0 => all interfaces */
 		for (int i = 0; i < mld->len; i++) {
-			 mld_filter_grp_add_ai(mld, i, lc_channel_addrinfo(chan));
+			 mld_filter_grp_add(mld, i, lc_channel_in6addr(chan));
 		}
 	}
-	else mld_filter_grp_add_ai(mld, *ifx, lc_channel_addrinfo(chan));
+	else mld_filter_grp_add(mld, *ifx, lc_channel_in6addr(chan));
 	if ((lc_channel_bind(sock, chan)) || (lc_channel_join(chan))) {
 		goto exit_err_1;
 	}
@@ -349,7 +349,7 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 {
 	lc_socket_t *sock;
 	lc_channel_t *chan;
-	struct addrinfo *ai;
+	struct sockaddr_in6 *sa;
 	char sgroup[INET6_ADDRSTRLEN];
 	char swatch[INET6_ADDRSTRLEN];
 	const int opt = 1;
@@ -359,7 +359,7 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 	if (!chan) return;
 
 	/* check filter to see if anyone listening for notifications */
-	ai = lc_channel_addrinfo(chan);
+	sa = lc_channel_sockaddr(chan);
 	if (loglevel & LOG_DEBUG) {
 		if (grp) {
 			inet_ntop(AF_INET6, grp, sgroup, INET6_ADDRSTRLEN);
@@ -367,9 +367,9 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 		else {
 			strcpy(sgroup, "any");
 		}
-		inet_ntop(AF_INET6, aitoin6(ai), swatch, INET6_ADDRSTRLEN);
+		inet_ntop(AF_INET6, &sa->sin6_addr, swatch, INET6_ADDRSTRLEN);
 	}
-	if (!mld_filter_grp_cmp(mld, iface, aitoin6(ai))) {
+	if (!mld_filter_grp_cmp(mld, iface, &sa->sin6_addr)) {
 		DEBUG("no one listening to %s (%i) - skipping notification for %s",
 				swatch, event, sgroup);
 		goto err_0;
@@ -387,7 +387,7 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 
 	lc_channel_bind(sock, chan);
 	s = lc_socket_raw(sock);
-	sendto(s, pi, sizeof *pi, 0, (const struct sockaddr *)ai->ai_addr, ai->ai_addrlen);
+	sendto(s, pi, sizeof *pi, 0, (const struct sockaddr *)sa, sizeof(struct sockaddr_in6));
 
 	lc_socket_close(sock);
 err_0:

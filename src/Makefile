@@ -11,7 +11,7 @@ prefix ?= /usr/local
 exec_prefix := $(prefix)
 bindir := $(exec_prefix)/bin
 CFLAGS +=
-LDFLAGS += -lsodium -lm -pthread -llibrecast -llcdb -llsdb
+LDFLAGS += -lsodium -lm -pthread -llibrecast
 OBJS = $(PROGRAM).o arg.o file.o globals.o hash.o help.o job.o log.o misc.o mld.o mtree.o net.o opt.o vec.o
 
 all:		$(PROGRAM)
