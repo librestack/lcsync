@@ -78,7 +78,7 @@ void *thread_send_data(void *arg)
 
 void saveroothash()
 {
-	crypto_generichash(hash, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
+	hash_generic(hash, HASHSIZE, (unsigned char *)alias, strlen(alias));
 }
 
 void gentestdata(char *srcdata)

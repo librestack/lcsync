@@ -10,18 +10,19 @@ INSTALL_PROGRAM := $(INSTALL)
 prefix ?= /usr/local
 exec_prefix := $(prefix)
 bindir := $(exec_prefix)/bin
-CFLAGS +=
+CFLAGS += -I../blake3
+#LDFLAGS += -lsodium -lm -pthread -llibrecast -L../blake3 -lblake3
 LDFLAGS += -lsodium -lm -pthread -llibrecast
-OBJS = $(PROGRAM).o arg.o file.o globals.o hash.o help.o job.o log.o misc.o mld.o mtree.o net.o opt.o vec.o
+#OBJS = $(PROGRAM).o arg.o file.o globals.o hash.o help.o job.o log.o misc.o mld.o mtree.o net.o opt.o vec.o
+OBJS_BLAKE3 := ../blake3/blake3.c ../blake3/blake3_dispatch.c ../blake3/blake3_portable.c $(wildcard ../blake3/*.o)
+OBJS = $(PROGRAM).o arg.o file.o globals.o hash.o help.o job.o log.o misc.o mld.o mtree.o net.o opt.o vec.o $(OBJS_BLAKE3)
 
 all:		$(PROGRAM)
 
 $(PROGRAM):	$(OBJS)
-		$(CC) $(OBJS) -o $@ $(LDFLAGS)
+		$(CC) $(CFLAGS) $(EXTRAFLAGS) $^ -o $(PROGRAM) $(LDFLAGS)
 
 misc.o:		misc.h
-
-$(PROGRAM).o:
 
 install:        all
 		$(INSTALL) -d $(DESTDIR)$(bindir)

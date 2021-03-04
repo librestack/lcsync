@@ -822,7 +822,7 @@ int net_send(int *argc, char *argv[])
 	DEBUG("mapping src: %s", src);
 	if ((sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs)) == -1) return -1;
 	sigaction(SIGINT, &sa_int, NULL);
-	crypto_generichash(hash, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
+	hash_generic(hash, HASHSIZE, (unsigned char *)alias, strlen(alias));
 	net_send_data(hash, smap, sz_s);
 	DEBUG("unmapping src: %s", src);
 	file_unmap(smap, sz_s, fds);
@@ -846,7 +846,7 @@ int net_sync(int *argc, char *argv[])
 	mtree_tree *stree = NULL, *dtree = NULL;
 	TRACE("%s('%s')", __func__, argv[0]);
 	sigaction(SIGINT, &sa_int, NULL);
-	crypto_generichash(hash, HASHSIZE, (unsigned char *)src, strlen(src), NULL, 0);
+	hash_generic(hash, HASHSIZE, (unsigned char *)src, strlen(src));
 	if (net_fetch_tree(hash, &stree) == -1) goto err_0;
 	if (mtree_verify(stree, mtree_treelen(stree))) goto err_0;
 	DEBUG("mapping dst: %s", dst);

@@ -3,9 +3,10 @@
 
 SHELL := /bin/bash
 CAPS = ""
-CFLAGS += -Wall -g
+CFLAGS += -Wall -g -I../blake3
 NOTOBJS := ../src/$(PROGRAM).o
-OBJS := test.o $(filter-out $(NOTOBJS), $(wildcard ../src/*.o))
+OBJS_BLAKE3 := ../blake3/blake3.c ../blake3/blake3_dispatch.c ../blake3/blake3_portable.c $(wildcard ../blake3/*.o)
+OBJS := test.o $(filter-out $(NOTOBJS), $(wildcard ../src/*.o)) $(OBJS_BLAKE3)
 LDFLAGS := -llmdb -lsodium -lm -pthread -llibrecast
 BOLD := "\\e[0m\\e[2m"
 RESET := "\\e[0m"

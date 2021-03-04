@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <string.h>
+#include <stdlib.h>
 #include <sys/param.h>
 #include <unistd.h>
 #include "globals.h"
@@ -296,7 +297,7 @@ static void *mtree_hash_data(void *arg)
 	size_t nthreads = (mt->nthreads > q->tree->base) ? q->tree->base : mt->nthreads;
 	size_t child0, child1, parent, t, sz, first, last, len, level_nodes;
 	unsigned char *wptr, *rptr;
-	crypto_generichash_state state;
+	hash_state state;
 
 	/* hash data chunks */
 	first = mtree_data_first(q->tree->base, nthreads, mt->id);
@@ -307,7 +308,7 @@ static void *mtree_hash_data(void *arg)
 			sz = (len < q->tree->blocksz) ? len : q->tree->blocksz;
 			wptr = mtree_data(q->tree, z);
 			rptr = (unsigned char *)q->data + z * q->tree->blocksz;
-			crypto_generichash(wptr, HASHSIZE, rptr, sz, NULL, 0);
+			hash_generic(wptr, HASHSIZE, rptr, sz);
 		}
 		sem_post(&q->done[mtree_node_num(q->tree, 0, z)]);
 	}
@@ -325,13 +326,13 @@ static void *mtree_hash_data(void *arg)
 			child1 = mtree_node_num(q->tree, lvl - 1, z * 2 + 1);
 			sem_wait(&q->done[child0]);
 			sem_wait(&q->done[child1]);
-			crypto_generichash_init(&state, NULL, 0, HASHSIZE);
+			hash_generic_init(&state, NULL, 0, HASHSIZE);
 			rptr = mtree_node(q->tree, lvl - 1, z * 2 + 0);
-			crypto_generichash_update(&state, rptr, HASHSIZE);
+			hash_generic_update(&state, rptr, HASHSIZE);
 			rptr = mtree_node(q->tree, lvl - 1, z * 2 + 1);
-			crypto_generichash_update(&state, rptr, HASHSIZE);
+			hash_generic_update(&state, rptr, HASHSIZE);
 			wptr = mtree_node(q->tree, lvl, z);
-			crypto_generichash_final(&state, wptr, HASHSIZE);
+			hash_generic_final(&state, wptr, HASHSIZE);
 			sem_post(&q->done[parent]);
 		}
 	}
@@ -419,17 +420,17 @@ int mtree_verify(mtree_tree *tree, size_t len)
 {
 	unsigned char hash[HASHSIZE];
 	unsigned char *parent;
-	crypto_generichash_state state;
+	hash_state state;
 	if (tree == NULL || !len) return -1;
 	if (tree->tree == NULL || !len) return -1;
 	if (len % HASHSIZE) return -1;
 	parent = mtree_node(tree, 1, 0);
 	for (size_t i = 0; i < tree->nodes - 1; i += 2) {
 		if (mtree_data(tree, i+1) + HASHSIZE > tree->tree + len) return -1;
-		crypto_generichash_init(&state, NULL, 0, HASHSIZE);
-		crypto_generichash_update(&state, mtree_data(tree, i+0), HASHSIZE);
-		crypto_generichash_update(&state, mtree_data(tree, i+1), HASHSIZE);
-		crypto_generichash_final(&state, hash, HASHSIZE);
+		hash_generic_init(&state, NULL, 0, HASHSIZE);
+		hash_generic_update(&state, mtree_data(tree, i+0), HASHSIZE);
+		hash_generic_update(&state, mtree_data(tree, i+1), HASHSIZE);
+		hash_generic_final(&state, hash, HASHSIZE);
 		if (memcmp(hash, parent, HASHSIZE) != 0) return -1;
 		parent += HASHSIZE;
 	}
@@ -534,11 +535,11 @@ void mtree_update(mtree_tree *tree, char *data, size_t n)
 {
 	unsigned char *parent, *child1, *child2;
 	size_t sz = ((n + 1) * tree->blocksz > tree->len) ? tree->len % tree->blocksz : tree->blocksz;
-	crypto_generichash_state state;
+	hash_state state;
 
 	/* rehash changed data chunk */
 	child1 = (unsigned char *)data + tree->blocksz * n;
-	crypto_generichash(mtree_data(tree, n), HASHSIZE, child1, sz, NULL, 0);
+	hash_generic(mtree_data(tree, n), HASHSIZE, child1, sz);
 
 	/* update parent nodes */
 	for (size_t lvl = 1; lvl < mtree_lvl(tree); lvl++) {
@@ -546,10 +547,10 @@ void mtree_update(mtree_tree *tree, char *data, size_t n)
 		parent = mtree_node(tree, lvl, n);
 		child1 = mtree_node(tree, lvl - 1, n * 2);
 		child2 = child1 + HASHSIZE;
-		crypto_generichash_init(&state, NULL, 0, HASHSIZE);
-		crypto_generichash_update(&state, child1, HASHSIZE);
-		crypto_generichash_update(&state, child2, HASHSIZE);
-		crypto_generichash_final(&state, parent, HASHSIZE);
+		hash_generic_init(&state, NULL, 0, HASHSIZE);
+		hash_generic_update(&state, child1, HASHSIZE);
+		hash_generic_update(&state, child2, HASHSIZE);
+		hash_generic_final(&state, parent, HASHSIZE);
 	}
 }
 

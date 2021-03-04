@@ -1,5 +1,11 @@
 NEXT ACTIONS:
 
+* lc_send / lc_recv
+* socket interface list
+* socket channel list
+* send/recv all listed interfaces ALL/list/default
+* fix bugs in net sync
+
 * MLD trigger - > index lookup & send (check subscription each loop)
 * net_job_send_tree() - handle multiple interfaces (send all or mld requested)
 * file indexing -> lmdb

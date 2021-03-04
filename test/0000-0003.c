@@ -33,7 +33,7 @@ int main()
 	mtree_build(tree, data, NULL);
 
 	/* check hashes */
-	crypto_generichash(hash, HASHSIZE, (unsigned char *)data, len, NULL, 0);
+	hash_generic(hash, HASHSIZE, (unsigned char *)data, len);
 	ptr = mtree_root(tree);
 	test_assert(memcmp(hash, ptr, HASHSIZE) == 0, "checking root hash");
 

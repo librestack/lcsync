@@ -4,6 +4,7 @@
 #ifndef _MTREE_H
 #define _MTREE_H 1
 
+#include <stdio.h>
 #include <stddef.h>
 #include "hash.h"
 #include "job.h"

@@ -41,19 +41,19 @@ int main()
 		/* check data hashes */
 		for (size_t z = 0; z < i; z++) {
 			rptr = (unsigned char *)data + z * blocksz;
-			crypto_generichash(hash, HASHSIZE, rptr, blocksz, NULL, 0);
+			hash_generic(hash, HASHSIZE, rptr, blocksz);
 			test_assert(memcmp(hash, mtree_data(tree, z), HASHSIZE) == 0,
 					"%zu: checking data hash %zu", i, z);
 		}
 
 		/* check the tree */
-		crypto_generichash_state state;
+		hash_state state;
 		unsigned char *parent = mtree_node(tree, 1, 0);
 		for (size_t z = 0; z < mtree_nodes(tree) - 1; z += 2) {
-			crypto_generichash_init(&state, NULL, 0, HASHSIZE);
-			crypto_generichash_update(&state, mtree_data(tree, z+0), HASHSIZE);
-			crypto_generichash_update(&state, mtree_data(tree, z+1), HASHSIZE);
-			crypto_generichash_final(&state, hash, HASHSIZE);
+			hash_generic_init(&state, NULL, 0, HASHSIZE);
+			hash_generic_update(&state, mtree_data(tree, z+0), HASHSIZE);
+			hash_generic_update(&state, mtree_data(tree, z+1), HASHSIZE);
+			hash_generic_final(&state, hash, HASHSIZE);
 			fprintf(stderr, "inspecting parent %p (%ld)\n", (void *)parent, parent - mtree_node(tree, 1, 0));
 			test_assert(memcmp(hash, parent, HASHSIZE) == 0,
 					"checking node %zu + %zu", z, z + 1);

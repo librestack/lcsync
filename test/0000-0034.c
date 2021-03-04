@@ -43,9 +43,11 @@ int main(void)
 	fprintf(stderr, "node= %zu, treelen=%zu\n", mtree_nodes(stree), mtree_treelen(stree));
 
 	/* we are sending the source tree */
+#ifdef sodium_init
 	test_assert(sodium_init() != -1, "sodium_init()");
+#endif
 	odata->alias = malloc(HASHSIZE);
-	crypto_generichash(odata->alias, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
+	hash_generic(odata->alias, HASHSIZE, (unsigned char *)alias, strlen(alias));
 	odata->hash = mtree_root(stree);
 	odata->byt = sz;
 	odata->iov[0].iov_len = mtree_treelen(stree);

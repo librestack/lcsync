@@ -64,7 +64,7 @@ void do_sync(char *srcdata, char *dstdata)
 /* hash alias so recv/send thread knows what channel to use for tree */
 void saveroothash()
 {
-	crypto_generichash(hash, HASHSIZE, (unsigned char *)alias, strlen(alias), NULL, 0);
+	hash_generic(hash, HASHSIZE, (unsigned char *)alias, strlen(alias));
 }
 
 void gentestdata(char *srcdata, char *dstdata)
