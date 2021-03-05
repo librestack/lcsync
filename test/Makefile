@@ -20,6 +20,8 @@ VALGRIND = valgrind --leak-check=full --error-exitcode=2 --errors-for-leak-kinds
 
 .PHONY: test clean realclean build result check cap
 
+cap: SKIP = "----- capabilities not required \(skipping\) -----\\e[0m"
+#cap: test
 cap: clean 0000-0046.test 0000-0047.test 0000-0051.test 0000-0058.test 0000-0060.test 0000-0061.test 0000-0062.test 0000-0064.test 0000-0065.test
 
 check: MEMCHECK = $(VALGRIND)
@@ -54,7 +56,7 @@ build:
 	@if [[ $EUID -eq 0 && -n $(CAPS) ]]; then setcap $(CAPS) $@; fi
 	@echo -ne "\e[2m" $* " "
 	@echo -ne "\n== $@" >> $(LOGFILE)
-	@if [[ -n $(CAPS) && $EUID -ne 0 ]]; then echo -e "$(SKIP)"; else $(MEMCHECK) ./$@ 2>> $(LOGFILE) && echo -e " $(PASS)" || echo -e " $(FAIL)"; fi
+	@if [[ (-n $(CAPS) && $EUID -ne 0) || (-z $(CAPS) && $EUID -eq 0) ]]; then echo -e "$(SKIP)"; else $(MEMCHECK) ./$@ 2>> $(LOGFILE) && echo -e " $(PASS)" || echo -e " $(FAIL)"; fi
 	@ln -sf $(LOGFILE) $(LASTLOG)
 	@$(eval tests_run=$(shell echo $$(($(tests_run)+1))))
 
