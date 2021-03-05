@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <librecast/crypto.h>
 #include <limits.h>
 #include <math.h>
 #include <pthread.h>
@@ -12,7 +13,6 @@
 #include <sys/param.h>
 #include <unistd.h>
 #include "globals.h"
-#include "hash.h"
 #include "job.h"
 #include "log.h"
 #include "mtree.h"
@@ -326,13 +326,13 @@ static void *mtree_hash_data(void *arg)
 			child1 = mtree_node_num(q->tree, lvl - 1, z * 2 + 1);
 			sem_wait(&q->done[child0]);
 			sem_wait(&q->done[child1]);
-			hash_generic_init(&state, NULL, 0, HASHSIZE);
+			hash_init(&state, NULL, 0, HASHSIZE);
 			rptr = mtree_node(q->tree, lvl - 1, z * 2 + 0);
-			hash_generic_update(&state, rptr, HASHSIZE);
+			hash_update(&state, rptr, HASHSIZE);
 			rptr = mtree_node(q->tree, lvl - 1, z * 2 + 1);
-			hash_generic_update(&state, rptr, HASHSIZE);
+			hash_update(&state, rptr, HASHSIZE);
 			wptr = mtree_node(q->tree, lvl, z);
-			hash_generic_final(&state, wptr, HASHSIZE);
+			hash_final(&state, wptr, HASHSIZE);
 			sem_post(&q->done[parent]);
 		}
 	}
@@ -427,10 +427,10 @@ int mtree_verify(mtree_tree *tree, size_t len)
 	parent = mtree_node(tree, 1, 0);
 	for (size_t i = 0; i < tree->nodes - 1; i += 2) {
 		if (mtree_data(tree, i+1) + HASHSIZE > tree->tree + len) return -1;
-		hash_generic_init(&state, NULL, 0, HASHSIZE);
-		hash_generic_update(&state, mtree_data(tree, i+0), HASHSIZE);
-		hash_generic_update(&state, mtree_data(tree, i+1), HASHSIZE);
-		hash_generic_final(&state, hash, HASHSIZE);
+		hash_init(&state, NULL, 0, HASHSIZE);
+		hash_update(&state, mtree_data(tree, i+0), HASHSIZE);
+		hash_update(&state, mtree_data(tree, i+1), HASHSIZE);
+		hash_final(&state, hash, HASHSIZE);
 		if (memcmp(hash, parent, HASHSIZE) != 0) return -1;
 		parent += HASHSIZE;
 	}
@@ -547,10 +547,10 @@ void mtree_update(mtree_tree *tree, char *data, size_t n)
 		parent = mtree_node(tree, lvl, n);
 		child1 = mtree_node(tree, lvl - 1, n * 2);
 		child2 = child1 + HASHSIZE;
-		hash_generic_init(&state, NULL, 0, HASHSIZE);
-		hash_generic_update(&state, child1, HASHSIZE);
-		hash_generic_update(&state, child2, HASHSIZE);
-		hash_generic_final(&state, parent, HASHSIZE);
+		hash_init(&state, NULL, 0, HASHSIZE);
+		hash_update(&state, child1, HASHSIZE);
+		hash_update(&state, child2, HASHSIZE);
+		hash_final(&state, parent, HASHSIZE);
 	}
 }
 

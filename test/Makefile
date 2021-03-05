@@ -3,11 +3,10 @@
 
 SHELL := /bin/bash
 CAPS = ""
-CFLAGS += -Wall -g -I../blake3
+CFLAGS += -Wall -g
 NOTOBJS := ../src/$(PROGRAM).o
-OBJS_BLAKE3 := ../blake3/blake3.c ../blake3/blake3_dispatch.c ../blake3/blake3_portable.c $(wildcard ../blake3/*.o)
-OBJS := test.o $(filter-out $(NOTOBJS), $(wildcard ../src/*.o)) $(OBJS_BLAKE3)
-LDFLAGS := -lsodium -lm -pthread -llibrecast
+OBJS := test.o $(filter-out $(NOTOBJS), $(wildcard ../src/*.o))
+LDFLAGS := -lm -pthread -llibrecast
 BOLD := "\\e[0m\\e[2m"
 RESET := "\\e[0m"
 PASS = "\\e[0m\\e[32mOK\\e[0m" # end bold, green text

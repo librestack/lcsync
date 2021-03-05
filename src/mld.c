@@ -2,13 +2,13 @@
 /* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "mld_pvt.h"
-#include "hash.h"
 #include "log.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <ifaddrs.h>
 #include <poll.h>
 #include <librecast/types.h>
+#include <librecast/crypto.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <netinet/icmp6.h>

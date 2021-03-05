@@ -4,9 +4,9 @@
 #ifndef _NET_H
 #define _NET_H 1
 
+#include <librecast/crypto.h>
 #include <librecast/net.h>
 #include <signal.h>
-#include "hash.h"
 #include "mtree.h"
 #include "mld.h"
 

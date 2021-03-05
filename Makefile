@@ -2,30 +2,26 @@
 # Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net>
 
 CFLAGS := -Wall -Wextra -Wpedantic -g
-CFLAGS-CLANG := -Wno-gnu-zero-variadic-macro-arguments -I../blake3
+CFLAGS-CLANG := -Wno-gnu-zero-variadic-macro-arguments
 export CFLAGS
 INSTALLDIR := /usr/local/bin
 export INSTALLDIR
 PROGRAM := lcsync
 export PROGRAM
 
-.PHONY: all clean src test check install blake3
+.PHONY: all clean src test check install
 
 all: src
 
 install: all
 	cd src && $(MAKE) $@
 
-blake3:
-	$(MAKE) -C blake3 all
-
-src: blake3
+src:
 	$(MAKE) -C $@
 
 clean realclean:
 	$(MAKE) -C src $@
 	$(MAKE) -C test $@
-	$(MAKE) -C blake3 $@
 
 fixme:
 	grep -n FIXME src/*.{c,h} test/*.{c,h}

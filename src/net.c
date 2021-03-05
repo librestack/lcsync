@@ -494,8 +494,8 @@ static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 	data->len = vlen;
 #ifdef NET_DEBUG
 	DEBUG("root hashes differ:");
-	hash_hex_debug(mtree_root(stree), HASHSIZE);
-	hash_hex_debug(mtree_root(dtree), HASHSIZE);
+	hash_hex_debug(stderr, mtree_root(stree), HASHSIZE);
+	hash_hex_debug(stderr, mtree_root(dtree), HASHSIZE);
 #endif
 	data->byt = mtree_len(stree);
 	data->iov[0].iov_len = mtree_treelen(stree);

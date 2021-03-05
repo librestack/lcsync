@@ -50,10 +50,10 @@ int main()
 		hash_state state;
 		unsigned char *parent = mtree_node(tree, 1, 0);
 		for (size_t z = 0; z < mtree_nodes(tree) - 1; z += 2) {
-			hash_generic_init(&state, NULL, 0, HASHSIZE);
-			hash_generic_update(&state, mtree_data(tree, z+0), HASHSIZE);
-			hash_generic_update(&state, mtree_data(tree, z+1), HASHSIZE);
-			hash_generic_final(&state, hash, HASHSIZE);
+			hash_init(&state, NULL, 0, HASHSIZE);
+			hash_update(&state, mtree_data(tree, z+0), HASHSIZE);
+			hash_update(&state, mtree_data(tree, z+1), HASHSIZE);
+			hash_final(&state, hash, HASHSIZE);
 			fprintf(stderr, "inspecting parent %p (%ld)\n", (void *)parent, parent - mtree_node(tree, 1, 0));
 			test_assert(memcmp(hash, parent, HASHSIZE) == 0,
 					"checking node %zu + %zu", z, z + 1);

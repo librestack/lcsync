@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 #include <stddef.h>
-#include "hash.h"
+#include <librecast/crypto.h>
 #include "job.h"
 
 /* NB: except where stated otherwise, nodes are numbered from 0=root
