@@ -1,17 +1,4 @@
 -------------------------------------------------------------------------------
-0000-0034  net_send_tree() / net_recv_tree()
-/bin/bash: line 1:  8981 Segmentation fault      ./0000-0034.test 2>> lsdb-test-ap0ftN2P.log
-FAIL
-
-lastlog.log:
-sendmsg(): Cannot assign requested address
-sendmsg(): Cannot assign requested address
-sendmsg(): Cannot assign requested address
-
-occurs with both gcc and clang
-
-net.c:221
--------------------------------------------------------------------------------
 make clangtest / make %clang - vector tests fail
 -------------------------------------------------------------------------------
 ==18660== Conditional jump or move depends on uninitialised value(s)
@@ -24,7 +11,7 @@ make clangtest / make %clang - vector tests fail
 ==18660==    by 0x4A04F5D: start_thread (in /lib64/libpthread-2.32.so)
 ==18660==    by 0x4B162BE: clone (in /lib64/libc-2.32.so)
 This was running the server in MLD mode:
-sudo valgrind src/lcsync -v --mld ~/media/dnapizza.jpg 
+sudo valgrind src/lcsync -v --mld ~/media/dnapizza.jpg
 -------------------------------------------------------------------------------
 Sometimes in non-MLD node, network syncing does not work first time. A second
 run is required for the checksums to match.
@@ -48,29 +35,6 @@ intermittent, but quite frequent
 intermittent, possibly timing - seems to pass when run separately to other
 tests.
 -------------------------------------------------------------------------------
-0027 aborts with Unexpected error 9 on netlink descriptor 0.
-Doesn't happen under valgrind.
-
-This message is raised by __netlink_assert_response in glibc:
-
-grep -nr __netlink_assert_response *
-ChangeLog.old/ChangeLog.19:6428:        (__netlink_assert_response): Add additional missing newlines.
-ChangeLog.old/ChangeLog.19:13925:       (__netlink_assert_response): Likewise.
-ChangeLog.old/ChangeLog.19:37814:       (__netlink_assert_response): Remove internal_function.
-ChangeLog.old/ChangeLog.19:37816:       (__netlink_assert_response): Likewise.
-ChangeLog.old/ChangeLog.18:26872:       (__netlink_assert_response): Declare.
-ChangeLog.old/ChangeLog.18:26877:       __netlink_assert_response.
-ChangeLog.old/ChangeLog.18:26881:       __netlink_assert_response.
-sysdeps/unix/sysv/linux/check_pf.c:171:      __netlink_assert_response (fd, read_len);
-sysdeps/unix/sysv/linux/ifaddrs.c:174:      __netlink_assert_response (h->fd, read_len);
-sysdeps/unix/sysv/linux/netlink_assert_response.c:42:__netlink_assert_response (int fd, ssize_t result)
-sysdeps/unix/sysv/linux/netlink_assert_response.c:105:libc_hidden_def (__netlink_assert_response)
-sysdeps/unix/sysv/linux/check_native.c:124:      __netlink_assert_response (fd, read_len);
-sysdeps/unix/sysv/linux/Versions:181:    __netlink_assert_response;
-sysdeps/unix/sysv/linux/netlinkaccess.h:56:void __netlink_assert_response (int fd, ssize_t result);
-sysdeps/unix/sysv/linux/netlinkaccess.h:57:libc_hidden_proto (__netlink_assert_response)
-
--------------------------------------------------------------------------------
 Ubuntu 16.04 LTS - segfault when serving files in --mld mode
 
 works when not in mld mode
@@ -88,7 +52,7 @@ Segmentation fault (core dumped)
 
 -------------------------------------------------------------------------------
 test 0027 requires bsd/md5.h, which Ubuntu 20.04 doesn't have, at least not
-there.  Remove dependency.  We have libsodiium - use it.
+there.  Remove dependency.  Use hash function from librecast.
 -------------------------------------------------------------------------------
 test 0035 (check mode)
 net.c:495 (again)
