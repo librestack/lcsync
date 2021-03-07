@@ -3,10 +3,10 @@
 
 SHELL := /bin/bash
 CAPS = ""
-CFLAGS += -O2 -Wall -Wextra -Wpedantic -g
+CFLAGS += -O2 -Wall -Wextra -Wpedantic -g -fno-builtin-malloc -fno-builtin-calloc
 NOTOBJS := ../src/$(PROGRAM).o
-OBJS := test.o $(filter-out $(NOTOBJS), $(wildcard ../src/*.o))
-LDFLAGS := -lm -pthread -llibrecast
+OBJS := test.o falloc.o $(filter-out $(NOTOBJS), $(wildcard ../src/*.o))
+LDFLAGS := -lm -ldl -pthread -llibrecast
 BOLD := "\\e[0m\\e[2m"
 RESET := "\\e[0m"
 PASS = "\\e[0m\\e[32mOK\\e[0m" # end bold, green text
