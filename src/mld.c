@@ -244,7 +244,7 @@ int mld_watch_start(mld_watch_t *watch)
 	/* avoid race by directly adding addr to filter */
 	if (watch->ifx == 0) { /* 0 => all interfaces */
 		for (int i = 0; i < watch->mld->len; i++) {
-			 mld_filter_grp_add(watch->mld, i, lc_channel_in6addr(watch->chan));
+			mld_filter_grp_add(watch->mld, i, lc_channel_in6addr(watch->chan));
 		}
 	}
 	else mld_filter_grp_add(watch->mld, watch->ifx, lc_channel_in6addr(watch->chan));
@@ -263,7 +263,7 @@ int mld_watch_start(mld_watch_t *watch)
 	return 0;
 err_1:
 	lc_channel_free(watch->chan);
-err_0:	
+err_0:
 	lc_socket_close(watch->sock);
 	return -1;
 }
@@ -306,7 +306,7 @@ static int mld_wait_poll(mld_t *mld, unsigned int *ifx, struct in6_addr *addr)
 	/* avoid race by directly adding addr to filter */
 	if (!ifx || *ifx == 0) { /* 0 => all interfaces */
 		for (int i = 0; i < mld->len; i++) {
-			 mld_filter_grp_add(mld, i, lc_channel_in6addr(chan));
+			mld_filter_grp_add(mld, i, lc_channel_in6addr(chan));
 		}
 	}
 	else mld_filter_grp_add(mld, *ifx, lc_channel_in6addr(chan));
