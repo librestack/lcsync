@@ -46,5 +46,5 @@ cap check test sanitize: clean src
 %.clang:
 	CC=clang $(MAKE) CFLAGS+="$(CFLAGS-CLANG)" -B -C test $@
 
-%.test %.check:
-	cd test && $(MAKE) -B $@
+%.test %.check: clean src
+	cd test && $(MAKE) $@
