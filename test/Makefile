@@ -3,7 +3,7 @@
 
 SHELL := /bin/bash
 CAPS = ""
-CFLAGS += -Wall -g
+CFLAGS += -O2 -Wall -Wextra -Wpedantic -g
 NOTOBJS := ../src/$(PROGRAM).o
 OBJS := test.o $(filter-out $(NOTOBJS), $(wildcard ../src/*.o))
 LDFLAGS := -lm -pthread -llibrecast
