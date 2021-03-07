@@ -2,6 +2,7 @@
 /* Copyright (c) 2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "test.h"
+#include "valgrind.h"
 #include "../src/mld.h"
 #include "../src/job.h"
 #include <librecast.h>
@@ -36,7 +37,9 @@ unsigned int vec_pop(vec_t *v)
 int main(void)
 {
 	unsigned pop;
-	test_name("mld_timer_tick() - decrement bloom timers");
+	char tname[] = "mld_timer_tick() - decrement bloom timers";
+	if (RUNNING_ON_VALGRIND) return test_skip(tname);
+	test_name(tname);
 	mld_t *mld = mld_init(1);
 
 	/* make sure we start at zero */

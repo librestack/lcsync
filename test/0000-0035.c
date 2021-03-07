@@ -7,6 +7,7 @@
 #include "../src/job.h"
 #include "../src/net.h"
 #include "../src/mtree.h"
+#include "valgrind.h"
 #include <assert.h>
 #include <errno.h>
 #include <math.h>
@@ -15,7 +16,8 @@
 #include <time.h>
 #include <unistd.h>
 
-const int waits = 20; /* test timeout in s */
+const int waits = 1; /* test timeout in s */
+const int waits_valgrind = 20; /* test timeout in s */
 const size_t blocks = 42;
 size_t blocksz;
 size_t sz;
@@ -48,7 +50,10 @@ void do_sync(char *srcdata, char *dstdata)
 
 	/* wait for recv job to finish, check for timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
-	timeout.tv_sec += waits;
+	if (RUNNING_ON_VALGRIND)
+		timeout.tv_sec += waits_valgrind;
+	else
+		timeout.tv_sec += waits;
 	test_assert(!sem_timedwait(&job_recv->done, &timeout), "timeout - recv");
 	free(job_recv);
 

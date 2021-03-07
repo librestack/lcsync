@@ -3,6 +3,7 @@
 
 #include "test.h"
 #include "../src/mld.h"
+#include "valgrind.h"
 #include <librecast.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -24,9 +25,11 @@ int main(void)
 	mld_t *mld;
 	struct in6_addr *addr[limit];
 	char channame[16] = "";
+	char tname[] = "mld_filter_grp_add() / mld_filter_grp_cmp()";
 	lc_ctx_t *lctx;
 	lc_channel_t *chan;
-	test_name("mld_filter_grp_add() / mld_filter_grp_cmp()");
+	if (RUNNING_ON_VALGRIND) return test_skip(tname);
+	test_name(tname);
 	lctx = lc_ctx_new();
 	mld = mld_init(1);
 	for (int i = 0; i < limit; i++) {

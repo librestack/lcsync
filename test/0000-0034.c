@@ -30,7 +30,7 @@ int main(void)
 	char *srcdata = calloc(blocks, blocksize);
 
 	test_name("net_send_tree() / net_recv_tree()");
-	
+
 	/* build source data, make each block different */
 	for (size_t i = 0; i < blocks; i++) {
 		(srcdata + i * blocksize)[0] = i + 1;
@@ -70,7 +70,7 @@ int main(void)
 	test_assert(!sem_timedwait(&job_recv->done, &timeout), "timeout - recv");
 
 	struct iovec *iov = (struct iovec *)job_recv->ret;
-	assert(job_recv->ret);
+	if (!job_recv->ret) return fails;
 	// FIXME - Invalid read of size 8
 	// at 0x10AA17: main (0000-0034.c:71)
 	// Address 0x0 is not stack'd, malloc'd or (recently) free'd

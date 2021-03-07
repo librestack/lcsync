@@ -98,7 +98,7 @@ int main(void)
 	gentestdata(srcdata, dstdata);
 
 	test_assert(memcmp(srcdata, dstdata, sz), "src and dst data differ before syncing");
-	
+
 	mld_enabled = 1;
 	do_sync(srcdata, dstdata);
 

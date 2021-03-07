@@ -13,8 +13,10 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#include "valgrind.h"
 
-const int waits = 25; // high for valgrind
+const int waits = 1;
+const int waits_valgrind = 25; // high for valgrind
 
 typedef struct arg_s {
 	int argc;
@@ -76,7 +78,10 @@ static void do_sync(char *src, char *dst)
 
 	/* wait for recv job to finish, check for timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
-	timeout.tv_sec += waits;
+	if (RUNNING_ON_VALGRIND)
+		timeout.tv_sec += waits_valgrind;
+	else
+		timeout.tv_sec += waits;
 	test_assert(!sem_timedwait(&job_recv->done, &timeout), "timeout - recv");
 	free(job_recv);
 

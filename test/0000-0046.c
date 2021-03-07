@@ -43,7 +43,7 @@ job_t *push_job(job_queue_t *q, lc_channel_t *chan)
 
 int main(void)
 {
-	const int limit = 1;
+	const int limit = 1; // FIXME
 	struct timespec timeout;
 	job_queue_t *q;
 	job_t *job[2] = {0};

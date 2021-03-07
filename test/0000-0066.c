@@ -23,6 +23,7 @@ sem_t send_done, recv_done;
 
 void *do_recv(void *arg)
 {
+	test_log("%s starting\n", __func__);
 	size_t len = sz;
 	net_recv_data(hash, (char *)arg, &len);
 	sem_post(&recv_done);
@@ -31,6 +32,7 @@ void *do_recv(void *arg)
 
 void *do_send(void *arg)
 {
+	test_log("%s starting\n", __func__);
 	net_send_data(hash, (char *)arg, sz);
 	sem_post(&send_done);
 	return arg;
@@ -47,8 +49,9 @@ void do_sync(char *srcdata, char *dstdata)
 
 	/* queue up send / recv jobs */
 	pthread_attr_init(&attr);
-	pthread_create(&trecv, &attr, &do_recv, dstdata);
 	pthread_create(&tsend, &attr, &do_send, srcdata);
+	sleep(1);
+	pthread_create(&trecv, &attr, &do_recv, dstdata);
 	pthread_attr_destroy(&attr);
 
 	/* wait for recv job to finish, check for timeout */
@@ -95,12 +98,12 @@ int main(void)
 	gentestdata(srcdata, dstdata);
 
 	test_assert(memcmp(srcdata, dstdata, sz), "src and dst data differ before syncing");
-	
+
 	mld_enabled = 1;
 	do_sync(srcdata, dstdata);
 
 	test_assert(!memcmp(srcdata, dstdata, sz), "src and dst data match after syncing");
-	
+
 	free(dstdata);
 	free(srcdata);
 
