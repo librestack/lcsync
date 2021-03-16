@@ -13,15 +13,6 @@
 #define BUFSIZE 1500
 #define IFACE_MAX UCHAR_MAX
 
-#if !__USE_KERNEL_IPV6_DEFS
-/* IPv6 packet information.  */
-struct in6_pktinfo
-{
-	struct in6_addr ipi6_addr;  /* src/dst IPv6 address */
-	unsigned int ipi6_ifindex;  /* send/recv interface index */
-};
-#endif
-
 typedef enum {
 	FILTER_MODE_INCLUDE = 1,
 	FILTER_MODE_EXCLUDE,

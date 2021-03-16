@@ -1,4 +1,7 @@
 --------------------------------------------------------------------------------
+mld notifications not working.  Break down test. No point running 0066 to sync
+data if MLD watches don't work.
+--------------------------------------------------------------------------------
 ensure in MLD mode we only send on requested interface
 --------------------------------------------------------------------------------
 consistently use iface / ifx to refer to the array index and interface index

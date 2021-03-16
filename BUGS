@@ -1,4 +1,7 @@
 -------------------------------------------------------------------------------
+intermittent segfault in 0027
+after net_send_data(): source tree built
+-------------------------------------------------------------------------------
 make clangtest / make %clang - vector tests fail
 -------------------------------------------------------------------------------
 ==18660== Conditional jump or move depends on uninitialised value(s)

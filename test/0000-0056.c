@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2021 Brett Sheffield <bacs@librecast.net> */
-
+#define _GNU_SOURCE /* required for struct in6_pktinfo */
 #include "test.h"
 #include "../src/mld_pvt.h"
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <netinet/in.h>
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>
 #include <netdb.h>
