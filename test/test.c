@@ -3,9 +3,11 @@
 
 #include "test.h"
 #include "../src/log.h"
+#include <semaphore.h>
 #include <time.h>
 
 int fails = 0;
+sem_t log_lock;
 
 void vfail_msg(char *msg, va_list argp)
 {
@@ -95,7 +97,9 @@ void test_expectiov(struct iovec *expected, struct iovec *got)
 void test_log(char *msg, ...)
 {
 	va_list argp;
+	sem_wait(&log_lock);
 	fprintf(stderr, "%lu: ", clock());
+	sem_post(&log_lock);
 	va_start(argp, msg);
 	vfprintf(stderr, msg, argp);
 	va_end(argp);
@@ -106,6 +110,7 @@ void test_name(char *str, ...)
 	char *b;
 	va_list argp;
 	loglevel = 127;
+	sem_init(&log_lock, 0, 1);
 	va_start(argp, str);
 	b = malloc(_vscprintf(str, argp) + 1);
 	vsprintf(b, str, argp);
