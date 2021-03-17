@@ -124,6 +124,7 @@ int test_skip(char *str, ...)
 {
 	char *b;
 	va_list argp;
+	sem_init(&log_lock, 0, 1);
 	va_start(argp, str);
 	b = malloc(_vscprintf(str, argp) + 1);
 	vsprintf(b, str, argp);
