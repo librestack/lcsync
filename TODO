@@ -1,6 +1,5 @@
 NEXT ACTIONS:
 
-* lc_send / lc_recv
 * socket interface list
 * socket channel list
 * send/recv all listed interfaces ALL/list/default

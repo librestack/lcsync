@@ -310,7 +310,7 @@ static int mld_wait_poll(mld_t *mld, unsigned int *ifx, struct in6_addr *addr)
 		}
 	}
 	else mld_filter_grp_add(mld, *ifx, lc_channel_in6addr(chan));
-	if ((lc_channel_bind(sock, chan)) || (lc_channel_join(chan))) {
+	if (lc_channel_bind(sock, chan) || lc_channel_join(chan)) {
 		goto exit_err_1;
 	}
 	fds.fd = lc_socket_raw(sock);
@@ -337,7 +337,15 @@ int mld_wait(mld_t *mld, unsigned int *iface, struct in6_addr *addr)
 	inet_ntop(AF_INET6, addr, straddr, INET6_ADDRSTRLEN);
 	DEBUG("%s(iface=%u): %s", __func__, ifn, straddr);
 #endif
-	if (mld_filter_grp_cmp(mld, ifn, addr)) {
+	if (!iface) {
+		for (int i = 0; i < mld->len; i++) {
+			if (mld_filter_grp_cmp(mld, i, addr)) {
+				DEBUG("%s() - no need to wait - filter(%i) has address", __func__, i);
+				return 0;
+			}
+		}
+	}
+	else if (mld_filter_grp_cmp(mld, ifn, addr)) {
 		DEBUG("%s() - no need to wait - filter has address", __func__);
 		return 0;
 	}

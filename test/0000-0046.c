@@ -22,6 +22,7 @@
 static const time_t waits = 1;
 static int events;
 static mld_t *mld;
+static sem_t sem;
 
 /* mld_wait(), increment events counter, return */
 void *do_mld_watch(void *arg)
@@ -30,6 +31,7 @@ void *do_mld_watch(void *arg)
 	char straddr[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, addr, straddr, INET6_ADDRSTRLEN);
 	test_log("watching %s\n", straddr);
+	sem_post(&sem);
 	if (!mld_wait(mld, NULL, addr)) events++;
 	test_log("notify received for %s\n", straddr);
 	return arg;
@@ -76,13 +78,16 @@ int main(void)
 		assert(chan[0]);
 		assert(chan[1]);
 
+		sem_init(&sem, 0, 0);
+
 		job[0] = push_job(q, chan[0]);
 		job[1] = push_job(q, chan[1]);
-		usleep(1000);
 
-		test_assert(!lc_channel_bind(sock, chan[0]), "i: lc_channel_bind()", i);
-		test_assert(!lc_channel_join(chan[0]), "i: lc_channel_join()", i);
-		usleep(10000);
+		sem_wait(&sem); sem_wait(&sem);
+		sem_destroy(&sem);
+
+		test_assert(!lc_channel_bind(sock, chan[0]), "%i: lc_channel_bind()", i);
+		test_assert(!lc_channel_join(chan[0]), "%i: lc_channel_join()", i);
 
 		test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
 		timeout.tv_sec += waits;
