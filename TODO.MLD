@@ -1,4 +1,6 @@
 --------------------------------------------------------------------------------
+can we persuade a Linux kernel bridge to do MLD for us?
+--------------------------------------------------------------------------------
 mld notifications not working.  Break down test. No point running 0066 to sync
 data if MLD watches don't work.
 --------------------------------------------------------------------------------
