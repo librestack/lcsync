@@ -360,7 +360,6 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 	struct sockaddr_in6 *sa;
 	char sgroup[INET6_ADDRSTRLEN];
 	char swatch[INET6_ADDRSTRLEN];
-	const int opt = 1;
 	int s;
 
 	chan = mld_channel_notify(mld, grp, event);
@@ -388,10 +387,10 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 	if (!sock) goto err_0;
 
 	/* set loopback so machine-local listeners are notified */
-	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &opt, sizeof(opt));
+	lc_socket_loop(sock, 1);
 
 	/* set TTL to 1 so notification doesn't leave local segment */
-	lc_socket_setopt(sock, IPV6_MULTICAST_HOPS, &opt, sizeof(opt));
+	lc_socket_ttl(sock, 1);
 
 	lc_channel_bind(sock, chan);
 	s = lc_socket_raw(sock);
