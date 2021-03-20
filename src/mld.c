@@ -165,7 +165,7 @@ lc_channel_t *mld_channel_notify(mld_t *mld, struct in6_addr *addr, int events)
 
 	tmp = lc_channel_init(mld->lctx, &sa);
 	if (!tmp) return NULL;
-	return lc_channel_sidehash(tmp, (unsigned char *)&events, sizeof(int));
+	return lc_channel_sidehash(tmp, (unsigned char *)&events, sizeof(unsigned char));
 }
 
 mld_watch_t *mld_watch_init(mld_t *mld, unsigned int ifx, struct in6_addr *grp, int events,
@@ -292,7 +292,7 @@ mld_watch_t *mld_watch(mld_t *mld, unsigned int ifx, struct in6_addr *grp, int e
 	return watch;
 }
 
-static int mld_wait_poll(mld_t *mld, unsigned int *ifx, struct in6_addr *addr)
+static int mld_wait_poll(mld_t *mld, unsigned int ifx, struct in6_addr *addr)
 {
 	lc_socket_t *sock;
 	lc_channel_t *chan;
@@ -304,12 +304,13 @@ static int mld_wait_poll(mld_t *mld, unsigned int *ifx, struct in6_addr *addr)
 		goto exit_err_0;
 	}
 	/* avoid race by directly adding addr to filter */
-	if (!ifx || *ifx == 0) { /* 0 => all interfaces */
+	if (!ifx) { /* 0 => all interfaces */
 		for (int i = 0; i < mld->len; i++) {
 			mld_filter_grp_add(mld, i, lc_channel_in6addr(chan));
 		}
 	}
-	else mld_filter_grp_add(mld, *ifx, lc_channel_in6addr(chan));
+	else mld_filter_grp_add(mld, ifx, lc_channel_in6addr(chan));
+	if (ifx) lc_socket_bind(sock, ifx);
 	if (lc_channel_bind(sock, chan) || lc_channel_join(chan)) {
 		goto exit_err_1;
 	}
@@ -329,15 +330,14 @@ exit_err_0:
 }
 
 /* wait on a specific address */
-int mld_wait(mld_t *mld, unsigned int *iface, struct in6_addr *addr)
+int mld_wait(mld_t *mld, unsigned int ifx, struct in6_addr *addr)
 {
-	unsigned ifn = (!iface) ? 0 : *iface;
 #ifdef MLD_DEBUG
 	char straddr[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, addr, straddr, INET6_ADDRSTRLEN);
-	DEBUG("%s(iface=%u): %s", __func__, ifn, straddr);
+	DEBUG("%s(ifx=%u): %s", __func__, ifx, straddr);
 #endif
-	if (!iface) {
+	if (!ifx) {
 		for (int i = 0; i < mld->len; i++) {
 			if (mld_filter_grp_cmp(mld, i, addr)) {
 				DEBUG("%s() - no need to wait - filter(%i) has address", __func__, i);
@@ -345,11 +345,11 @@ int mld_wait(mld_t *mld, unsigned int *iface, struct in6_addr *addr)
 			}
 		}
 	}
-	else if (mld_filter_grp_cmp(mld, ifn, addr)) {
+	else if (mld_filter_grp_cmp(mld, ifx, addr)) {
 		DEBUG("%s() - no need to wait - filter has address", __func__);
 		return 0;
 	}
-	return mld_wait_poll(mld, iface, addr);
+	return mld_wait_poll(mld, ifx, addr);
 }
 
 static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, int event,
@@ -360,12 +360,10 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 	struct sockaddr_in6 *sa;
 	char sgroup[INET6_ADDRSTRLEN];
 	char swatch[INET6_ADDRSTRLEN];
-	int s;
 
 	chan = mld_channel_notify(mld, grp, event);
 	if (!chan) return;
 
-	/* check filter to see if anyone listening for notifications */
 	sa = lc_channel_sockaddr(chan);
 	if (loglevel & LOG_DEBUG) {
 		if (grp) {
@@ -376,12 +374,15 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 		}
 		inet_ntop(AF_INET6, &sa->sin6_addr, swatch, INET6_ADDRSTRLEN);
 	}
+	/* check filter to see if anyone listening for notifications */
 	if (!mld_filter_grp_cmp(mld, iface, &sa->sin6_addr)) {
 		DEBUG("no one listening to %s (%i) - skipping notification for %s",
 				swatch, event, sgroup);
 		goto err_0;
 	}
-	DEBUG("sending notification for event %i on %s to %s", event, sgroup, swatch);
+
+	DEBUG("sending notification for event %i on %s to %s (ifx[%u]=%u)",
+			event, sgroup, swatch, iface, mld->ifx[iface]);
 
 	sock = lc_socket_new(mld->lctx);
 	if (!sock) goto err_0;
@@ -392,10 +393,9 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 	/* set TTL to 1 so notification doesn't leave local segment */
 	lc_socket_ttl(sock, 1);
 
+	if (iface) lc_socket_bind(sock, mld->ifx[iface]);
 	lc_channel_bind(sock, chan);
-	s = lc_socket_raw(sock);
-	sendto(s, pi, sizeof *pi, 0, (const struct sockaddr *)sa, sizeof(struct sockaddr_in6));
-
+	lc_channel_send(chan, pi, sizeof *pi, 0);
 	lc_socket_close(sock);
 err_0:
 	lc_channel_free(chan);
@@ -690,16 +690,23 @@ mld_t *mld_start(volatile int *cont)
 		perror("setsockopt()");
 		goto exit_err_0;
 	}
+	if (inet_pton(AF_INET6, MLD2_CAPABLE_ROUTERS, &(req.ipv6mr_multiaddr)) != 1) {
+		perror("inet_pton()");
+		goto exit_err_0;
+	}
 	if (getifaddrs(&ifaddr)) {
 		perror("getifaddrs()");
 		goto exit_err_0;
 	}
-	for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-		if (ifa->ifa_addr->sa_family !=AF_INET6) continue; /* ipv6 only */
-		if (inet_pton(AF_INET6, MLD2_CAPABLE_ROUTERS, &(req.ipv6mr_multiaddr)) != 1)
+	/* join MLD2 ROUTERS group on all IPv6 multicast-capable interfaces */
+	for (struct ifaddrs *ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
+		if (ifa->ifa_addr->sa_family !=AF_INET6)
 			continue;
-		if (!(req.ipv6mr_interface = if_nametoindex(ifa->ifa_name))) continue;
-		if (setsockopt(sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req)) != -1) {
+		if ((ifa->ifa_flags & IFF_MULTICAST) != IFF_MULTICAST)
+			continue;
+		if (!(req.ipv6mr_interface = if_nametoindex(ifa->ifa_name)))
+			continue;
+		if (!setsockopt(sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req))) {
 			unsigned int idx = if_nametoindex(ifa->ifa_name);
 			DEBUG("listening on interface %s (%u)", ifa->ifa_name, idx);
 			if (!idx) perror("if_nametoindex()"); assert(idx);
@@ -709,7 +716,7 @@ mld_t *mld_start(volatile int *cont)
 	freeifaddrs(ifaddr);
 	if (!joins) {
 		ERROR("Unable to join on any interfaces");
-		return NULL;
+		goto exit_err_0;
 	}
 	DEBUG("%s() listening on %i interfaces", __func__, joins);
 	mld = mld_init(joins);

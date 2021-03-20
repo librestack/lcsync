@@ -136,8 +136,8 @@ int mld_listen(mld_t *mld);
 /* query state */
 
 /* block until notification received for addr on interface index ifx. If ifx is
- * NULL or points to a zero value, all interfaces are watched */
-int mld_wait(mld_t *mld, unsigned int *ifx, struct in6_addr *addr);
+ * zero, all interfaces are watched */
+int mld_wait(mld_t *mld, unsigned int ifx, struct in6_addr *addr);
 
 /* Allocate new watch on specifed interface ifx (0 = all interfaces), grp and
  * events.  Free with mld_watch_free()
