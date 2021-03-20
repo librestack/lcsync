@@ -36,7 +36,7 @@ int main(void)
 	addr = lc_channel_in6addr(chan[CHANMAIN]);
 	mld = mld_start(NULL);
 	test_assert(mld != NULL, "mld_start()");
-	
+
 	/* join side channel for MLD events */
 	chan[CHANSIDE] = mld_channel_notify(mld, addr, MLD_EVENT_JOIN);
 
@@ -56,7 +56,7 @@ int main(void)
 
 	/* wait a moment, and check for messages */
 	usleep(5000);
-	test_assert(msgs > 1, "got %i msgs", msgs); // FIXME - correc' ?
+	test_assert(msgs == 1, "got %i msgs", msgs);
 
 	mld_stop(mld);
 	lc_ctx_free(lctx);
