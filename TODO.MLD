@@ -1,9 +1,6 @@
 --------------------------------------------------------------------------------
 can we persuade a Linux kernel bridge to do MLD for us?
 --------------------------------------------------------------------------------
-mld notifications not working.  Break down test. No point running 0066 to sync
-data if MLD watches don't work.
---------------------------------------------------------------------------------
 ensure in MLD mode we only send on requested interface
 --------------------------------------------------------------------------------
 consistently use iface / ifx to refer to the array index and interface index
@@ -14,10 +11,6 @@ respectively
 sending needs to be triggered by a join on a specific interface.  We don't want
 to block for a join on each interface, but only fire up our threads when there
 is a join.  Dispatcher loop at line 663 of net.c
-
-TODO: need a way to send in librecast on a specific interface ie.
-	setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_IF, &i, sizeof(i)
-lc_msg_send() presently uses tap or default (0)
 
 --------------------------------------------------------------------------------
 how do we handle timer expiry as an event?  Do we bother?  Probably not.
