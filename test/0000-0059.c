@@ -35,7 +35,7 @@ void *do_mld_watch(void *arg)
 	inet_ntop(AF_INET6, addr, straddr, INET6_ADDRSTRLEN);
 	test_log("watching %s\n", straddr);
 	sem_post(&sem);
-	if (!mld_wait(mld, NULL, addr)) events++;
+	if (!mld_wait(mld, 0, addr)) events++;
 	test_log("notify received for %s\n", straddr);
 	return arg;
 }
