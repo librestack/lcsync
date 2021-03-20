@@ -87,7 +87,13 @@ int main(void)
 
 	loginit();
 
-	test_name("MLD sync (tree only)"); // TODO
+	test_name("MLD sync (tree only) - net_send_data() / net_fetch_tree()");
+
+	/* create some data, generate mtree, and fetch just the tree with MLD
+	 * triggering */
+
+	// FIXME - test is completely broken - always fails. net_send_event() is
+	// always failing to find the alias/mtree to send
 
 	blocksz = blocksize;
 	sz = blocks * blocksz;

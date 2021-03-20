@@ -1,4 +1,8 @@
 --------------------------------------------------------------------------------
+I seem to be getting lost in channels and sidechannels and aliases
+Need to step through and sort this out - make sure I know exactly what I'm
+looking at.
+--------------------------------------------------------------------------------
 can we persuade a Linux kernel bridge to do MLD for us?
 --------------------------------------------------------------------------------
 ensure in MLD mode we only send on requested interface

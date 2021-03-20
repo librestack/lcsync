@@ -20,6 +20,11 @@
 #include "globals.h"
 #include "file.h"
 
+enum {
+	NET_SEARCH_NOTFOUND = -1,
+	NET_SEARCH_MTREE    = -2
+};
+
 static volatile int running = 1;
 static sem_t stop;
 
@@ -141,6 +146,16 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 	if (!(lctx = lc_ctx_new())) goto err_0;
 	if (!(sock = lc_socket_new(lctx))) goto err_1;
 	if (!(chan = lc_channel_nnew(lctx, hash, HASHSIZE))) goto err_2;
+
+	// FIXME FIXME FIXME
+
+	char strgrp[INET6_ADDRSTRLEN];
+	struct sockaddr_in6 *sa = lc_channel_sockaddr(chan);
+	inet_ntop(AF_INET6, &sa->sin6_addr, strgrp, INET6_ADDRSTRLEN);
+	DEBUG("%s() has been told to fetch tree with alias channel %s", __func__, strgrp);
+
+	// FIXME FIXME FIXME
+
 	if (lc_channel_bind(sock, chan) || lc_channel_join(chan)) goto err_3;
 	s = lc_socket_raw(sock);
 	byt = net_recv_tree(s, iov, &blocksz);
@@ -225,7 +240,7 @@ ssize_t net_send_tree(int sock, struct sockaddr_in6 *sa, size_t vlen, struct iov
 			perror("sendmsg()");
 			byt = -1; break;
 		}
-		DEBUG("%zi bytes sent", rc); 
+		DEBUG("%zi bytes sent", rc);
 		byt += rc;
 		if (DELAY) usleep(DELAY);
 	}
@@ -543,7 +558,7 @@ err_0:
 }
 
 /* break a block into DATA_FIXED size pieces and send with header
- * header is in iov[0], data in iov[1] 
+ * header is in iov[0], data in iov[1]
  * idx and len need updating */
 static void net_send_block(int sock, struct sockaddr_in6 *sa, size_t vlen, struct iovec *iov, size_t blk)
 {
@@ -667,8 +682,11 @@ static void net_send_queue_jobs(net_data_t *data, size_t sz, size_t blocks, unsi
 	free(job_tree);
 }
 
-/* Search lvl of tree for node whose hash corresponds to grp.  Return node
- * number, -2 if mtree requested  or -1 if not found */
+/* Search lvl of tree for node whose hash corresponds to grp.
+ * Returns:
+ * - node number if found,
+ * - NET_SEARCH_MTREE if mtree requested
+ * - NET_SEARCH_NOTFOUND if not found */
 static ssize_t net_tree_level_search(lc_ctx_t *lctx, mtree_tree *tree, size_t lvl, struct in6_addr *grp,
 		unsigned char *alias, lc_channel_t *chan)
 {
@@ -676,32 +694,40 @@ static ssize_t net_tree_level_search(lc_ctx_t *lctx, mtree_tree *tree, size_t lv
 	size_t first = (1 << lvl) - 1;
 	size_t last = (first + 1) * 2 - 1;
 	struct sockaddr_in6 *sa;
-#ifdef NET_DEBUG
+	ssize_t rc = NET_SEARCH_NOTFOUND;
 	char strgrp[INET6_ADDRSTRLEN];
-#endif
+	char strgrpa[INET6_ADDRSTRLEN];
 
 	/* first check alias (mtree) hash */
+	/* create a channel from the alias so we can compare addresses */
 	chan = lc_channel_nnew(lctx, alias, HASHSIZE);
 	sa = lc_channel_sockaddr(chan);
-	inet_ntop(AF_INET6, &sa->sin6_addr, strgrp, INET6_ADDRSTRLEN);
-	if (!memcmp(grp, &sa->sin6_addr, IPV6_BYTES)) {
-			return -2;
-		}
-	lc_channel_free(chan);
+	inet_ntop(AF_INET6, grp, strgrp, INET6_ADDRSTRLEN);
+	inet_ntop(AF_INET6, &sa->sin6_addr, strgrpa, INET6_ADDRSTRLEN);
+	DEBUG("checking %s (grp)\n              == %s (alias)", strgrp, strgrpa);
 
-	for (n = first; n <= last; n++) {
+	/// FIXME FIXME FIXME
+	// receiving request for grp which is not the alias
+	// is it a side-channel?
+
+	if (!memcmp(grp, &sa->sin6_addr, IPV6_BYTES)) {
+		rc = NET_SEARCH_MTREE;
+	}
+	else for (n = first; n <= last; n++) {
+		lc_channel_free(chan);
 		chan = lc_channel_nnew(lctx, mtree_nnode(tree, n), HASHSIZE);
 		sa = lc_channel_sockaddr(chan);
 #ifdef NET_DEBUG
 		inet_ntop(AF_INET6, &sa->sin6_addr, strgrp, INET6_ADDRSTRLEN);
-		DEBUG("checking %s", strgrp);
+		DEBUG("%s() checking %s", __func__, strgrp);
 #endif
 		if (!memcmp(grp, &sa->sin6_addr, IPV6_BYTES)) {
-			return (ssize_t)n;
+			rc = (ssize_t)n;
+			break;
 		}
-		lc_channel_free(chan);
 	}
-	return -1;
+	lc_channel_free(chan);
+	return rc;
 }
 
 /* this is a callback from within a watch loop
@@ -719,19 +745,26 @@ static void net_send_event(mld_watch_t *event, mld_watch_t *watch)
 	assert(event); assert(mld); assert(stree); assert(lctx);
 	char strgrp[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
-	DEBUG("received request for grp %s on if=%u", strgrp, event->ifx);
+	DEBUG("%s() received request for grp %s on if=%u", __func__, strgrp, event->ifx);
 #endif
 
 	ssize_t n;
 	size_t lvl = net_send_channels; //FIXME - are you sure?
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec);
+
+	// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
+	//
+	// the alias is not being found in net_tree_level_search()
+	//
+	// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
+
 	n = net_tree_level_search(lctx, stree, lvl, event->grp, data->alias, chan);
-	if (n == -2) {		/* send mtree */
+	if (n == NET_SEARCH_MTREE) { /* send tree */
 		//unsigned int iface = mld_idx_iface(mld, event->ifx); // FIXME - use iface
 		DEBUG("------------------ MTREE REQUESTED MON COLONEL ------------------------------");
 		job_push_new(data->q, &net_job_send_tree, data, sz, NULL, 0); // FIXME
 	}
-	else if (n >= 0) {	/* send subtree */
+	else if (n >= 0) {           /* send subtree */
 		DEBUG("------------------ BLOCK %zi REQUESTED MON COLONEL --------------------------", n);
 		data->n = (size_t)n;
 		job_push_new(data->q, &net_job_send_subtree, data, sz, &free, JOB_COPY|JOB_FREE);

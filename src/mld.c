@@ -191,6 +191,7 @@ int mld_watch_stop(mld_watch_t *watch)
 
 static void mld_watch_callback(mld_watch_t *watch, struct in6_pktinfo *pi)
 {
+	DEBUG("%s()", __func__);
 	mld_watch_t *event = calloc(1, sizeof(mld_watch_t));
 	if (!event) return;
 	event->ifx = ntohl(pi->ipi6_ifindex);
@@ -211,6 +212,8 @@ void *mld_watch_thread(void *arg)
 	iov[0].iov_base = &pi;
 	iov[0].iov_len = sizeof pi;
 
+	DEBUG("%s()", __func__);
+
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 1;
 	msg.msg_control = ctrl;
@@ -223,7 +226,14 @@ void *mld_watch_thread(void *arg)
 		return NULL;
 	}
 	for (;;) {
+		DEBUG("%s() - waiting for notification", __func__);
 		recvmsg(s, &msg, 0);
+#ifdef MLD_DEBUG
+		char strgrp[INET6_ADDRSTRLEN];
+		inet_ntop(AF_INET6, &pi.ipi6_addr, strgrp, INET6_ADDRSTRLEN);
+		DEBUG("%s() - notification for grp %s (%u) received, doing callback",
+				__func__, strgrp, ntohl(pi.ipi6_ifindex));
+#endif
 		mld_watch_callback(watch, &pi);
 	}
 
@@ -235,6 +245,7 @@ int mld_watch_start(mld_watch_t *watch)
 	pthread_attr_t attr = {0};
 	int rc;
 
+	DEBUG("%s()", __func__);
 	assert(watch->mld);
 
 	watch->sock = lc_socket_new(watch->mld->lctx);

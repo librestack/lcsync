@@ -68,6 +68,7 @@ void *packet_sniff(void *arg)
 		test_log("dst: %s\n", strdst);
 		if (!memcmp(grp, &hdr.dst, sizeof (struct in6_addr))) pkts++;
 		tots++;
+		test_log("good/total packets = %i/%i\n--\n", pkts, tots);
 	}
 	pthread_exit(arg);
 	return arg;
@@ -148,12 +149,9 @@ int main(void)
 	lc_channel_bind(sock, chan);
 
 	for (int i = 0; i < 2; i++) {
-		//usleep(10000);
-
-		/* join grp, wait, ensure packets received */
 
 		DEBUG("JOINING");
-		lc_channel_join(chan);
+		test_assert(lc_channel_join(chan) == 0, "%i: lc_channel_join()", i);
 
 		DEBUG("WAITING");
 		usleep(1000000);
@@ -161,6 +159,11 @@ int main(void)
 		DEBUG("TESTING");
 
 		// FIXME - sometimes fails, sometimes (rarely) test segfaults
+		// wireshark detecting no JOIN or MLD traffic of any kind when failing
+		// FIXME - today the snooper above is picking up the JOIN
+		// and notify traffic, as is wireshark, but no traffic to the
+		// data group
+
 		test_assert(pkts > 0, "%i:pkts received=%i (joined)", i, pkts); // FIXME
 		test_log("pkts received (total) = %i\n", tots);
 
@@ -179,7 +182,6 @@ int main(void)
 		DEBUG("TESTING");
 		test_assert(pkts == 0, "%i: pkts received=%i (parted)", i, pkts);
 	}
-
 	running = 0;
 	net_stop(SIGINT);
 	pthread_cancel(thread_count);
