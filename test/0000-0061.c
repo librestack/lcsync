@@ -18,8 +18,10 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <semaphore.h>
 
-static int pkts = 0; /* data packets to multicast group */
+static sem_t sem;
+static volatile int pkts = 0; /* data packets to multicast group */
 static int tots = 0; /* data packets intercepted */
 static int running = 1;
 const char *alias = "alias";
@@ -54,6 +56,7 @@ void *packet_sniff(void *arg)
 	inet_ntop(AF_INET6, grp, strsrc, INET6_ADDRSTRLEN);
 	test_log("snoop group: %s\n", strsrc);
 	running = sock;
+	sem_post(&sem);
 	while (running) {
 		test_log("I will wait here until the good packets come to me\n");
 		byt = recvmsg(sock, &msgh, 0);
@@ -72,13 +75,9 @@ void *packet_sniff(void *arg)
 
 void *thread_send_data(void *arg)
 {
+	sem_post(&sem);
 	net_send_data(hash, (char *)arg, sz);
 	return arg;
-}
-
-void saveroothash()
-{
-	hash_generic(hash, HASHSIZE, (unsigned char *)alias, strlen(alias));
 }
 
 void gentestdata(char *srcdata)
@@ -91,56 +90,92 @@ void gentestdata(char *srcdata)
 
 int main(void)
 {
-	loginit();
 	char channame[] = "and now for something completely different...";
-	hash_generic(hash, HASHSIZE, (unsigned char *)channame, strlen(channame));
-	lc_ctx_t *lctx = lc_ctx_new();
-	lc_socket_t *sock = lc_socket_new(lctx);
-	lc_channel_t *chan = lc_channel_nnew(lctx, hash, HASHSIZE);
+	lc_ctx_t *lctx;
+	lc_socket_t *sock;
+	lc_channel_t *chan;
 	pthread_t thread_count, thread_serv;
 	pthread_attr_t attr = {0};
-	struct in6_addr *grp;
 	char *srcdata = calloc(blocks, blocksz);
+
+	loginit();
+	test_name("net_send_data() - MLD trigger");
+
+	/* MLD trigger testing with net_send_data()
+	 *
+	 * Create two threads:
+	 * 1) one which listens on a raw socket and counts multicast packets WITHOUT
+	 *    joining that channel
+	 * 2) a net_send_data() thread, which only sends data when channel is
+	 *    JOINed.
+	 *
+	 * Once threads are ready, we wait a bit and check that no packets have been
+	 * received prematurely. Data MUST NOT be sent until we do a PIM join.
+	 *
+	 * Then, perform a join, wait a bit, and check that data packets were
+	 * received.
+	 *
+	 * Leave the channel, wait, reset the packet counter, wait some more,
+	 * and ensure data packets have stopped being sent.
+	 */
+
+	hash_generic(hash, HASHSIZE, (unsigned char *)channame, strlen(channame));
+
+	lctx = lc_ctx_new();
+	sock = lc_socket_new(lctx);
+	chan = lc_channel_nnew(lctx, hash, HASHSIZE);
+
 	gentestdata(srcdata);
 	mtree_tree *stree = mtree_create(sz, blocksz);
 	mtree_build(stree, srcdata, NULL);
 
-	grp = lc_channel_in6addr(chan);
-
-	test_name("net_send_data() - MLD trigger");
-
+	sem_init(&sem, 0, 0);
 	mld_enabled = 1;
 
 	/* start thread to count packets to dst grp */
 	pthread_attr_init(&attr);
-	pthread_create(&thread_count, &attr, &packet_sniff, grp);
+	pthread_create(&thread_count, &attr, &packet_sniff, lc_channel_in6addr(chan));
 	pthread_create(&thread_serv, &attr, &thread_send_data, srcdata);
 	pthread_attr_destroy(&attr);
 
-	/* wait a moment, ensure no packets received */
-	usleep(10000);
+	/* make sure threads are ready */
+	sem_wait(&sem); sem_wait(&sem); sem_destroy(&sem);
+
+	/* wait a moment, ensure no packets received before MLD join */
+	sleep(1);
 	test_assert(pkts == 0, "pkts received=%i (before join)", pkts);
 
 	lc_channel_bind(sock, chan);
-	for (int i = 0; i < 1; i++) {
+
+	for (int i = 0; i < 2; i++) {
+		//usleep(10000);
+
 		/* join grp, wait, ensure packets received */
-		pkts = 0;
+
 		DEBUG("JOINING");
 		lc_channel_join(chan);
+
 		DEBUG("WAITING");
 		usleep(1000000);
+
 		DEBUG("TESTING");
+
+		// FIXME - sometimes fails, sometimes (rarely) test segfaults
 		test_assert(pkts > 0, "%i:pkts received=%i (joined)", i, pkts); // FIXME
 		test_log("pkts received (total) = %i\n", tots);
 
 		/* leave group, reset counters, make sure sending has stopped */
 		DEBUG("PARTING");
 		lc_channel_part(chan);
+
 		DEBUG("WAITING");
-		usleep(10000); /* leave channel, wait before resetting counter */
+		usleep(10000); /* wait before resetting counter after parting channel */
+
 		DEBUG("RESET COUNTER");
 		pkts = 0;
-		usleep(10000); /* counter reset, wait not to see what arrives */
+
+		usleep(10000); /* counter reset, wait to see what arrives */
+
 		DEBUG("TESTING");
 		test_assert(pkts == 0, "%i: pkts received=%i (parted)", i, pkts);
 	}
@@ -152,7 +187,6 @@ int main(void)
 	pthread_join(thread_count, NULL);
 	pthread_join(thread_serv, NULL);
 	free(srcdata);
-	lc_channel_part(chan);
 	lc_ctx_free(lctx);
 	return fails;
 }
