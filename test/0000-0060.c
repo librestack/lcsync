@@ -168,7 +168,7 @@ int main(void)
 
 	/* leave group, reset counters, make sure sending has stopped */
 	test_assert(!lc_channel_part(chan), "lc_channel_part()");
-	usleep(100000);
+	sleep(1); /* intermittent failures if this is too short */
 	pkts = 0;
 	usleep(100000);
 	test_assert(pkts == 0, "pkts received=%i (parted)", pkts);
