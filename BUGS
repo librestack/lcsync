@@ -31,6 +31,10 @@ run is required for the checksums to match.
 intermittent, but quite frequent (happens more often than not)
 also sometimes just blocks and doesnt complete
 -------------------------------------------------------------------------------
+0000-0060  net_job_send_tree() - MLD trigger
+pkts received=66 (parted) FAIL
+intermittent
+-------------------------------------------------------------------------------
 0060 pkts received=1 (joined) - Address already in use
 despite SO_REUSEADDR
 intermittent, but quite frequent
