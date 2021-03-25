@@ -13,6 +13,7 @@
 #include <time.h>
 #include <unistd.h>
 
+static sem_t sem_ready;
 const int waits = 1; /* test timeout in s */
 const size_t blocks = 42;
 size_t blocksz;
@@ -32,6 +33,7 @@ void *do_recv(void *arg)
 
 void *do_send(void *arg)
 {
+	sem_post(&sem_ready);
 	net_send_data(hash, (char *)arg, sz);
 	sem_post(&send_done);
 	return arg;
@@ -47,9 +49,13 @@ void do_sync(char *srcdata, char *dstdata)
 	sem_init(&recv_done, 0, 0);
 
 	/* queue up send / recv jobs */
+	sem_init(&sem_ready, 0, 0);
 	pthread_attr_init(&attr);
-	pthread_create(&trecv, &attr, &do_recv, dstdata);
 	pthread_create(&tsend, &attr, &do_send, srcdata);
+	/* wait until sender is ready - FIXME - this MUST NOT matter */
+	sem_wait(&sem_ready);
+	usleep(100000);
+	pthread_create(&trecv, &attr, &do_recv, dstdata);
 	pthread_attr_destroy(&attr);
 
 	/* wait for recv job to finish, check for timeout */
@@ -94,6 +100,7 @@ int main(void)
 
 	// FIXME - test is completely broken - always fails. net_send_event() is
 	// always failing to find the alias/mtree to send
+	//
 
 	blocksz = blocksize;
 	sz = blocks * blocksz;
