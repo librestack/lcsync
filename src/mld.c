@@ -197,6 +197,7 @@ static void mld_watch_callback(mld_watch_t *watch, struct in6_pktinfo *pi)
 	event->ifx = ntohl(pi->ipi6_ifindex);
 	event->grp = &pi->ipi6_addr;
 	watch->f(event, watch);
+	free(event);
 }
 
 void *mld_watch_thread(void *arg)
