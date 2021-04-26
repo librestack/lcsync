@@ -21,7 +21,6 @@ void watch_callback(mld_watch_t *event, mld_watch_t *orig)
 	test_assert(event != orig, "event new");
 	test_assert(event->ifx > 0, "event ifx set=%u", event->ifx);
 	test_assert(event->grp != NULL, "event grp set");
-	free(event);
 }
 
 // FIXME - split this out into test_misc.c
