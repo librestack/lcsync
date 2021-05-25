@@ -10,10 +10,14 @@ INSTALL_PROGRAM := $(INSTALL)
 prefix ?= /usr/local
 exec_prefix := $(prefix)
 bindir := $(exec_prefix)/bin
-LDFLAGS += -lm -pthread -llibrecast
+LDFLAGS += -lm -pthread -llibrecast -llmdb
 OBJS = $(PROGRAM).o arg.o file.o globals.o help.o job.o log.o misc.o mld.o mtree.o net.o opt.o vec.o
 
-all:		$(PROGRAM)
+all:		$(PROGRAM) mdex
+
+mdex:		file.o globals.o job.o log.o misc.o mtree.o mdex.o misc.o mld.o net.o vec.o
+		$(CC) $(CFLAGS) $(EXTRAFLAGS) $^ -o $@ $(LDFLAGS)
+
 
 $(PROGRAM):	$(OBJS)
 		$(CC) $(CFLAGS) $(EXTRAFLAGS) $^ -o $(PROGRAM) $(LDFLAGS)
