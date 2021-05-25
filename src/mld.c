@@ -133,7 +133,8 @@ static void mld_timer_ticker(mld_t *mld, unsigned int iface, size_t idx, uint8_t
 	mld_timerjob_t tj = { .mld = mld, .iface = iface, .idx = idx, .f = &mld_timer_tick };
 	sem_init(&sem, 0, 0);
 	clock_gettime(CLOCK_REALTIME, &ts);
-	for (;;) {
+	//for (;;) {
+	while (*(mld->cont)) {
 		ts.tv_sec += MLD_TIMER_INTERVAL;
 		sem_timedwait(&sem, &ts);
 		job_push_new(mld->timerq, &mld_timer_job, &tj, sizeof tj, &free, JOB_COPY|JOB_FREE);
@@ -332,7 +333,7 @@ static int mld_wait_poll(mld_t *mld, unsigned int ifx, struct in6_addr *addr)
 	// TODO - return addr and iface TODO TODO TODO
 
 	if (rc > 0) DEBUG("%s() notify received", __func__);
-	lc_channel_part(chan);
+	//lc_channel_part(chan);
 	rc = 0;
 exit_err_1:
 	lc_channel_free(chan);
@@ -544,16 +545,19 @@ int mld_filter_grp_add_ai(mld_t *mld, unsigned int iface, struct addrinfo *ai)
 	return mld_filter_grp_add(mld, iface, aitoin6(ai));
 }
 
+/* check if addr matches an address on any of our interfaces
+ * return nonzero if true (matched), 0 if not found */
 int mld_thatsme(struct in6_addr *addr)
 {
-	int ret = 1;
+	int ret = 0;
 	struct ifaddrs *ifaddr, *ifa;
 	getifaddrs(&ifaddr);
 	for (ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
 		if (!ifa->ifa_addr) continue;
 		if (ifa->ifa_addr->sa_family != AF_INET6) continue;
 		if (!memcmp(ifa->ifa_addr, addr, sizeof (struct in6_addr))) {
-			ret = 0; break;
+			ret = -1;
+			break;
 		}
 	}
 	freeifaddrs(ifaddr);
@@ -573,7 +577,7 @@ void mld_address_record(mld_t *mld, unsigned int iface, mld_addr_rec_t *rec)
 				break;
 			}
 			for (int i = 0; i < rec->srcs; i++) {
-				if (!mld_thatsme(&src[i])) {
+				if (mld_thatsme(&src[i])) {
 					idx = i;
 					break;
 				}
@@ -593,6 +597,7 @@ void mld_listen_report(mld_t *mld, struct msghdr *msg)
 	mld_addr_rec_t *mrec = msg->msg_iov[1].iov_base;
 	unsigned int iface = mld_idx_iface(mld, interface_index(msg));
 	uint16_t recs = ntohs(icmpv6->icmp6_data16[1]);
+	DEBUG("MLD listen report with %u records received", recs);
 	for (int i = 0; i < recs; i++) {
 		mld_address_record(mld, iface, &mrec[i]);
 	}

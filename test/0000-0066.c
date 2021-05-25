@@ -13,6 +13,7 @@
 #include <time.h>
 #include <unistd.h>
 
+static sem_t sem_ready;
 const int waits = 1; /* test timeout in s */
 const size_t blocks = 42;
 size_t blocksz;
@@ -33,26 +34,32 @@ void *do_recv(void *arg)
 void *do_send(void *arg)
 {
 	test_log("%s starting\n", __func__);
+	sem_post(&sem_ready);
 	net_send_data(hash, (char *)arg, sz);
 	sem_post(&send_done);
 	return arg;
 }
-
+#define DORECV 1
+#define DOSEND 1
 void do_sync(char *srcdata, char *dstdata)
 {
 	struct timespec timeout;
 	pthread_t tsend, trecv;
 	pthread_attr_t attr = {0};
 
+	sem_init(&sem_ready, 0, 0);
 	sem_init(&send_done, 0, 0);
 	sem_init(&recv_done, 0, 0);
 
 	/* queue up send / recv jobs */
 	pthread_attr_init(&attr);
+#if DOSEND
 	pthread_create(&tsend, &attr, &do_send, srcdata);
-	sleep(1);
+	sem_wait(&sem_ready);
+	usleep(10000);
+#endif
+#if DORECV
 	pthread_create(&trecv, &attr, &do_recv, dstdata);
-	pthread_attr_destroy(&attr);
 
 	/* wait for recv job to finish, check for timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
@@ -61,14 +68,22 @@ void do_sync(char *srcdata, char *dstdata)
 	net_stop(SIGINT);
 	pthread_join(trecv, NULL);
 
+#endif
+
+	/* signal all threads to stop */
+	net_stop(SIGINT);
+#if DOSEND
 	/* stop sender */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
 	timeout.tv_sec += waits;
 	test_assert(!sem_timedwait(&send_done, &timeout), "timeout - send");
 	pthread_join(tsend, NULL);
+#endif
 
+	pthread_attr_destroy(&attr);
 	sem_destroy(&recv_done);
 	sem_destroy(&send_done);
+	sem_destroy(&sem_ready);
 }
 
 void gentestdata(char *srcdata, char *dstdata)
@@ -87,7 +102,7 @@ int main(void)
 
 	loginit();
 
-	test_name("MLD sync");
+	test_name("MLD sync - net_send_data() / net_recv_data()");
 
 	blocksz = blocksize;
 	sz = blocks * blocksz;

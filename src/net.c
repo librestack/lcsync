@@ -221,6 +221,7 @@ ssize_t net_send_tree(int sock, struct sockaddr_in6 *sa, size_t vlen, struct iov
 		return -1;
 	}
 	memcpy(data, iov[1].iov_base, len);
+	/* TODO - ensure we're not already sending the same thing */
 	while (running && len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		iov[1].iov_len = sz;
@@ -285,6 +286,7 @@ void *net_job_send_tree(void *arg)
 		.chan = net_send_channels,
 		.pkts = htobe32(howmany(data->iov[0].iov_len, DATA_FIXED))
 	};
+	/* TODO - ensure we're not already sending the same thing */
 #ifdef NET_DEBUG
 	char straddr[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, grp, straddr, INET6_ADDRSTRLEN);
@@ -357,6 +359,7 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	iov[1].iov_len = DATA_FIXED;
 	if (!dryrun) while (running && hamm(bitmap, maplen) && PKTS) {
 		DEBUG("%s() recvmsg", __func__);
+		// FIXME - we get here (0066), but no further
 		while (running && !(rc = poll(&fds, 1, 100)));
 		if (rc > 0 && (msglen = recvmsg(sock, &msgh, 0)) == -1) {
 			perror("recv()");
@@ -381,7 +384,7 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 		}
 		byt += be32toh(hdr.len);
 		DEBUG("packets still required=%u", hamm(bitmap, maplen));
-		printmap(bitmap, mtree_base_subtree(stree, root) * bits);
+		//printmap(bitmap, mtree_base_subtree(stree, root) * bits);
 	}
 	DEBUG("receiver - all blocks received");
 	free(bitmap);
@@ -401,6 +404,7 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 		goto err_1;
 	if (!(chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE)))
 		goto err_2;
+	// FIXME - not seeing this join on the wire
 	if (lc_channel_bind(sock, chan) || lc_channel_join(chan))
 		goto err_3;
 	s = lc_socket_raw(sock);
@@ -721,6 +725,7 @@ static ssize_t net_tree_level_search(lc_ctx_t *lctx, mtree_tree *tree, size_t lv
 		inet_ntop(AF_INET6, &sa->sin6_addr, strgrp, INET6_ADDRSTRLEN);
 		DEBUG("%s() checking %s", __func__, strgrp);
 #endif
+		// FIXME - this *never* matches - why?
 		if (!memcmp(grp, &sa->sin6_addr, IPV6_BYTES)) {
 			rc = (ssize_t)n;
 			break;
