@@ -20,11 +20,11 @@
 #include "net.h"
 
 #define THREADS 1
-#define MAXDBS 2
+#define MAXDBS 3
 
 MDB_env *env;
 MDB_txn *txn;
-MDB_dbi dbi_file, dbi_chan;
+MDB_dbi dbi_file, dbi_chan, dbi_block;
 //job_queue_t *jobq;
 size_t blocksz;
 
@@ -151,7 +151,7 @@ static int indexfile(const char *fpath, const struct stat *sb, int typeflag, str
 	mtree_build(stree, smap, NULL);
 	//mtree_hexdump(stree, stderr);
 
-	blocks += mtree_blocks(stree);
+	//blocks += mtree_blocks(stree);
 
 	bytes += sb->st_size;
 
@@ -173,11 +173,35 @@ static int indexfile(const char *fpath, const struct stat *sb, int typeflag, str
 	if (alias) printf("[%s] alias=%s, (%zu) ", straddr, alias, v.mv_size);
 	puts(fpath);
 	ret = mdb_put(txn, dbi_chan, &k, &v, MDB_NOOVERWRITE);
-	if (ret) {
+	if (ret && ret != MDB_KEYEXIST) {
 		fprintf(stderr, "%s\n", mdb_strerror(ret));
 		goto err_0;
 	}
 	lc_channel_free(chanside);
+
+	/* channel -> block */
+	unsigned char *ptr;
+	char hex[HEXLEN];
+	for (size_t i = 0; i < mtree_blocks(stree); i++) {
+		ptr = mtree_node(stree, 0, i);
+		sodium_bin2hex(hex, HEXLEN, ptr, HASHSIZE);
+		fprintf(stderr, "%08zu: %.*s\n", i, HEXLEN, hex);
+		k.mv_data = ptr;
+		k.mv_size = HASHSIZE;
+		// TODO - store offset, size */
+		v.mv_data = (char *)fpath;
+		v.mv_size = strlen(fpath);
+		ret = mdb_put(txn, dbi_block, &k, &v, MDB_NOOVERWRITE);
+		if (ret == MDB_KEYEXIST) {
+			dups++;
+			ret = 0;
+		}
+		else if (ret) {
+			fprintf(stderr, "%s\n", mdb_strerror(ret));
+			goto err_0;
+		}
+		else blocks++;
+	}
 
 	/* filename -> mtree */
 	k.mv_data = (char *)fpath;
@@ -188,7 +212,7 @@ static int indexfile(const char *fpath, const struct stat *sb, int typeflag, str
 	ret = mdb_put(txn, dbi_file, &k, &v, MDB_NOOVERWRITE | MDB_RESERVE);
 	//v.mv_data = mtree_data(stree, 0);
 	if (ret == MDB_KEYEXIST) {
-		dups++;
+		//dups++;
 		ret = 0;
 	}
 	else if (ret) {
@@ -229,6 +253,7 @@ int main(int argc, char *argv[])
 	mdb_txn_begin(env, NULL, 0, &txn);
 	mdb_dbi_open(txn, "file", MDB_CREATE, &dbi_file);
 	mdb_dbi_open(txn, "chan", MDB_CREATE, &dbi_chan);
+	mdb_dbi_open(txn, "block", MDB_CREATE, &dbi_block);
 
 	argv[0] = ".";
 	for (int i = (argc < 2) ? 0 : 1; i < argc; i++) {
