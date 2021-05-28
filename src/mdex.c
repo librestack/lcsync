@@ -188,10 +188,8 @@ static int indexfile(const char *fpath, const struct stat *sb, int typeflag, str
 		fprintf(stderr, "%08zu: %.*s\n", i, HEXLEN, hex);
 		k.mv_data = ptr;
 		k.mv_size = HASHSIZE;
-		// TODO - store offset, size */
-		v.mv_data = (char *)fpath;
-		v.mv_size = strlen(fpath);
-		ret = mdb_put(txn, dbi_block, &k, &v, MDB_NOOVERWRITE);
+		v.mv_size = strlen(fpath) + sizeof i;
+		ret = mdb_put(txn, dbi_block, &k, &v, MDB_NOOVERWRITE | MDB_RESERVE);
 		if (ret == MDB_KEYEXIST) {
 			dups++;
 			ret = 0;
@@ -200,7 +198,11 @@ static int indexfile(const char *fpath, const struct stat *sb, int typeflag, str
 			fprintf(stderr, "%s\n", mdb_strerror(ret));
 			goto err_0;
 		}
-		else blocks++;
+		else {
+			*(size_t *)v.mv_data = i;
+			memcpy((char *)v.mv_data + sizeof i, fpath, strlen(fpath));
+			blocks++;
+		}
 	}
 
 	/* filename -> mtree */
