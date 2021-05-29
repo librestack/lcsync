@@ -20,13 +20,13 @@
 #include "net.h"
 
 #define THREADS 1
-#define MAXDBS 3
+#define MAXDBS 4
 
 MDB_env *env;
 MDB_txn *txn;
-MDB_dbi dbi_file, dbi_chan, dbi_block;
+MDB_dbi dbi_file, dbi_chan, dbi_block, dbi_chanblock;
 //job_queue_t *jobq;
-size_t blocksz;
+const size_t blocksz = 1024;
 
 static size_t blocks;
 static size_t dups;
@@ -57,7 +57,7 @@ static void send_tree(struct in6_addr *addr, char *data, size_t len)
 	net_treehead_t hdr = {
 		.data = htobe64((uint64_t)sb->st_size),
 		.size = htobe64((uint64_t)len),
-		.blocksz = htobe32(1024),
+		.blocksz = htobe32(blocksz),
 		.chan = net_send_channels,
 		.pkts = htobe32(howmany(len, DATA_FIXED))
 	};
@@ -72,6 +72,11 @@ static void send_tree(struct in6_addr *addr, char *data, size_t len)
 		.sin6_port = htons(LC_DEFAULT_PORT),
 	};
 	memcpy(&sa.sin6_addr, addr, 16);
+
+	mtree_tree *testtree;
+	testtree = mtree_create(len, blocksz);
+	mtree_build(testtree, data, NULL);
+	assert(!mtree_verify(testtree, mtree_treelen(testtree)));
 
 	net_send_tree(s, &sa, vlen, iov);
 err_0:
@@ -105,7 +110,15 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 		else send_tree(event->grp, (char *)v.mv_data, v.mv_size);
 	}
 	else if (ret == MDB_NOTFOUND) {
-		puts(" (ignored)");
+		// FIXME - separate lookups for chan -> block and block -> file
+		mdb_dbi_open(txn, "block", MDB_RDONLY, &dbi_block);
+		ret = mdb_get(txn, dbi_chan, &k, &v);
+		if (!ret) {
+			puts(" (block match)");
+		}
+		else if (ret == MDB_NOTFOUND) {
+			puts(" (ignored)");
+		}
 	}
 	mdb_txn_abort(txn);
 }
@@ -179,13 +192,29 @@ static int indexfile(const char *fpath, const struct stat *sb, int typeflag, str
 	}
 	lc_channel_free(chanside);
 
-	/* channel -> block */
+
 	unsigned char *ptr;
 	char hex[HEXLEN];
 	for (size_t i = 0; i < mtree_blocks(stree); i++) {
 		ptr = mtree_node(stree, 0, i);
+
+		/* channel -> hash(block) */
+		chanside = lc_channel_nnew(ctx, ptr, HASHSIZE);
+		k.mv_data = lc_channel_in6addr(chanside);
+		k.mv_size = sizeof(struct in6_addr);
+		v.mv_data = ptr;
+		v.mv_size = HASHSIZE;
+		ret = mdb_put(txn, dbi_chanblock, &k, &v, MDB_NOOVERWRITE);
+		if (ret && ret != MDB_KEYEXIST) {
+			fprintf(stderr, "%s\n", mdb_strerror(ret));
+			goto err_0;
+		}
+		lc_channel_free(chanside);
+
 		sodium_bin2hex(hex, HEXLEN, ptr, HASHSIZE);
 		fprintf(stderr, "%08zu: %.*s\n", i, HEXLEN, hex);
+
+		/* hash(block) -> file, offset*/
 		k.mv_data = ptr;
 		k.mv_size = HASHSIZE;
 		v.mv_size = strlen(fpath) + sizeof i;
@@ -242,7 +271,7 @@ int main(int argc, char *argv[])
 
 	if (!dbpath) return EXIT_FAILURE;
 
-	blocksz = (size_t)file_chunksize();
+	//blocksz = (size_t)file_chunksize();
 
 	//jobq = job_queue_create(THREADS);
 
@@ -256,6 +285,7 @@ int main(int argc, char *argv[])
 	mdb_dbi_open(txn, "file", MDB_CREATE, &dbi_file);
 	mdb_dbi_open(txn, "chan", MDB_CREATE, &dbi_chan);
 	mdb_dbi_open(txn, "block", MDB_CREATE, &dbi_block);
+	mdb_dbi_open(txn, "chan_block", MDB_CREATE, &dbi_chanblock);
 
 	argv[0] = ".";
 	for (int i = (argc < 2) ? 0 : 1; i < argc; i++) {

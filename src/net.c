@@ -886,7 +886,11 @@ int net_sync(int *argc, char *argv[])
 	sigaction(SIGINT, &sa_int, NULL);
 	hash_generic(hash, HASHSIZE, (unsigned char *)src, strlen(src));
 	if (net_fetch_tree(hash, &stree) == -1) goto err_0;
-	if (mtree_verify(stree, mtree_treelen(stree))) goto err_0;
+	puts("tree fetched");
+	if (mtree_verify(stree, mtree_treelen(stree))) {
+		puts("invalid tree");
+		goto err_0;
+	}
 	DEBUG("mapping dst: %s", dst);
 	len = mtree_len(stree);
 	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // TODO - set from packet data
