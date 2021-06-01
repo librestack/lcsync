@@ -157,7 +157,7 @@ static void do_mld()
 	mld_stop(mld);
 }
 
-static int indextree(mtree_tree *tree, const char *fpath, const struct stat *sb, int typeflag)
+static int indextree(mtree_tree *tree, const char *fpath, const size_t flen, const struct stat *sb, int typeflag)
 {
 	// TODO: index subtree hashes and blocks
 	//
@@ -177,7 +177,7 @@ static int indextree(mtree_tree *tree, const char *fpath, const struct stat *sb,
 		k.mv_data = lc_channel_in6addr(chanside);
 		inet_ntop(AF_INET6, k.mv_data, straddr, INET6_ADDRSTRLEN);
 		k.mv_size = sizeof(struct in6_addr);
-		v.mv_size = HASHSIZE + 1;
+		v.mv_size = HASHSIZE + sizeof i + flen + 1;
 		ret = mdb_put(txn, dbi_chan, &k, &v, MDB_NOOVERWRITE | MDB_RESERVE);
 		if (ret && ret != MDB_KEYEXIST) {
 			fprintf(stderr, "%s\n", mdb_strerror(ret));
@@ -190,8 +190,10 @@ static int indextree(mtree_tree *tree, const char *fpath, const struct stat *sb,
 		else {
 			*(char *)v.mv_data = MDEX_SUBTREE;
 		}
+		/* store filename, node number etc. */
 		memcpy((char *)v.mv_data + 1, ptr, HASHSIZE);
-		// TODO store filename, node number etc.
+		memcpy((char *)v.mv_data + HASHSIZE + 1, fpath, flen);
+		*(size_t *)((char *)v.mv_data + HASHSIZE + flen + 1) = i;
 
 		sodium_bin2hex(hex, HEXLEN, ptr, HASHSIZE);
 		fprintf(stderr, "%08zu: %.*s %s\n", i, HEXLEN, hex, straddr);
@@ -308,7 +310,7 @@ static int indexfile(const char *fpath, const struct stat *sb, int typeflag, str
 		memcpy((char *)v.mv_data + sizeof(struct stat), mtree_data(stree, 0), treelen);
 	}
 
-	ret = indextree(stree, fpath, sb, typeflag);
+	ret = indextree(stree, fpath, flen, sb, typeflag);
 err_0:
 	mtree_free(stree);
 	file_unmap(smap, sz_s, fds);
