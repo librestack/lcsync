@@ -45,3 +45,12 @@ blocks/channel	    65,535
 The same file with the same block size, spread over 128 channels:
 bytes/channel	16,777,216
 blocks/channel	     4,096
+
+
+## Updates
+
+When a file changes, anything that is keeping track will need just the changes.
+ If there are no blocks in common, that means the whole file.  If only a few
+ blocks have changed, only those blocks will be required.  Can we use this to
+ optimise which subtrees are offered, or which levels are made available for
+ syncing?
