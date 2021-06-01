@@ -34,7 +34,7 @@ MDB_dbi dbi_file, dbi_chan;
 //job_queue_t *jobq;
 const size_t blocksz = 1024;
 
-static size_t blocks;
+static size_t blockcnt;
 static size_t dups;
 static size_t files;
 static size_t bytes;
@@ -107,22 +107,26 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 	k.mv_size = sizeof(struct in6_addr);
 	ret = mdb_get(txn, dbi_chan, &k, &v);
 	if (!ret) {
-		puts(" (match)");
 		mdex_type mtyp = *(char *)v.mv_data;
-		switch (mtyp) { // TODO
-			case MDEX_TREE:
-			case MDEX_SUBTREE:
-			case MDEX_BLOCK:
-				break;
+		switch (mtyp) {
+		case MDEX_TREE:
+			puts(" (match tree)");
+			v.mv_data = (char *)v.mv_data + 1;
+			v.mv_size--;
+			printf("sending file '%.*s'\n", (int)v.mv_size, (char *)v.mv_data);
+			mdb_dbi_open(txn, "file", MDB_RDONLY, &dbi_file);
+			k = v;
+			ret = mdb_get(txn, dbi_file, &k, &v);
+			if (ret) fprintf(stderr, "%s\n", mdb_strerror(ret));
+			else send_tree(event->grp, (char *)v.mv_data, v.mv_size);
+			break;
+		case MDEX_SUBTREE:
+			puts(" (match subtree)");
+			break;
+		case MDEX_BLOCK:
+			puts(" (match block)");
+			break;
 		}
-		v.mv_data = (char *)v.mv_data + 1;
-		v.mv_size--;
-		printf("sending file '%.*s'\n", (int)v.mv_size, (char *)v.mv_data);
-		mdb_dbi_open(txn, "file", MDB_RDONLY, &dbi_file);
-		k = v;
-		ret = mdb_get(txn, dbi_file, &k, &v);
-		if (ret) fprintf(stderr, "%s\n", mdb_strerror(ret));
-		else send_tree(event->grp, (char *)v.mv_data, v.mv_size);
 	}
 #if 0
 	else if (ret == MDB_NOTFOUND) {
@@ -158,27 +162,36 @@ static int indextree(mtree_tree *tree, const char *fpath, const struct stat *sb,
 	// TODO: index subtree hashes and blocks
 	//
 	// TODO channel -> type|hash|node|file
-	return 0;
-}
-#if 0
+	lc_channel_t *chanside;
+	MDB_val k, v;
 	unsigned char *ptr;
 	char hex[HEXLEN];
-	for (size_t i = 0; i < mtree_blocks(stree); i++) {
-		ptr = mtree_node(stree, 0, i);
+	char straddr[INET6_ADDRSTRLEN];
+	int ret = 0;
+	size_t blocks = mtree_blocks(tree);
+	for (size_t i = 0; i < mtree_nodes(tree); i++) {
+		ptr = mtree_data(tree, i);
 
 		/* channel -> hash(block) */
 		chanside = lc_channel_nnew(ctx, ptr, HASHSIZE);
 		k.mv_data = lc_channel_in6addr(chanside);
 		inet_ntop(AF_INET6, k.mv_data, straddr, INET6_ADDRSTRLEN);
 		k.mv_size = sizeof(struct in6_addr);
-		v.mv_data = ptr;
-		v.mv_size = HASHSIZE;
-		ret = mdb_put(txn, dbi_chanblock, &k, &v, MDB_NOOVERWRITE);
+		v.mv_size = HASHSIZE + 1;
+		ret = mdb_put(txn, dbi_chan, &k, &v, MDB_NOOVERWRITE | MDB_RESERVE);
 		if (ret && ret != MDB_KEYEXIST) {
 			fprintf(stderr, "%s\n", mdb_strerror(ret));
 			goto err_0;
 		}
-		lc_channel_free(chanside);
+		if (i < blocks) {
+			*(char *)v.mv_data = MDEX_BLOCK;
+			blockcnt++;
+		}
+		else {
+			*(char *)v.mv_data = MDEX_SUBTREE;
+		}
+		memcpy((char *)v.mv_data + 1, ptr, HASHSIZE);
+		// TODO store filename, node number etc.
 
 		sodium_bin2hex(hex, HEXLEN, ptr, HASHSIZE);
 		fprintf(stderr, "%08zu: %.*s %s\n", i, HEXLEN, hex, straddr);
@@ -189,7 +202,7 @@ static int indextree(mtree_tree *tree, const char *fpath, const struct stat *sb,
 		// 1) index ALL mtree hashes, with channel, block, file and node #
 		// 2) allow syncing at any level in the tree
 		// FIXME  FIXME  FIXME  FIXME  FIXME 
-
+#if 0
 		/* hash(block) -> file, offset*/
 		k.mv_data = ptr;
 		k.mv_size = HASHSIZE;
@@ -208,8 +221,12 @@ static int indextree(mtree_tree *tree, const char *fpath, const struct stat *sb,
 			memcpy((char *)v.mv_data + sizeof i, fpath, strlen(fpath));
 			blocks++;
 		}
-	}
 #endif
+	}
+err_0:
+	lc_channel_free(chanside);
+	return ret;
+}
 
 
 static int indexfile(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
@@ -347,7 +364,7 @@ int main(int argc, char *argv[])
 
 	//job_queue_destroy(jobq);
 
-	printf("%zu blocks indexed in %zu files. %zu duplicate blocks skipped. %zu bytes total\n", blocks, files, dups, bytes);
+	printf("%zu blocks indexed in %zu files. %zu duplicate blocks skipped. %zu bytes total\n", blockcnt, files, dups, bytes);
 
 	// TODO: fire up mld listener
 	do_mld();
