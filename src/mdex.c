@@ -118,7 +118,7 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 			puts(" (match tree)");
 			flen = v.mv_size - 1;
 			fpath = p;
-			printf("sending mtree for file '%.*s'\n", (int)flen, fpath);
+			printf("matched mtree for file '%.*s'\n", (int)flen, fpath);
 			mdb_dbi_open(txn, "file", MDB_RDONLY, &dbi_file);
 			k.mv_size = flen;
 			k.mv_data = fpath;
@@ -130,17 +130,18 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 			puts(" (match subtree)");
 			/* extract hash */
 			/* [node][flen][HASH][fpath] => [size_t][size_t][HASHSIZE][flen] */
-			node = *p;
+			node = *(size_t *)p;
 			p += sizeof node;
-			flen = *p;
+			flen = *(size_t *)p;
 			p += sizeof flen;
 			hash = (unsigned char *)p;
 			p += HASHSIZE;
 			fpath = p;
-			printf("sending subtree (%zu) of file '%.*s'\n", node, (int)flen, fpath);
+			printf("matched subtree (%zu) of file '%.*s'\n", node, (int)flen, fpath);
 			break;
 		case MDEX_BLOCK:
 			puts(" (match block)");
+			// TODO: basically the same as MDEX_SUBTREE
 			break;
 		}
 	}
@@ -210,6 +211,7 @@ static int indextree(mtree_tree *tree, const char *fpath, const size_t flen, con
 		/* [node][flen][HASH][fpath] => [size_t][size_t][HASHSIZE][flen] */
 		char *p = (char *)v.mv_data + 1;
 		*(size_t *)p = i;
+		printf("this is node %zu\n", *(size_t *)p);
 		p += sizeof i;
 		*(size_t *)p = flen;
 		p += sizeof flen;
