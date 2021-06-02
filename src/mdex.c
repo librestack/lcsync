@@ -93,6 +93,10 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 {
 	(void)watch; /* unused */
 	char strgrp[INET6_ADDRSTRLEN];
+	char hex[HEXLEN];
+	unsigned char *hash;
+	size_t node, flen;
+	char *fpath;
 	MDB_val k, v;
 	int ret;
 
@@ -108,20 +112,32 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 	ret = mdb_get(txn, dbi_chan, &k, &v);
 	if (!ret) {
 		mdex_type mtyp = *(char *)v.mv_data;
+		char *p = (char *)v.mv_data + 1;
 		switch (mtyp) {
 		case MDEX_TREE:
 			puts(" (match tree)");
-			v.mv_data = (char *)v.mv_data + 1;
-			v.mv_size--;
-			printf("sending file '%.*s'\n", (int)v.mv_size, (char *)v.mv_data);
+			flen = v.mv_size - 1;
+			fpath = p;
+			printf("sending mtree for file '%.*s'\n", (int)flen, fpath);
 			mdb_dbi_open(txn, "file", MDB_RDONLY, &dbi_file);
-			k = v;
+			k.mv_size = flen;
+			k.mv_data = fpath;
 			ret = mdb_get(txn, dbi_file, &k, &v);
 			if (ret) fprintf(stderr, "%s\n", mdb_strerror(ret));
 			else send_tree(event->grp, (char *)v.mv_data, v.mv_size);
 			break;
 		case MDEX_SUBTREE:
 			puts(" (match subtree)");
+			/* extract hash */
+			/* [node][flen][HASH][fpath] => [size_t][size_t][HASHSIZE][flen] */
+			node = *p;
+			p += sizeof node;
+			flen = *p;
+			p += sizeof flen;
+			hash = (unsigned char *)p;
+			p += HASHSIZE;
+			fpath = p;
+			printf("sending subtree (%zu) of file '%.*s'\n", node, (int)flen, fpath);
 			break;
 		case MDEX_BLOCK:
 			puts(" (match block)");
@@ -177,7 +193,7 @@ static int indextree(mtree_tree *tree, const char *fpath, const size_t flen, con
 		k.mv_data = lc_channel_in6addr(chanside);
 		inet_ntop(AF_INET6, k.mv_data, straddr, INET6_ADDRSTRLEN);
 		k.mv_size = sizeof(struct in6_addr);
-		v.mv_size = HASHSIZE + sizeof i + flen + 1;
+		v.mv_size = sizeof i + sizeof flen + HASHSIZE + flen + 1;
 		ret = mdb_put(txn, dbi_chan, &k, &v, MDB_NOOVERWRITE | MDB_RESERVE);
 		if (ret && ret != MDB_KEYEXIST) {
 			fprintf(stderr, "%s\n", mdb_strerror(ret));
@@ -191,9 +207,15 @@ static int indextree(mtree_tree *tree, const char *fpath, const size_t flen, con
 			*(char *)v.mv_data = MDEX_SUBTREE;
 		}
 		/* store filename, node number etc. */
-		memcpy((char *)v.mv_data + 1, ptr, HASHSIZE);
-		memcpy((char *)v.mv_data + HASHSIZE + 1, fpath, flen);
-		*(size_t *)((char *)v.mv_data + HASHSIZE + flen + 1) = i;
+		/* [node][flen][HASH][fpath] => [size_t][size_t][HASHSIZE][flen] */
+		char *p = (char *)v.mv_data + 1;
+		*(size_t *)p = i;
+		p += sizeof i;
+		*(size_t *)p = flen;
+		p += sizeof flen;
+		memcpy(p, ptr, HASHSIZE);
+		p += HASHSIZE;
+		memcpy(p, fpath, flen);
 
 		sodium_bin2hex(hex, HEXLEN, ptr, HASHSIZE);
 		fprintf(stderr, "%08zu: %.*s %s\n", i, HEXLEN, hex, straddr);
