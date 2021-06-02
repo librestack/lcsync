@@ -181,7 +181,7 @@ static int indextree(mtree_tree *tree, const char *fpath, const size_t flen, con
 		ret = mdb_put(txn, dbi_chan, &k, &v, MDB_NOOVERWRITE | MDB_RESERVE);
 		if (ret && ret != MDB_KEYEXIST) {
 			fprintf(stderr, "%s\n", mdb_strerror(ret));
-			goto err_0;
+			break;
 		}
 		if (i < blocks) {
 			*(char *)v.mv_data = MDEX_BLOCK;
@@ -197,35 +197,7 @@ static int indextree(mtree_tree *tree, const char *fpath, const size_t flen, con
 
 		sodium_bin2hex(hex, HEXLEN, ptr, HASHSIZE);
 		fprintf(stderr, "%08zu: %.*s %s\n", i, HEXLEN, hex, straddr);
-
-		// FIXME  FIXME  FIXME  FIXME  FIXME 
-		// FIXME - mdex is offering blocks - net_sync is looking for
-		// subtree hashes. Reconcile this.
-		// 1) index ALL mtree hashes, with channel, block, file and node #
-		// 2) allow syncing at any level in the tree
-		// FIXME  FIXME  FIXME  FIXME  FIXME 
-#if 0
-		/* hash(block) -> file, offset*/
-		k.mv_data = ptr;
-		k.mv_size = HASHSIZE;
-		v.mv_size = strlen(fpath) + sizeof i;
-		ret = mdb_put(txn, dbi_block, &k, &v, MDB_NOOVERWRITE | MDB_RESERVE);
-		if (ret == MDB_KEYEXIST) {
-			dups++;
-			ret = 0;
-		}
-		else if (ret) {
-			fprintf(stderr, "%s\n", mdb_strerror(ret));
-			goto err_0;
-		}
-		else {
-			*(size_t *)v.mv_data = i;
-			memcpy((char *)v.mv_data + sizeof i, fpath, strlen(fpath));
-			blocks++;
-		}
-#endif
 	}
-err_0:
 	lc_channel_free(chanside);
 	return ret;
 }
