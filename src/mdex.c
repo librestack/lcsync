@@ -127,6 +127,7 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 		v.mv_data = buf;
 		ret = mdb_put(txn, dbi_chan, &k, &v, 0);
 		mdb_txn_commit(txn);
+		free(buf);
 
 		mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
 		switch (mtyp) {
@@ -140,7 +141,10 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 			k.mv_data = fpath;
 			ret = mdb_get(txn, dbi_file, &k, &v);
 			if (ret) fprintf(stderr, "%s\n", mdb_strerror(ret));
-			else send_tree(event->grp, (char *)v.mv_data, v.mv_size);
+			else {
+				send_tree(event->grp, (char *)v.mv_data, v.mv_size);
+				puts("finished sending tree");
+			}
 			break;
 		case MDEX_SUBTREE:
 			puts(" (match subtree)");
@@ -163,11 +167,16 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 		mdb_txn_abort(txn);
 
 		/* unlock channel */
+		printf("unlocking grp %s\n", strgrp);
 		mdb_txn_begin(env, NULL, 0, &txn);
 		mdb_dbi_open(txn, "chan", 0, &dbi_chan);
+		k.mv_data = event->grp;
+		k.mv_size = sizeof(struct in6_addr);
 		ret = mdb_get(txn, dbi_chan, &k, &v);
-		//memcpy(buf, v.mv_data, v.mv_size);
-		*buf -= MDEX_LOCKED;
+		buf = malloc(v.mv_size);
+		memcpy(buf, v.mv_data, v.mv_size);
+		*buf &= (MDEX_LOCKED - 1);
+		v.mv_data = buf;
 		ret = mdb_put(txn, dbi_chan, &k, &v, 0);
 		mdb_txn_commit(txn);
 
