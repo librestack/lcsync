@@ -173,7 +173,6 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 		mdb_txn_commit(txn);
 
 		send_data(event->grp, mtyp, buf, len, &k, &v);
-		free(buf);
 
 		/* unlock channel */
 		printf("unlocking grp %s\n", strgrp);
@@ -182,8 +181,6 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 		k.mv_data = event->grp;
 		k.mv_size = sizeof(struct in6_addr);
 		ret = mdb_get(txn, dbi_chan, &k, &v);
-		buf = malloc(v.mv_size);
-		memcpy(buf, v.mv_data, v.mv_size);
 		*buf ^= MDEX_LOCKED;
 		v.mv_data = buf;
 		ret = mdb_put(txn, dbi_chan, &k, &v, 0);
