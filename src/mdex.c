@@ -175,7 +175,7 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 		ret = mdb_get(txn, dbi_chan, &k, &v);
 		buf = malloc(v.mv_size);
 		memcpy(buf, v.mv_data, v.mv_size);
-		*buf &= (MDEX_LOCKED - 1);
+		*buf ^= MDEX_LOCKED;
 		v.mv_data = buf;
 		ret = mdb_put(txn, dbi_chan, &k, &v, 0);
 		mdb_txn_commit(txn);
