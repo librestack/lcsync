@@ -94,7 +94,7 @@ static void send_data(struct in6_addr *grp, mdex_type mtyp, char *buf, size_t le
 {
 	char *fpath;
 	size_t flen;
-	unsigned char *hash;
+	//unsigned char *hash;
 	size_t node;
 	int ret;
 
@@ -124,7 +124,7 @@ static void send_data(struct in6_addr *grp, mdex_type mtyp, char *buf, size_t le
 		p += sizeof node;
 		flen = *(size_t *)p;
 		p += sizeof flen;
-		hash = (unsigned char *)p;
+		//hash = (unsigned char *)p;
 		p += HASHSIZE;
 		fpath = p;
 		printf("matched subtree (%zu) of file '%.*s'\n", node, (int)flen, fpath);
@@ -141,7 +141,7 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 {
 	(void)watch; /* unused */
 	char strgrp[INET6_ADDRSTRLEN];
-	char *fpath, *buf, *p;
+	char *buf;
 	MDB_val k, v;
 	int ret;
 
@@ -162,9 +162,7 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 			mdb_txn_abort(txn);
 			return;
 		}
-		p = (char *)v.mv_data + 1;
 		size_t len = v.mv_size;
-		//fpath = strndup(p, v.mv_size);
 
 		/* lock channel to prevent duplicate sending */
 		buf = malloc(v.mv_size);
