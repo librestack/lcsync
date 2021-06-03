@@ -23,10 +23,11 @@
 #define MAXDBS 4
 
 typedef enum {
-	MDEX_TREE,
-	MDEX_SUBTREE,
-	MDEX_BLOCK
+	MDEX_TREE = 1,
+	MDEX_SUBTREE = 2,
+	MDEX_BLOCK = 4
 } mdex_type;
+#define MDEX_LOCKED 128
 
 MDB_env *env;
 MDB_txn *txn;
@@ -96,7 +97,7 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 	char hex[HEXLEN];
 	unsigned char *hash;
 	size_t node, flen;
-	char *fpath;
+	char *fpath, *buf, *p;
 	MDB_val k, v;
 	int ret;
 
@@ -105,21 +106,36 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 
 	/* lookup address in index */
 	mdb_txn_begin(env, NULL, 0, &txn);
-	mdb_dbi_open(txn, "chan", MDB_RDONLY, &dbi_chan);
+	mdb_dbi_open(txn, "chan", 0, &dbi_chan);
 
 	k.mv_data = event->grp;
 	k.mv_size = sizeof(struct in6_addr);
 	ret = mdb_get(txn, dbi_chan, &k, &v);
 	if (!ret) {
 		mdex_type mtyp = *(char *)v.mv_data;
-		char *p = (char *)v.mv_data + 1;
+		if ((mtyp & MDEX_LOCKED) == MDEX_LOCKED) {
+			puts(" (channel locked)");
+			mdb_txn_abort(txn);
+			return;
+		}
+		p = (char *)v.mv_data + 1;
+
+		/* lock channel to prevent duplicate sending */
+		buf = malloc(v.mv_size);
+		memcpy(buf, v.mv_data, v.mv_size);
+		*buf |= MDEX_LOCKED;
+		v.mv_data = buf;
+		ret = mdb_put(txn, dbi_chan, &k, &v, 0);
+		mdb_txn_commit(txn);
+
+		mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
 		switch (mtyp) {
 		case MDEX_TREE:
 			puts(" (match tree)");
 			flen = v.mv_size - 1;
 			fpath = p;
 			printf("matched mtree for file '%.*s'\n", (int)flen, fpath);
-			mdb_dbi_open(txn, "file", MDB_RDONLY, &dbi_file);
+			mdb_dbi_open(txn, "file", 0, &dbi_file);
 			k.mv_size = flen;
 			k.mv_data = fpath;
 			ret = mdb_get(txn, dbi_file, &k, &v);
@@ -144,20 +160,26 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 			// TODO: basically the same as MDEX_SUBTREE
 			break;
 		}
+		mdb_txn_abort(txn);
+
+		/* unlock channel */
+		mdb_txn_begin(env, NULL, 0, &txn);
+		mdb_dbi_open(txn, "chan", 0, &dbi_chan);
+		ret = mdb_get(txn, dbi_chan, &k, &v);
+		//memcpy(buf, v.mv_data, v.mv_size);
+		*buf -= MDEX_LOCKED;
+		ret = mdb_put(txn, dbi_chan, &k, &v, 0);
+		mdb_txn_commit(txn);
+
+		free(buf);
 	}
-#if 0
-	else if (ret == MDB_NOTFOUND) {
-		mdb_dbi_open(txn, "chan_block", MDB_RDONLY, &dbi_chanblock);
-		ret = mdb_get(txn, dbi_chanblock, &k, &v);
-		if (!ret) {
-			printf(" (channel matches block)");
-			// TODO find block & send
-		}
-#endif
 	else if (ret == MDB_NOTFOUND) {
 		puts(" (ignored)");
+		mdb_txn_abort(txn);
 	}
-	mdb_txn_abort(txn);
+	else {
+		puts(" (wtf)");
+	}
 }
 
 static void do_mld()
