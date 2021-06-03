@@ -90,13 +90,57 @@ err_0:
 	lc_socket_close(sock);
 }
 
+static void send_data(struct in6_addr *grp, mdex_type mtyp, char *buf, size_t len, MDB_val *k, MDB_val *v)
+{
+	char *fpath;
+	size_t flen;
+	unsigned char *hash;
+	size_t node;
+	int ret;
+
+	mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
+	switch (mtyp) {
+	case MDEX_TREE:
+		puts(" (match tree)");
+		flen = len - 1;
+		fpath = buf + 1;
+		printf("matched mtree for file '%.*s'\n", (int)flen, fpath);
+		mdb_dbi_open(txn, "file", 0, &dbi_file);
+		k->mv_size = flen;
+		k->mv_data = fpath;
+		ret = mdb_get(txn, dbi_file, k, v);
+		if (ret) fprintf(stderr, "%s\n", mdb_strerror(ret));
+		else {
+			send_tree(grp, (char *)v->mv_data, v->mv_size);
+			puts("finished sending tree");
+		}
+		break;
+	case MDEX_SUBTREE:
+		puts(" (match subtree)");
+		/* extract hash */
+		/* [node][flen][HASH][fpath] => [size_t][size_t][HASHSIZE][flen] */
+		char *p = buf + 1;
+		node = *(size_t *)p;
+		p += sizeof node;
+		flen = *(size_t *)p;
+		p += sizeof flen;
+		hash = (unsigned char *)p;
+		p += HASHSIZE;
+		fpath = p;
+		printf("matched subtree (%zu) of file '%.*s'\n", node, (int)flen, fpath);
+		break;
+	case MDEX_BLOCK:
+		puts(" (match block)");
+		// TODO: basically the same as MDEX_SUBTREE
+		break;
+	}
+	mdb_txn_abort(txn);
+}
+
 static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 {
 	(void)watch; /* unused */
 	char strgrp[INET6_ADDRSTRLEN];
-	char hex[HEXLEN];
-	unsigned char *hash;
-	size_t node, flen;
 	char *fpath, *buf, *p;
 	MDB_val k, v;
 	int ret;
@@ -119,6 +163,8 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 			return;
 		}
 		p = (char *)v.mv_data + 1;
+		size_t len = v.mv_size;
+		//fpath = strndup(p, v.mv_size);
 
 		/* lock channel to prevent duplicate sending */
 		buf = malloc(v.mv_size);
@@ -127,44 +173,9 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 		v.mv_data = buf;
 		ret = mdb_put(txn, dbi_chan, &k, &v, 0);
 		mdb_txn_commit(txn);
-		free(buf);
 
-		mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
-		switch (mtyp) {
-		case MDEX_TREE:
-			puts(" (match tree)");
-			flen = v.mv_size - 1;
-			fpath = p;
-			printf("matched mtree for file '%.*s'\n", (int)flen, fpath);
-			mdb_dbi_open(txn, "file", 0, &dbi_file);
-			k.mv_size = flen;
-			k.mv_data = fpath;
-			ret = mdb_get(txn, dbi_file, &k, &v);
-			if (ret) fprintf(stderr, "%s\n", mdb_strerror(ret));
-			else {
-				send_tree(event->grp, (char *)v.mv_data, v.mv_size);
-				puts("finished sending tree");
-			}
-			break;
-		case MDEX_SUBTREE:
-			puts(" (match subtree)");
-			/* extract hash */
-			/* [node][flen][HASH][fpath] => [size_t][size_t][HASHSIZE][flen] */
-			node = *(size_t *)p;
-			p += sizeof node;
-			flen = *(size_t *)p;
-			p += sizeof flen;
-			hash = (unsigned char *)p;
-			p += HASHSIZE;
-			fpath = p;
-			printf("matched subtree (%zu) of file '%.*s'\n", node, (int)flen, fpath);
-			break;
-		case MDEX_BLOCK:
-			puts(" (match block)");
-			// TODO: basically the same as MDEX_SUBTREE
-			break;
-		}
-		mdb_txn_abort(txn);
+		send_data(event->grp, mtyp, buf, len, &k, &v);
+		free(buf);
 
 		/* unlock channel */
 		printf("unlocking grp %s\n", strgrp);
