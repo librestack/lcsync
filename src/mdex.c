@@ -165,6 +165,7 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 		size_t len = v.mv_size;
 
 		/* lock channel to prevent duplicate sending */
+		// FIXME - use separate db with chan + idx as key
 		buf = malloc(v.mv_size);
 		memcpy(buf, v.mv_data, v.mv_size);
 		*buf |= MDEX_LOCKED;
@@ -175,6 +176,7 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 		send_data(event->grp, mtyp, buf, len, &k, &v);
 
 		/* unlock channel */
+		// FIXME - use separate db with chan + idx as key
 		printf("unlocking grp %s\n", strgrp);
 		mdb_txn_begin(env, NULL, 0, &txn);
 		mdb_dbi_open(txn, "chan", 0, &dbi_chan);
