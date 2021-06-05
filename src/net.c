@@ -888,9 +888,9 @@ int net_sync(int *argc, char *argv[])
 	sigaction(SIGINT, &sa_int, NULL);
 	hash_generic(hash, HASHSIZE, (unsigned char *)src, strlen(src));
 	if (net_fetch_tree(hash, &stree) == -1) goto err_0;
-	puts("tree fetched");
+	DEBUG("tree fetched");
 	if (mtree_verify(stree, mtree_treelen(stree))) {
-		puts("invalid tree");
+		DEBUG("invalid tree");
 		goto err_0;
 	}
 	DEBUG("mapping dst: %s", dst);
