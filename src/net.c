@@ -348,11 +348,13 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 		.events = POLL_IN
 	};
 	int rc = 0;
+#if 0
 	DEBUG("%s(): blocks  = %zu", __func__, mtree_blocks(stree));
 	DEBUG("%s(): base    = %zu", __func__, mtree_base_subtree(stree, root));
 	DEBUG("%s(): blocksz = %zu", __func__, blocksz);
 	DEBUG("%s(): bits    = %u", __func__, bits);
 	DEBUG("%s(): maplen  = %zu", __func__, maplen);
+#endif
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
 	if (!bitmap) return -1;
 	DEBUG("packets required=%u", hamm(bitmap, maplen));
@@ -408,6 +410,13 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 		goto err_1;
 	if (!(chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE)))
 		goto err_2;
+	char straddr[INET6_ADDRSTRLEN];
+	struct sockaddr_in6 *sa;
+	struct in6_addr *grp;
+	sa = lc_channel_sockaddr(chan);
+	grp = &sa->sin6_addr;
+	inet_ntop(AF_INET6, grp, straddr, INET6_ADDRSTRLEN);
+	DEBUG("recving subtree root=%zu on channel addr: %s", root, straddr);
 	// FIXME - not seeing this join on the wire
 	if (lc_channel_bind(sock, chan) || lc_channel_join(chan))
 		goto err_3;
