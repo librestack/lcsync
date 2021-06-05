@@ -74,6 +74,10 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 	const int timeout = 100;
 	int rc;
 	do {
+		// FIXME is this necessary? poll() is supposed to return with
+		// errno set to EINTR if a signal happens while it's blocked
+		// so a timeout of "infinite" followed by a check for error
+		// conditions e.g. rc < 0 && errno != EINTR would be better?
 		while (!(rc = poll(&fds, 1, timeout)) && running);
 		if (!running) {
 			byt = -1;
