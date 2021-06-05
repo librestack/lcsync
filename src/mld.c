@@ -141,7 +141,7 @@ static void mld_timer_ticker(mld_t *mld, unsigned int iface, size_t idx, uint8_t
 	}
 }
 
-lc_channel_t *mld_channel_notify(mld_t *mld, struct in6_addr *addr, int events)
+lc_channel_t *mld_notification_channel(mld_t *mld, struct in6_addr *addr, int events)
 {
 //	char base[INET6_ADDRSTRLEN] = ""; FIXME
 	lc_channel_t *tmp;
@@ -252,7 +252,7 @@ int mld_watch_start(mld_watch_t *watch)
 
 	watch->sock = lc_socket_new(watch->mld->lctx);
 	if (!watch->sock) return -1;
-	watch->chan = mld_channel_notify(watch->mld, watch->grp, watch->events);
+	watch->chan = mld_notification_channel(watch->mld, watch->grp, watch->events);
 	if (!watch->chan) goto err_0;
 	/* avoid race by directly adding addr to filter */
 	if (watch->ifx == 0) { /* 0 => all interfaces */
@@ -313,7 +313,7 @@ static int mld_wait_poll(mld_t *mld, unsigned int ifx, struct in6_addr *addr)
 	const int timeout = 100; /* affects responsiveness of exit */
 	int rc = -1;
 	if (!(sock = lc_socket_new(mld->lctx))) return -1;
-	if (!(chan = mld_channel_notify(mld, addr, MLD_EVENT_JOIN))) {
+	if (!(chan = mld_notification_channel(mld, addr, MLD_EVENT_JOIN))) {
 		goto exit_err_0;
 	}
 	/* avoid race by directly adding addr to filter */
@@ -374,7 +374,7 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 	char sgroup[INET6_ADDRSTRLEN];
 	char swatch[INET6_ADDRSTRLEN];
 
-	chan = mld_channel_notify(mld, grp, event);
+	chan = mld_notification_channel(mld, grp, event);
 	if (!chan) return;
 
 	sa = lc_channel_sockaddr(chan);

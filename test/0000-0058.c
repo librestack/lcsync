@@ -38,7 +38,7 @@ int main(void)
 	test_assert(mld != NULL, "mld_start()");
 
 	/* join side channel for MLD events */
-	chan[CHANSIDE] = mld_channel_notify(mld, addr, MLD_EVENT_JOIN);
+	chan[CHANSIDE] = mld_notification_channel(mld, addr, MLD_EVENT_JOIN);
 
 	/* join notification channel and wait for notify msg */
 	test_assert((sock[CHANMAIN] = lc_socket_new(lctx)) != NULL, "lc_socket_new()");

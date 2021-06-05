@@ -96,7 +96,7 @@ unsigned int mld_ifaces(mld_t *mld);
 unsigned int mld_idx_iface(mld_t *mld, unsigned int idx);
 
 /* create notification channel */
-lc_channel_t *mld_channel_notify(mld_t *mld, struct in6_addr *addr, int events);
+lc_channel_t *mld_notification_channel(mld_t *mld, struct in6_addr *addr, int events);
 
 /* decrement all the counters. */
 void mld_timer_tick(mld_t *mld, unsigned int iface, size_t idx, uint8_t val);

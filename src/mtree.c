@@ -69,6 +69,7 @@ size_t mtree_node_level_base(size_t base, size_t node)
 {
 	size_t rootlvl = mtree_node_level(node);
 	size_t treelvl = mtree_levels(base);
+	assert(treelvl > rootlvl); // FIXME
 	return treelvl - rootlvl - 1;
 }
 
