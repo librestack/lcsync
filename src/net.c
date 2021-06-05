@@ -521,11 +521,12 @@ static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 	data->iov[0].iov_base = stree;
 	data->iov[1].iov_len = mtree_treelen(dtree);
 	data->iov[1].iov_base = dtree;
-	for (unsigned chan = 0; chan < channels; chan++) {
-		data->n = channels - 1 + chan;
+	unsigned nodes = MIN(channels, mtree_blocks(stree));
+	for (unsigned chan = 0; chan < nodes; chan++) {
+		data->n = nodes - 1 + chan;
 		job[chan] = job_push_new(q, &net_job_sync_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
 	}
-	for (unsigned chan = 0; chan < channels; chan++) {
+	for (unsigned chan = 0; chan < nodes; chan++) {
 		struct timespec ts = { .tv_nsec = 100 };
 		while (sem_timedwait(&job[chan]->done, &ts) == -1 && errno == ETIMEDOUT && running);
 		free(job[chan]);
@@ -674,12 +675,13 @@ static void net_send_queue_jobs(net_data_t *data, size_t sz, size_t blocks, unsi
 	TRACE("%s()", __func__);
 	job_t *job_tree, *job_data[channels];
 	job_tree = job_push_new(data->q, &net_job_send_tree, data, sz, NULL, 0);
-	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
-		data->n = channels - 1 + chan;
+	unsigned nodes = MIN(channels, blocks);
+	for (unsigned chan = 0; chan < nodes; chan++) {
+		data->n = nodes - 1 + chan;
 		job_data[chan] = job_push_new(data->q, &net_job_send_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);
 	}
 	sem_wait(&job_tree->done);
-	for (unsigned chan = 0; chan < MIN(channels, blocks); chan++) {
+	for (unsigned chan = 0; chan < nodes; chan++) {
 		sem_wait(&job_data[chan]->done);
 		free(job_data[chan]);
 	}
