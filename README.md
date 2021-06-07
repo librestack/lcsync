@@ -49,6 +49,14 @@ and fetch that file:
 
 `lcsync easy2type`
 
+## Testing
+
+`sudo make net-setup` (`sudo make net-teardown` when finished)
+
+`sudo ip netns exec vnet0 sudo -u bacs /bin/bash`
+
+Now we can run `make test` and `sudo make cap` in our test namespace.
+
 ## License
 
 GPLv3+

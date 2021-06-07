@@ -9,7 +9,7 @@ export INSTALLDIR
 PROGRAM := lcsync
 export PROGRAM
 
-.PHONY: all clean src test check install
+.PHONY: all clean src test check install net-setup net-teardown
 
 all: src
 
@@ -48,3 +48,21 @@ cap check test sanitize: clean src
 
 %.test %.check: clean src
 	cd test && $(MAKE) $@
+
+net-setup:
+	ip link add veth0 type veth peer name veth1
+	ip netns add vnet0
+	ip netns add vnet1
+	ip link set veth0 netns vnet0
+	ip link set veth1 netns vnet1
+	ip -n vnet0 link set veth0 up
+	ip -n vnet1 link set veth1 up
+	ip netns show
+
+net-teardown:
+	ip -n vnet0 link set veth0 down
+	ip -n vnet1 link set veth1 down
+	ip link del veth0 type veth peer name veth1
+	ip netns del vnet0
+	ip netns del vnet1
+	ip netns show
