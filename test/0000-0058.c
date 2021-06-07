@@ -32,7 +32,7 @@ int main(void)
 
 	test_name("mld_notify()");
 	lctx = lc_ctx_new();
-	chan[CHANMAIN] = lc_channel_new(lctx, "Is it lunchtime yet?");
+	chan[CHANMAIN] = lc_channel_random(lctx);
 	addr = lc_channel_in6addr(chan[CHANMAIN]);
 	mld = mld_start(NULL);
 	test_assert(mld != NULL, "mld_start()");
