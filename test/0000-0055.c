@@ -15,8 +15,8 @@ int main(void)
 	struct in6_addr addr = {0};
 	struct ifaddrs *ifaddr, *ifa;
 	char host[INET6_ADDRSTRLEN];
-	test_name("mld_iface_hasaddr()");
-	test_assert(mld_thatsme(&addr), "mld_thatsme() - NULL");
+	test_name("mld_thatsme()");
+	test_assert(!mld_thatsme(&addr), "mld_thatsme() - NULL");
 
 	getifaddrs(&ifaddr);
 	for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
@@ -24,7 +24,7 @@ int main(void)
 		if (ifa->ifa_addr->sa_family != AF_INET6) continue;
 		getnameinfo(ifa->ifa_addr, sz_sa6, host, INET6_ADDRSTRLEN, NULL, 0, NI_NUMERICHOST);
 		memcpy(&addr, ifa->ifa_addr, sizeof(struct in6_addr));
-		test_assert(!mld_thatsme(&addr), "mld_iface_hasaddr() - %s", host);
+		test_assert(mld_thatsme(&addr) == -1, "mld_thatsme() - %s", host);
 	}
 	freeifaddrs(ifaddr);
 

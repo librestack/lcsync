@@ -551,6 +551,7 @@ int mld_thatsme(struct in6_addr *addr)
 {
 	int ret = 0;
 	struct ifaddrs *ifaddr, *ifa;
+	if (!addr) return ret;
 	getifaddrs(&ifaddr);
 	for (ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
 		if (!ifa->ifa_addr) continue;
