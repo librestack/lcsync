@@ -215,6 +215,7 @@ static void do_mld()
 
 static int indextree(mtree_tree *tree, const char *fpath, const size_t flen, const struct stat *sb, int typeflag)
 {
+	(void)sb; (void)typeflag; /* FIXME - unused */
 	// TODO: index subtree hashes and blocks
 	//
 	// TODO channel -> type|hash|node|file
