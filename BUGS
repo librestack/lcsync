@@ -1,4 +1,6 @@
 -------------------------------------------------------------------------------
+0000-0067 intermittent segfault - after "net_send_data(): source tree built"
+-------------------------------------------------------------------------------
 0000-0066 intermittent segfault - possibly in net_send_tree()
 -------------------------------------------------------------------------------
 rare timeout (cancelling send thread in 0027) - not serious, but annoying
