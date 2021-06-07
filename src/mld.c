@@ -408,7 +408,7 @@ static void mld_notify_send(mld_t *mld, unsigned iface, struct in6_addr *grp, in
 
 	if (iface) lc_socket_bind(sock, mld->ifx[iface]);
 	lc_channel_bind(sock, chan);
-	lc_channel_send(chan, pi, sizeof *pi, 0);
+	lc_channel_send(chan, pi, sizeof(struct in6_pktinfo), 0);
 	lc_socket_close(sock);
 err_0:
 	lc_channel_free(chan);
