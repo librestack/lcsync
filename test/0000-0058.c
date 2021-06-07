@@ -48,14 +48,14 @@ int main(void)
 	lc_socket_listen(sock[CHANSIDE], &gotmsg, NULL);
 
 	/* give MLD listener a few cycles to wake up */
-	usleep(5000);
+	usleep(50000);
 
 	/* trigger join notification */
 	test_assert(!lc_channel_bind(sock[CHANMAIN], chan[CHANMAIN]), "lc_channel_bind() MAIN");
 	test_assert(!lc_channel_join(chan[CHANMAIN]), "join main channel");
 
 	/* wait a moment, and check for messages */
-	usleep(5000);
+	usleep(500000);
 	test_assert(msgs == 1, "got %i msgs", msgs);
 
 	mld_stop(mld);
