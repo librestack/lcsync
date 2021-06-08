@@ -167,6 +167,7 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 		DEBUG("%s(): tree received (%zi bytes)", __func__, byt);
 		*tree = mtree_create(iov[1].iov_len, blocksz);
 		mtree_setdata(*tree, iov[0].iov_base);
+		assert(!mtree_verify(*tree, mtree_treelen(*tree)));
 	}
 	lc_channel_part(chan);
 err_3:

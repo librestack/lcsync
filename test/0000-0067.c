@@ -21,12 +21,13 @@ size_t sz;
 const char *alias = "alias";
 unsigned char hash[HASHSIZE];
 sem_t send_done, recv_done;
+mtree_tree *stree;
 
 void *do_recv(void *arg)
 {
 	mtree_tree *dtree = NULL;
 	net_fetch_tree(hash, &dtree);
-	// TODO check stree & dtree match
+	test_assert(!mtree_cmp(stree, dtree), "src and dst trees match");
 	sem_post(&recv_done);
 	return arg;
 }
@@ -85,6 +86,8 @@ void gentestdata(char *srcdata, char *dstdata)
 	}
 
 	hash_generic(hash, HASHSIZE, (unsigned char *)alias, strlen(alias));
+	stree = mtree_create(sz, blocksz);
+	mtree_build(stree, srcdata, NULL);
 }
 
 int main(void)
@@ -97,10 +100,6 @@ int main(void)
 
 	/* create some data, generate mtree, and fetch just the tree with MLD
 	 * triggering */
-
-	// FIXME - test is completely broken - always fails. net_send_event() is
-	// always failing to find the alias/mtree to send
-	//
 
 	blocksz = blocksize;
 	sz = blocks * blocksz;
@@ -115,6 +114,7 @@ int main(void)
 	mld_enabled = 1;
 	do_sync(srcdata, dstdata);
 
+	mtree_free(stree);
 	free(dstdata);
 	free(srcdata);
 
