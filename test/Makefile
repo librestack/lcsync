@@ -4,7 +4,7 @@
 SHELL := /bin/bash
 CAPS = ""
 CFLAGS += -O2 -Wall -Wextra -Wpedantic -g -fno-builtin-malloc -fno-builtin-calloc
-NOTOBJS := ../src/$(PROGRAM).o ../src/mdex.o
+NOTOBJS := ../src/$(PROGRAM).o
 OBJS := test.o falloc.o $(filter-out $(NOTOBJS), $(wildcard ../src/*.o))
 LDFLAGS := -lm -ldl -pthread -llibrecast
 BOLD := "\\e[0m\\e[2m"
