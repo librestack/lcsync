@@ -24,7 +24,6 @@ sem_t send_done, recv_done;
 
 void *do_recv(void *arg)
 {
-	test_log("%s starting\n", __func__);
 	size_t len = sz;
 	net_recv_data(hash, (char *)arg, &len);
 	sem_post(&recv_done);
@@ -33,33 +32,30 @@ void *do_recv(void *arg)
 
 void *do_send(void *arg)
 {
-	test_log("%s starting\n", __func__);
 	sem_post(&sem_ready);
 	net_send_data(hash, (char *)arg, sz);
 	sem_post(&send_done);
 	return arg;
 }
-#define DORECV 1
-#define DOSEND 1
+
 void do_sync(char *srcdata, char *dstdata)
 {
 	struct timespec timeout;
 	pthread_t tsend, trecv;
 	pthread_attr_t attr = {0};
 
-	sem_init(&sem_ready, 0, 0);
 	sem_init(&send_done, 0, 0);
 	sem_init(&recv_done, 0, 0);
 
 	/* queue up send / recv jobs */
+	sem_init(&sem_ready, 0, 0);
 	pthread_attr_init(&attr);
-#if DOSEND
 	pthread_create(&tsend, &attr, &do_send, srcdata);
+	/* wait until sender is ready - FIXME - this MUST NOT matter */
 	sem_wait(&sem_ready);
-	usleep(10000);
-#endif
-#if DORECV
+	usleep(100000);
 	pthread_create(&trecv, &attr, &do_recv, dstdata);
+	pthread_attr_destroy(&attr);
 
 	/* wait for recv job to finish, check for timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
@@ -68,22 +64,14 @@ void do_sync(char *srcdata, char *dstdata)
 	net_stop(SIGINT);
 	pthread_join(trecv, NULL);
 
-#endif
-
-	/* signal all threads to stop */
-	net_stop(SIGINT);
-#if DOSEND
 	/* stop sender */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
 	timeout.tv_sec += waits;
 	test_assert(!sem_timedwait(&send_done, &timeout), "timeout - send");
 	pthread_join(tsend, NULL);
-#endif
 
-	pthread_attr_destroy(&attr);
 	sem_destroy(&recv_done);
 	sem_destroy(&send_done);
-	sem_destroy(&sem_ready);
 }
 
 void gentestdata(char *srcdata, char *dstdata)
@@ -94,6 +82,8 @@ void gentestdata(char *srcdata, char *dstdata)
 		/* copy a selection of blocks to destination, leaving some holes */
 		if ((i % 7) && (i % 9)) (dstdata + i * blocksz)[0] = i + 1;
 	}
+
+	hash_generic(hash, HASHSIZE, (unsigned char *)alias, strlen(alias));
 }
 
 int main(void)
@@ -103,6 +93,8 @@ int main(void)
 	loginit();
 
 	test_name("MLD sync - net_send_data() / net_recv_data()");
+
+	/* create some data, generate mtree, and fetch with MLD triggering */
 
 	blocksz = blocksize;
 	sz = blocks * blocksz;
