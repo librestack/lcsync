@@ -145,6 +145,8 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 	MDB_val k, v;
 	int ret;
 
+	assert(event->mld);
+
 	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
 	printf("%s() received request for grp %s on if=%u", __func__, strgrp, event->ifx);
 
@@ -173,7 +175,10 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 		ret = mdb_put(txn, dbi_chan, &k, &v, 0);
 		mdb_txn_commit(txn);
 
-		send_data(event->grp, mtyp, buf, len, &k, &v);
+		unsigned int iface = mld_idx_iface(event->mld, event->ifx);
+		while (running && mld_filter_grp_cmp(event->mld, iface, event->grp)) {
+			send_data(event->grp, mtyp, buf, len, &k, &v);
+		}
 
 		/* unlock channel */
 		// FIXME - use separate db with chan + idx as key
@@ -206,7 +211,9 @@ static void do_mld()
 
 	puts("starting MLD listener");
 	mld = mld_start(&running);
+	assert(mld);
 	watch = mld_watch_init(mld, 0, NULL, MLD_EVENT_JOIN, &handle_join, NULL, 0);
+	assert(watch);
 	mld_watch_start(watch);
 	sem_wait(&stop);
 	mld_watch_cancel(watch);

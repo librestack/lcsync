@@ -6,6 +6,18 @@
 
 #include <netinet/in.h>
 
-int mdex_put(struct in6_addr *addr, void *data, size_t size, int type);
+/* when we see a channel join, which type of object is it for? */
+typedef enum {
+	MDEX_SHARE,      /* share details, same as directory? */
+	MDEX_DIR,        /* a directory of files -> send fpaths? */
+	MDEX_FILE,       /* file on disk => send mtree */
+	MDEX_MEM,        /* maps to pointer to data in memory, send mtree */
+	MDEX_SUBTREE,    /* subtree of blocks, send blocks */
+	MDEX_BLOCK       /* single block. A subtree, but with special handling */
+} mdex_type;
+
+int mdex_get(struct in6_addr *addr, void **data, size_t *size, char *type);
+int mdex_put(struct in6_addr *addr, void  *data, size_t  size, char  type);
+int mdex_del(struct in6_addr *addr);
 
 #endif /* _MDEX_H */
