@@ -18,6 +18,7 @@
 #include "mld.h"
 #include "mtree.h"
 #include "net.h"
+#include "log.h"
 
 #define THREADS 1
 #define MAXDBS 4
@@ -175,6 +176,7 @@ static void handle_join(mld_watch_t *event, mld_watch_t *watch)
 		ret = mdb_put(txn, dbi_chan, &k, &v, 0);
 		mdb_txn_commit(txn);
 
+		// FIXME - just pass the whole event to send_data, with ifx
 		unsigned int iface = mld_idx_iface(event->mld, event->ifx);
 		while (running && mld_filter_grp_cmp(event->mld, iface, event->grp)) {
 			send_data(event->grp, mtyp, buf, len, &k, &v);
@@ -370,6 +372,8 @@ int main(int argc, char *argv[])
 	char *p;
 
 	if (!dbpath) return EXIT_FAILURE;
+
+	loglevel = 127;
 
 	//blocksz = (size_t)file_chunksize();
 

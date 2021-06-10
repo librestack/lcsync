@@ -17,7 +17,6 @@ struct bnode {
 
 char blah[1024];
 struct bnode *last = (struct bnode *)blah;
-size_t sz;
 
 //static int mdex_put_type_file(struct in6_addr *addr, char *fpath ... );
 

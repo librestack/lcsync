@@ -600,9 +600,7 @@ void mld_listen_report(mld_t *mld, struct msghdr *msg)
 	unsigned int iface = mld_idx_iface(mld, interface_index(msg));
 	uint16_t recs = ntohs(icmpv6->icmp6_data16[1]);
 	DEBUG("MLD listen report with %u records received", recs);
-	for (int i = 0; i < recs; i++) {
-		mld_address_record(mld, iface, &mrec[i]);
-	}
+	while (recs--) mld_address_record(mld, iface, mrec++);
 }
 
 void mld_msg_handle(mld_t *mld, struct msghdr *msg)
@@ -615,13 +613,13 @@ void mld_msg_handle(mld_t *mld, struct msghdr *msg)
 
 int mld_listen(mld_t *mld)
 {
-	mld_addr_rec_t mrec = {0};
 	struct iovec iov[2] = {0};
 	struct icmp6_hdr icmpv6 = {0};
 	struct msghdr msg = {0};
 	struct pollfd fds = { .fd = mld->sock, .events = POLL_IN };
 	char ctrl[CMSG_SPACE(sizeof(struct in6_pktinfo))];
 	char buf_name[IPV6_BYTES];
+	char mrec[1500]; // FIXME - MTU size?
 	int rc = 0;
 	assert(mld);
 	if (!mld->sock) {
@@ -630,7 +628,7 @@ int mld_listen(mld_t *mld)
 	}
 	iov[0].iov_base = &icmpv6;
 	iov[0].iov_len = sizeof icmpv6;
-	iov[1].iov_base = &mrec;
+	iov[1].iov_base = mrec;
 	iov[1].iov_len = sizeof mrec;
 	msg.msg_name = buf_name;
 	msg.msg_namelen = IPV6_BYTES;
