@@ -22,11 +22,13 @@ struct bnode *last = (struct bnode *)blah;
 
 int mdex_del(struct in6_addr *addr)
 {
+	(void)addr;
 	return 0;
 }
 
 int mdex_get(struct in6_addr *addr, void **data, size_t *size, char *type)
 {
+	(void)addr; (void)data; (void)size; (void)type;
 	return 0;
 }
 
@@ -35,6 +37,7 @@ int mdex_get(struct in6_addr *addr, void **data, size_t *size, char *type)
  * for MDEX_SUBTREE, point to the mtree + node */
 int mdex_put(struct in6_addr *addr, void *data, size_t size, char type)
 {
+	(void)addr; (void)data; (void)size; (void)type;
 	/* MDEX_FILE
 	 *
 	 * key = addr
