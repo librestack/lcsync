@@ -53,7 +53,7 @@ and fetch that file:
 
 `sudo make net-setup` (`sudo make net-teardown` when finished)
 
-`sudo ip netns exec vnet0 sudo -u bacs /bin/bash`
+`sudo ip netns exec vnet0 sudo -u `id -un` /bin/bash`
 
 Now we can run `make test` and `sudo make cap` in our test namespace.
 

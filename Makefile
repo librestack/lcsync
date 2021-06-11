@@ -62,7 +62,8 @@ net-setup:
 net-teardown:
 	ip -n vnet0 link set veth0 down
 	ip -n vnet1 link set veth1 down
-	ip link del veth0 type veth peer name veth1
+	ip -n vnet1 link set veth1 netns vnet0
+	ip -n vnet0 link del veth0 type veth peer name veth1
 	ip netns del vnet0
 	ip netns del vnet1
 	ip netns show
