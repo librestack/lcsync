@@ -1,4 +1,44 @@
 -------------------------------------------------------------------------------
+2021-06-11
+
+Intermittent memory leak when quitting lcsync in mld server mode. Something not
+getting free()'d by signal handler.
+
+==9986== 
+==9986== HEAP SUMMARY:
+==9986==     in use at exit: 240 bytes in 4 blocks
+==9986==   total heap usage: 121 allocs, 117 frees, 268,548,714 bytes allocated
+==9986== 
+==9986== 120 (88 direct, 32 indirect) bytes in 1 blocks are definitely lost in loss record 3 of 4
+==9986==    at 0x483AB86: calloc (vg_replace_malloc.c:760)
+==9986==    by 0x10B83A: job_new (job.c:43)
+==9986==    by 0x10B999: job_push_new (job.c:74)
+==9986==    by 0x10E962: mld_start (mld.c:745)
+==9986==    by 0x113856: net_send_data (net.c:829)
+==9986==    by 0x113B1E: net_send (net.c:880)
+==9986==    by 0x10A792: main (lcsync.c:28)
+==9986== 
+==9986== 120 (88 direct, 32 indirect) bytes in 1 blocks are definitely lost in loss record 4 of 4
+==9986==    at 0x483AB86: calloc (vg_replace_malloc.c:760)
+==9986==    by 0x10B83A: job_new (job.c:43)
+==9986==    by 0x10B999: job_push_new (job.c:74)
+==9986==    by 0x10C795: mld_timer_ticker (mld.c:140)
+==9986==    by 0x10C6AF: mld_timer_job (mld.c:123)
+==9986==    by 0x10B9E8: job_seek (job.c:84)
+==9986==    by 0x49BCF5D: start_thread (in /lib64/libpthread-2.32.so)
+==9986==    by 0x4ACE1EE: clone (in /lib64/libc-2.32.so)
+==9986== 
+==9986== LEAK SUMMARY:
+==9986==    definitely lost: 176 bytes in 2 blocks
+==9986==    indirectly lost: 64 bytes in 2 blocks
+==9986==      possibly lost: 0 bytes in 0 blocks
+==9986==    still reachable: 0 bytes in 0 blocks
+==9986==         suppressed: 0 bytes in 0 blocks
+==9986== 
+==9986== For lists of detected and suppressed errors, rerun with: -s
+==9986== ERROR SUMMARY: 2 errors from 2 contexts (suppressed: 0 from 0)
+
+-------------------------------------------------------------------------------
 0000-0067 intermittent segfault - after "net_send_data(): source tree built"
 -------------------------------------------------------------------------------
 0000-0066 intermittent segfault - possibly in net_send_tree()
