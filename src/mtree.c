@@ -69,7 +69,7 @@ size_t mtree_node_level_base(size_t base, size_t node)
 {
 	size_t rootlvl = mtree_node_level(node);
 	size_t treelvl = mtree_levels(base);
-	assert(treelvl > rootlvl); // FIXME
+	assert(treelvl >= rootlvl);
 	return treelvl - rootlvl - 1;
 }
 
@@ -153,11 +153,11 @@ size_t mtree_level_nodes(mtree_tree *tree, size_t level)
 	return mtree_base_level_nodes(tree->base, level);
 }
 
-// TODO: if offset > mtree_base_level_nodes(base) return -1 (SIZE_MAX)
-// TODO: if level > mtree_levels(base) return -1 (SIZE_MAX)
 size_t mtree_base_node_num(size_t base, size_t level, size_t offset)
 {
 	size_t n = 0;
+	if (offset > mtree_base_level_nodes(base, level)) return -1;
+	if (level > mtree_levels(base)) return -1;
 	for (size_t z = mtree_levels(base); z > level; z--)
 		n += mtree_base_level_nodes(base, z);
 	n += offset;
