@@ -16,9 +16,9 @@
 #include <time.h>
 #include <unistd.h>
 
-const int waits = 1; /* test timeout in s */
-const int waits_valgrind = 20; /* test timeout in s */
-const size_t blocks = 42;
+const int waits = 100; /* test timeout in s */
+const int waits_valgrind = 180; /* test timeout in s */
+const size_t blocks = 20000;
 size_t blocksz;
 size_t sz;
 const char *alias = "alias";
@@ -89,6 +89,7 @@ int main(void)
 	sz = blocks * blocksz;
 	char *srcdata = calloc(blocks, blocksz);
 	char *dstdata = calloc(blocks, blocksz);
+	assert(srcdata); assert(dstdata);
 	test_name("net_send_data() / net_recv_data()");
 	gentestdata(srcdata, dstdata);
 	saveroothash();
@@ -97,5 +98,6 @@ int main(void)
 	test_assert(!memcmp(srcdata, dstdata, sz), "src and dst data match after syncing");
 	free(srcdata);
 	free(dstdata);
+	test_rusage();
 	return fails;
 }
