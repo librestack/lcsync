@@ -1,4 +1,32 @@
 -------------------------------------------------------------------------------
+0057 (check mode)
+==13353== Memcheck, a memory error detector
+==13353== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+==13353== Using Valgrind-3.16.1 and LibVEX; rerun with -h for copyright info
+==13353== Command: ./0000-0057.test
+==13353== Parent PID: 13352
+==13353==
+==13353==
+==13353== HEAP SUMMARY:
+==13353==     in use at exit: 76 bytes in 2 blocks
+==13353==   total heap usage: 4 allocs, 2 frees, 1,113 bytes allocated
+==13353==
+==13353== 36 bytes in 1 blocks are definitely lost in loss record 1 of 2
+==13353==    at 0x483AB86: calloc (vg_replace_malloc.c:760)
+==13353==    by 0x10A640: main (0000-0057.c:38)
+==13353==
+==13353== LEAK SUMMARY:
+==13353==    definitely lost: 36 bytes in 1 blocks
+==13353==    indirectly lost: 0 bytes in 0 blocks
+==13353==      possibly lost: 0 bytes in 0 blocks
+==13353==    still reachable: 40 bytes in 1 blocks
+==13353==         suppressed: 0 bytes in 0 blocks
+==13353== Reachable blocks (those to which a pointer was found) are not shown.
+==13353== To see them, rerun with: --leak-check=full --show-leak-kinds=all
+==13353==
+==13353== For lists of detected and suppressed errors, rerun with: -s
+==13353== ERROR SUMMARY: 2 errors from 2 contexts (suppressed: 0 from 0)
+-------------------------------------------------------------------------------
 0000-0066 intermittent "timeout - recv" when run as make cap - passes when run
 separately
 -------------------------------------------------------------------------------
@@ -110,6 +138,36 @@ Segmentation fault (core dumped)
 -------------------------------------------------------------------------------
 test 0027 requires bsd/md5.h, which Ubuntu 20.04 doesn't have, at least not
 there.  Remove dependency.  Use hash function from librecast.
+-------------------------------------------------------------------------------
+test 0035 (check mode)
+==11855== Memcheck, a memory error detector
+==11855== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+==11855== Using Valgrind-3.16.1 and LibVEX; rerun with -h for copyright info
+==11855== Command: ./0000-0035.test
+==11855== Parent PID: 11854
+==11855==
+==11855== Thread 8:
+==11855== Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)
+==11855==    at 0x49B452D: sendmsg (in /lib64/libpthread-2.32.so)
+==11855==    by 0x10D7A9: net_send_block (net.c:602)
+==11855==    by 0x10DB55: net_send_subtree (net.c:655)
+==11855==    by 0x10DCDD: net_job_send_subtree (net.c:683)
+==11855==    by 0x11313C: job_seek (job.c:84)
+==11855==    by 0x49A9F5D: start_thread (in /lib64/libpthread-2.32.so)
+==11855==    by 0x4ABB1EE: clone (in /lib64/libc-2.32.so)
+==11855==  Address 0x4bda840 is 0 bytes after a block of size 43,008 alloc'd
+==11855==    at 0x483AB86: calloc (vg_replace_malloc.c:760)
+==11855==    by 0x10A645: main (0000-0035.c:90)
+==11855==
+==11855==
+==11855== HEAP SUMMARY:
+==11855==     in use at exit: 0 bytes in 0 blocks
+==11855==   total heap usage: 444 allocs, 444 frees, 458,420 bytes allocated
+==11855==
+==11855== All heap blocks were freed -- no leaks are possible
+==11855==
+==11855== For lists of detected and suppressed errors, rerun with: -s
+==11855== ERROR SUMMARY: 11 errors from 1 contexts (suppressed: 0 from 0)
 -------------------------------------------------------------------------------
 test 0035 (check mode)
 net.c:495 (again)
