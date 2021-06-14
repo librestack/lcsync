@@ -34,8 +34,7 @@ int main(void)
 {
 	char channame[16] = "";
 	struct in6_addr addr = {0};
-	lctx = lc_ctx_new();
-	mld_addr_rec_t *mrec = calloc(1, sizeof(mld_addr_rec_t) + sizeof(struct in6_addr));
+	mld_addr_rec_t *mrec;
 	struct iovec iov[2] = {0};
 	struct icmp6_hdr icmpv6 = {0};
 	struct msghdr msg = {0};
@@ -48,6 +47,9 @@ int main(void)
 	const unsigned ifidx = 0;
 
 	return test_skip("mld_listen()");
+
+	lctx = lc_ctx_new();
+	mrec = calloc(1, sizeof(mld_addr_rec_t) + sizeof(struct in6_addr));
 
 	//iface = if_nametoindex("lo");
 	//test_assert(iface, "iface = %u: %s", iface, strerror(errno));
