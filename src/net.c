@@ -586,14 +586,16 @@ static void net_send_block(int sock, struct sockaddr_in6 *sa, size_t vlen, struc
 	char * ptr = iov[1].iov_base;
 	net_blockhead_t *hdr = iov[0].iov_base;
 	unsigned bits = howmany(len, DATA_FIXED);
-	for (size_t idx = blk * bits; running && len; idx++) {
-		size_t sz = MIN(len, DATA_FIXED);
-		struct msghdr msgh = {
-			.msg_name = sa,
-			.msg_namelen = sizeof *sa,
-			.msg_iov = iov,
-			.msg_iovlen = vlen,
-		};
+	size_t idx = blk * bits;
+	size_t sz;
+	struct msghdr msgh = {
+		.msg_name = sa,
+		.msg_namelen = sizeof *sa,
+		.msg_iov = iov,
+		.msg_iovlen = vlen,
+	};
+	while (running && len) {
+		sz = MIN(len, DATA_FIXED);
 		iov[1].iov_len = sz;
 		iov[1].iov_base = ptr;
 		hdr->len = htobe32(sz);
@@ -603,9 +605,10 @@ static void net_send_block(int sock, struct sockaddr_in6 *sa, size_t vlen, struc
 			perror("sendmsg()");
 			break;
 		}
+		DEBUG("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
 		len -= sz;
 		ptr += sz;
-		DEBUG("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
+		idx++;
 	}
 }
 
