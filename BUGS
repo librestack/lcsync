@@ -1,6 +1,7 @@
 -------------------------------------------------------------------------------
-2021-06-11
-
+0000-0066 intermittent "timeout - recv" when run as make cap - passes when run
+separately
+-------------------------------------------------------------------------------
 Intermittent memory leak when quitting lcsync in mld server mode. Something not
 getting free()'d by signal handler.
 
