@@ -5,6 +5,8 @@
 #include "../src/log.h"
 #include <semaphore.h>
 #include <time.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 int fails = 0;
 sem_t log_lock;
@@ -133,4 +135,29 @@ int test_skip(char *str, ...)
 	va_end(argp);
 	free(b);
 	return 0;
+}
+
+void test_rusage()
+{
+	struct rusage ru = {0};
+	if (getrusage(RUSAGE_SELF, &ru)) {
+		perror("getrusage");
+		return;
+	}
+	test_log("user  :   %lis.%li\n", ru.ru_utime.tv_sec, ru.ru_utime.tv_usec);
+	test_log("system:   %lis.%li\n", ru.ru_stime.tv_sec, ru.ru_stime.tv_usec);
+	test_log("maxrss:   %li\n", ru.ru_maxrss);
+	test_log("ixrss:    %li\n", ru.ru_ixrss);
+	test_log("idrss:    %li\n", ru.ru_idrss);
+	test_log("isrss:    %li\n", ru.ru_isrss);
+	test_log("minflt:   %li\n", ru.ru_minflt);
+	test_log("majflt:   %li\n", ru.ru_majflt);
+	test_log("nswap:    %li\n", ru.ru_nswap);
+	test_log("inblock:  %li\n", ru.ru_inblock);
+	test_log("oublock:  %li\n", ru.ru_oublock);
+	test_log("msgsnd:   %li\n", ru.ru_msgsnd);
+	test_log("msgrcv:   %li\n", ru.ru_msgrcv);
+	test_log("nsignals: %li\n", ru.ru_nsignals);
+	test_log("nvcsw:    %li\n", ru.ru_nvcsw);
+	test_log("nivcsw:   %li\n", ru.ru_nivcsw);
 }

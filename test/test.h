@@ -24,5 +24,6 @@ void test_expect(char *expected, char *got);
 void test_expectn(char *expected, char *got, size_t len);
 void test_expectiov(struct iovec *expected, struct iovec *got);
 void test_log(char *msg, ...);
+void test_rusage();
 void test_name(char *str, ...);
 int test_skip(char *str, ...);
