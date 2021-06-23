@@ -241,6 +241,7 @@ ssize_t net_send_tree(int sock, struct sockaddr_in6 *sa, size_t vlen, struct iov
 		len -= sz;
 		// FIXME: Cannot assign requested address - test 0034
 		int on = 1;
+		// FIXME - is this next line needed?  Doesn't Librecast do this?
 		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
 		if ((rc = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
