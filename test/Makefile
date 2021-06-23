@@ -22,7 +22,7 @@ VALGRIND = valgrind --leak-check=full --error-exitcode=2 --errors-for-leak-kinds
 
 cap: SKIP = "----- capabilities not required \(skipping\) -----\\e[0m"
 #cap: test
-cap: clean 0000-0046.test 0000-0047.test 0000-0051.test 0000-0058.test 0000-0060.test 0000-0061.test 0000-0062.test 0000-0064.test 0000-0065.test 0000-0066.test 0000-0067.test
+cap: clean 0000-0046.test 0000-0047.test 0000-0051.test 0000-0058.test 0000-0060.test 0000-0061.test 0000-0062.test 0000-0064.test 0000-0065.test 0000-0066.test 0000-0067.test 0000-0069.test
 
 check: MEMCHECK = $(VALGRIND)
 check: FAIL = $(LEAK)
@@ -52,6 +52,7 @@ build:
 0000-0065.%: CAPS = cap_net_raw=eip
 0000-0066.%: CAPS = cap_net_raw=eip
 0000-0067.%: CAPS = cap_net_raw=eip
+0000-0069.%: CAPS = cap_net_raw=eip
 
 %.test %.clang: %.c $(OBJS)
 	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)

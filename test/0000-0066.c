@@ -14,7 +14,7 @@
 #include <unistd.h>
 
 static sem_t sem_ready;
-const int waits = 1; /* test timeout in s */
+const int waits = 5; /* test timeout in s */
 const size_t blocks = 42;
 size_t blocksz;
 size_t sz;
