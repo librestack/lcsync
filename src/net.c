@@ -419,7 +419,6 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 	grp = &sa->sin6_addr;
 	inet_ntop(AF_INET6, grp, straddr, INET6_ADDRSTRLEN);
 	DEBUG("recving subtree root=%zu on channel addr: %s", root, straddr);
-	// FIXME - not seeing this join on the wire
 	if (lc_channel_bind(sock, chan) || lc_channel_join(chan))
 		goto err_3;
 	s = lc_socket_raw(sock);
