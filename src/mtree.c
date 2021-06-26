@@ -150,7 +150,7 @@ size_t mtree_base_level_nodes(size_t base, size_t level)
 
 size_t mtree_level_nodes(mtree_tree *tree, size_t level)
 {
-	return mtree_base_level_nodes(tree->base, level);
+	return tree && tree->base ? mtree_base_level_nodes(tree->base, level) : 0;
 }
 
 size_t mtree_base_node_num(size_t base, size_t level, size_t offset)
@@ -315,7 +315,7 @@ static void *mtree_hash_data(void *arg)
 	}
 
 	/* write rest of tree */
-	for (size_t lvl = 1; lvl < q->tree->lvls; lvl++) { // FIXME 210 bytes below stack pointer
+	for (size_t lvl = 1; q && q->tree && lvl < q->tree->lvls; lvl++) { // FIXME 210 bytes below stack pointer
 		level_nodes = mtree_level_nodes(q->tree, lvl);
 		if (mt->id >= level_nodes) return NULL;
 		t = (level_nodes < nthreads) ? level_nodes : nthreads;
