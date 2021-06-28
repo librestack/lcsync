@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
+#define _XOPEN_SOURCE 500
+#define _DEFAULT_SOURCE 1
 #include <arpa/inet.h>
 #include <assert.h>
 #include <endian.h>
+#include <ftw.h>
 #include <libgen.h>
 #include <netdb.h>
 #include <poll.h>
@@ -863,10 +866,59 @@ int net_recv(int *argc, char *argv[])
 	return 0;
 }
 
+// FIXME - temp
+static int indexfile(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+{
+	DEBUG("%s(%s)", __func__, fpath);
+	return 0;
+}
+
+static void indexfiles(int argc, char *argv[])
+{
+	char *cwd[] = { ".", NULL };
+	int flags = FTW_MOUNT | FTW_DEPTH;
+	//ctx = lc_ctx_new();
+	if (!argc) {
+		argc++;
+		argv = cwd;
+	}
+	DEBUG("argc = %i", argc);
+	for (int i = 0; i < argc; i++) {
+#if 0
+		/* split off colon-delimited alias, if present */
+		if ((p = strchr(argv[i], ':'))) {
+			p[0] = '\0';
+			alias = argv[i];
+			argv[i] = p + 1;
+		}
+		else {
+			/* no alias, use hostname */
+			if (!hostptr) {
+				gethostname(hostname, HOST_NAME_MAX);
+				hostptr = hostname;
+			}
+			alias = hostptr;
+		}
+		//chanmain = lc_channel_new(ctx, alias);
+#endif
+		nftw(argv[i], &indexfile, 20, flags);
+		//lc_channel_free(chanmain);
+	}
+	//lc_ctx_free(ctx);
+}
+
 int net_send_mdex(int *argc, char *argv[])
 {
 	(void)argc, (void)argv;
 	DEBUG("%s() rabbit rabbit rabbit", __func__);
+
+	/* TODO start MLD filter */
+
+	/* TODO index files */
+	indexfiles(*argc, argv);
+
+	/* TODO catch signals, SIGINT, SIGHUP */
+
 	return 0;
 }
 
