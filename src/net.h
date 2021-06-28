@@ -121,6 +121,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len);
 
 int net_recv(int *argc, char *argv[]);
 int net_send(int *argc, char *argv[]);
+int net_send_mdex(int *argc, char *argv[]);
 int net_sync(int *argc, char *argv[]);
 
 #endif /* _NET_H */

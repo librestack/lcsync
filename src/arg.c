@@ -56,7 +56,8 @@ int arg_parse(int *argc, char **argv[])
 		else action = &file_dump;
 	}
 	else if (*argc == 1 && arg_islocal((*argv)[0])) {
-		action = &net_send;
+		//action = &net_send;
+		action = &net_send_mdex;
 	}
 	else if (*argc == 1 && !arg_islocal((*argv)[0])) {
 		action = &net_recv;

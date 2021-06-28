@@ -863,6 +863,12 @@ int net_recv(int *argc, char *argv[])
 	return 0;
 }
 
+int net_send_mdex(int *argc, char *argv[])
+{
+	(void)argc, (void)argv;
+	DEBUG("%s() rabbit rabbit rabbit", __func__);
+	return 0;
+}
 
 int net_send(int *argc, char *argv[])
 {
