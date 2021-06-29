@@ -921,7 +921,7 @@ int net_send_mdex(int *argc, char *argv[])
 	sigset_t set;
 	int sig = SIGHUP;
 
-	DEBUG("%s() rabbit rabbit rabbit", __func__);
+	DEBUG("%s()", __func__);
 
 	/* TODO start MLD filter */
 
