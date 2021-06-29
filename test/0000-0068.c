@@ -12,7 +12,8 @@
 
 int main(void)
 {
-	lc_ctx_t *lctx;
+	mdex_t *mdex;
+	//lc_ctx_t *lctx;
 #if 0
 	lc_channel_t *chan[CHANNELS];
 	struct in6_addr *addr;
@@ -28,7 +29,7 @@ int main(void)
 
 	test_name("TODO: mdex_put() / mdex_get() / mdex_del()");
 
-	lctx = lc_ctx_new();
+	//lctx = lc_ctx_new();
 
 	// TODO all we're doing here is outlining the API at first
 	// don't worry about actually storing or retrieving things, just make
@@ -72,7 +73,9 @@ int main(void)
 	}
 #endif
 
-	lc_ctx_free(lctx);
+	//lc_ctx_free(lctx);
+	mdex = mdex_init();
+	mdex_free(mdex);
 
 	return fails;
 }

@@ -20,6 +20,7 @@
 #include "net_pvt.h"
 #include "log.h"
 #include "macro.h"
+#include "mdex.h"
 #include "globals.h"
 #include "file.h"
 
@@ -61,6 +62,11 @@ void net_stop(int signo)
 	running = 0;
 	sem_post(&stop);
 	DEBUG("stopping on signal");
+}
+
+void net_hup(int signo)
+{
+	(void) signo;
 }
 
 ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
@@ -866,66 +872,19 @@ int net_recv(int *argc, char *argv[])
 	return 0;
 }
 
-// FIXME - temp
-static int indexfile(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
-{
-	DEBUG("%s(%s)", __func__, fpath);
-	return 0;
-}
-
-// TODO? move to mdex.c
-static void indexfiles(int argc, char *argv[])
-{
-	char *cwd[] = { ".", NULL };
-	int flags = FTW_MOUNT | FTW_DEPTH;
-	//ctx = lc_ctx_new();
-	if (!argc) {
-		argc++;
-		argv = cwd;
-	}
-	DEBUG("argc = %i", argc);
-	for (int i = 0; i < argc; i++) {
-#if 0
-		/* split off colon-delimited alias, if present */
-		if ((p = strchr(argv[i], ':'))) {
-			p[0] = '\0';
-			alias = argv[i];
-			argv[i] = p + 1;
-		}
-		else {
-			/* no alias, use hostname */
-			if (!hostptr) {
-				gethostname(hostname, HOST_NAME_MAX);
-				hostptr = hostname;
-			}
-			alias = hostptr;
-		}
-		//chanmain = lc_channel_new(ctx, alias);
-#endif
-		nftw(argv[i], &indexfile, 20, flags);
-		//lc_channel_free(chanmain);
-	}
-	//lc_ctx_free(ctx);
-}
-
-void net_hup(int signo)
-{
-	(void) signo;
-}
-
 static void net_join(mld_watch_t *event, mld_watch_t *watch)
 {
+	(void)watch;
 	char strgrp[INET6_ADDRSTRLEN];
-	assert(event->mld);
 	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
 	DEBUG("%s() received request for grp %s on if=%u", __func__, strgrp, event->ifx);
 
 	// TODO TODO TODO
+	// mdex_file_get();
 }
 
 int net_send_mdex(int *argc, char *argv[])
 {
-	(void)argc, (void)argv;
 	struct sigaction sa_int = { .sa_handler = net_stop };
 	struct sigaction sa_hup = { .sa_handler = net_hup };
 	sigset_t set;
@@ -951,7 +910,7 @@ int net_send_mdex(int *argc, char *argv[])
 	sigaction(SIGTERM, &sa_int, NULL);
 
 	while (sig == SIGHUP) {
-		indexfiles(*argc, argv);
+		mdex_files(*argc, argv);
 		sigwait(&set, &sig);
 	}
 
