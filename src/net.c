@@ -873,6 +873,7 @@ static int indexfile(const char *fpath, const struct stat *sb, int typeflag, str
 	return 0;
 }
 
+// TODO? move to mdex.c
 static void indexfiles(int argc, char *argv[])
 {
 	char *cwd[] = { ".", NULL };
@@ -907,17 +908,38 @@ static void indexfiles(int argc, char *argv[])
 	//lc_ctx_free(ctx);
 }
 
+void net_hup(int signo)
+{
+	(void) signo;
+}
+
 int net_send_mdex(int *argc, char *argv[])
 {
 	(void)argc, (void)argv;
+	struct sigaction sa_int = { .sa_handler = net_stop };
+	struct sigaction sa_hup = { .sa_handler = net_hup };
+	sigset_t set;
+	int sig = SIGHUP;
+
 	DEBUG("%s() rabbit rabbit rabbit", __func__);
 
 	/* TODO start MLD filter */
 
-	/* TODO index files */
-	indexfiles(*argc, argv);
+	sigemptyset(&set);
+	sigaddset(&set, SIGHUP);
+	sigaddset(&set, SIGINT);
+	sigaddset(&set, SIGTERM);
+	sigaction(SIGHUP, &sa_hup, NULL);
+	sigaction(SIGINT, &sa_int, NULL);
+	sigaction(SIGTERM, &sa_int, NULL);
 
-	/* TODO catch signals, SIGINT, SIGHUP */
+	while (running && sig == SIGHUP) {
+		indexfiles(*argc, argv);
+		sigwait(&set, &sig);
+	}
+
+	/* TODO stop MLD, cleanup */
+	DEBUG("exiting");
 
 	return 0;
 }
