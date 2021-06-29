@@ -913,6 +913,16 @@ void net_hup(int signo)
 	(void) signo;
 }
 
+static void net_join(mld_watch_t *event, mld_watch_t *watch)
+{
+	char strgrp[INET6_ADDRSTRLEN];
+	assert(event->mld);
+	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
+	DEBUG("%s() received request for grp %s on if=%u", __func__, strgrp, event->ifx);
+
+	// TODO TODO TODO
+}
+
 int net_send_mdex(int *argc, char *argv[])
 {
 	(void)argc, (void)argv;
@@ -920,10 +930,17 @@ int net_send_mdex(int *argc, char *argv[])
 	struct sigaction sa_hup = { .sa_handler = net_hup };
 	sigset_t set;
 	int sig = SIGHUP;
+	mld_t *mld;
+	mld_watch_t *watch;
 
 	DEBUG("%s()", __func__);
 
-	/* TODO start MLD filter */
+	DEBUG("starting MLD listener");
+	mld = mld_start(&running);
+	assert(mld);
+	watch = mld_watch_init(mld, 0, NULL, MLD_EVENT_JOIN, &net_join, NULL, 0);
+	assert(watch);
+	mld_watch_start(watch);
 
 	sigemptyset(&set);
 	sigaddset(&set, SIGHUP);
@@ -933,12 +950,13 @@ int net_send_mdex(int *argc, char *argv[])
 	sigaction(SIGINT, &sa_int, NULL);
 	sigaction(SIGTERM, &sa_int, NULL);
 
-	while (running && sig == SIGHUP) {
+	while (sig == SIGHUP) {
 		indexfiles(*argc, argv);
 		sigwait(&set, &sig);
 	}
 
-	/* TODO stop MLD, cleanup */
+	mld_watch_cancel(watch);
+	mld_stop(mld);
 	DEBUG("exiting");
 
 	return 0;
