@@ -315,7 +315,7 @@ static void *mtree_hash_data(void *arg)
 	}
 
 	/* write rest of tree */
-	for (size_t lvl = 1; q && q->tree && lvl < q->tree->lvls; lvl++) { // FIXME 210 bytes below stack pointer
+	for (size_t lvl = 1; q && q->tree && lvl < q->tree->lvls; lvl++) {
 		level_nodes = mtree_level_nodes(q->tree, lvl);
 		if (mt->id >= level_nodes) return NULL;
 		t = (level_nodes < nthreads) ? level_nodes : nthreads;

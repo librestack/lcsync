@@ -143,7 +143,6 @@ static void mld_timer_ticker(mld_t *mld, unsigned int iface, size_t idx, uint8_t
 
 lc_channel_t *mld_notification_channel(mld_t *mld, struct in6_addr *addr, int events)
 {
-//	char base[INET6_ADDRSTRLEN] = ""; FIXME
 	lc_channel_t *tmp;
 	struct in6_addr any = IN6ADDR_ANY_INIT;
 	struct sockaddr_in6 sa = {
@@ -331,7 +330,7 @@ static int mld_wait_poll(mld_t *mld, unsigned int ifx, struct in6_addr *addr)
 	fds.fd = lc_socket_raw(sock);
 	while (!(rc = poll(&fds, 1, timeout)) && (*(mld->cont)));
 
-	// TODO - return addr and iface TODO TODO TODO
+	// TODO - return addr and iface
 
 	if (rc > 0) DEBUG("%s() notify received", __func__);
 	//lc_channel_part(chan);
