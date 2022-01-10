@@ -328,11 +328,11 @@ static int mld_wait_poll(mld_t *mld, unsigned int ifx, struct in6_addr *addr)
 		goto exit_err_1;
 	}
 	fds.fd = lc_socket_raw(sock);
-	while (!(rc = poll(&fds, 1, timeout)) && (*(mld->cont)));
-
-	// TODO - return addr and iface
-
-	if (rc > 0) DEBUG("%s() notify received", __func__);
+	if (!mld_filter_grp_cmp(mld, 0, addr)) {
+		while (!(rc = poll(&fds, 1, timeout)) && (*(mld->cont)));
+		// TODO - return addr and iface
+		if (rc > 0) DEBUG("%s() notify received", __func__);
+	}
 	//lc_channel_part(chan);
 	rc = 0;
 exit_err_1:
