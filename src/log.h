@@ -44,19 +44,25 @@ enum {
 #define LOG_LOGLEVEL_VERBOSE 127
 extern unsigned int loglevel;
 
+#define LOG(lvl, ...) if ((lvl & loglevel) == lvl) logmsg(lvl, __VA_ARGS__)
+#define INFO(...) do { LOG(LOG_INFO, __VA_ARGS__); } while(0)
+#define ERROR(...) do { LOG(LOG_ERROR, __VA_ARGS__); } while(0)
+#define BREAK(lvl, ...) do {LOG(lvl, __VA_ARGS__); break;} while(0)
+#define CONTINUE(lvl, ...) do {LOG(lvl, __VA_ARGS__); continue;} while(0)
+#define DIE(...) do {LOG(LOG_SEVERE, __VA_ARGS__);  _exit(EXIT_FAILURE);} while(0)
+
+#ifdef DEBUG_ON
+#define DEBUG(...) do { if (DEBUG_ON) LOG(LOG_DEBUG, __VA_ARGS__); } while(0)
+#else
+#define DEBUG(...) while(0)
+#endif
+
 #define FMTV(iov) (int)(iov).iov_len, (const char *)(iov).iov_base
-#define LOG(lvl, fmt, ...) if ((lvl & loglevel) == lvl) logmsg(lvl, fmt ,##__VA_ARGS__)
-#define BREAK(lvl, fmt, ...) {LOG(lvl, fmt ,##__VA_ARGS__); break;}
-#define CONTINUE(lvl, fmt, ...) {LOG(lvl, fmt ,##__VA_ARGS__); continue;}
-#define DIE(fmt, ...) {LOG(LOG_SEVERE, fmt ,##__VA_ARGS__);  _exit(EXIT_FAILURE);}
-#define DEBUG(fmt, ...) LOG(LOG_DEBUG, fmt ,##__VA_ARGS__)
-#define ERROR(fmt, ...) LOG(LOG_ERROR, fmt ,##__VA_ARGS__)
 #define ERRMSG(err) {LOG(LOG_ERROR, err_msg(err));}
 #define FAIL(err) {LOG(LOG_ERROR, err_msg(err));  return err;}
-#define FAILMSG(err, fmt, ...) {LOG(LOG_ERROR, fmt ,##__VA_ARGS__);  return err;}
-#define INFO(fmt, ...) LOG(LOG_INFO, fmt ,##__VA_ARGS__)
-#define TRACE(fmt, ...) LOG(LOG_TRACE, fmt ,##__VA_ARGS__)
-#define WARN(fmt, ...) LOG(LOG_WARNING, fmt ,##__VA_ARGS__)
+#define FAILMSG(err, ...) do {LOG(LOG_ERROR, __VA_ARGS__);  return err;} while(0)
+#define TRACE(...) do {LOG(LOG_TRACE, __VA_ARGS__);} while(0)
+#define WARN(...) do {LOG(LOG_WARNING, __VA_ARGS__);} while(0)
 
 /* initialize logger & enable locking (optional) */
 void loginit(void);
