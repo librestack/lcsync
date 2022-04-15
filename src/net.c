@@ -208,6 +208,7 @@ void *net_job_recv_tree(void *arg)
 	if (lc_channel_bind(sock, chan) || lc_channel_join(chan)) goto err_2;
 	s = lc_socket_raw(sock);
 	byt = net_recv_tree(s, iov, &blocksz);
+	if (byt == -1) ERROR("error in net_recv_tree");
 	DEBUG("%s(): tree received (%zi bytes)", __func__, byt);
 	lc_channel_part(chan);
 err_2:

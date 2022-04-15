@@ -513,8 +513,6 @@ int mld_filter_grp_del(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
 #ifdef MLD_DEBUG
 	char straddr[INET6_ADDRSTRLEN];
-	char ifname[IF_NAMESIZE];
-	unsigned nface = mld->ifx[iface];
 	inet_ntop(AF_INET6, saddr, straddr, INET6_ADDRSTRLEN);
 	DEBUG("%s %s(%u): %s", __func__, if_indextoname(nface, ifname),nface, straddr);
 #endif
@@ -531,8 +529,6 @@ int mld_filter_grp_add(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
 #ifdef MLD_DEBUG
 	char straddr[INET6_ADDRSTRLEN];
-	char ifname[IF_NAMESIZE];
-	unsigned ifx = mld->ifx[iface];
 	inet_ntop(AF_INET6, saddr, straddr, INET6_ADDRSTRLEN);
 	DEBUG("%s %s(%u): %s", __func__, if_indextoname(ifx, ifname), ifx, straddr);
 #endif
@@ -725,7 +721,10 @@ mld_t *mld_start(volatile int *cont)
 		if (!setsockopt(sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req))) {
 			unsigned int idx = if_nametoindex(ifa->ifa_name);
 			DEBUG("listening on interface %s (%u)", ifa->ifa_name, idx);
-			if (!idx) perror("if_nametoindex()"); assert(idx);
+			if (!idx) {
+				perror("if_nametoindex()");
+				assert(idx);
+			}
 			ifx[joins++] = idx;
 		}
 	}

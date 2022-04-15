@@ -98,6 +98,7 @@ int mdex_put(struct in6_addr *addr, void *data, size_t size, char type)
 
 static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
 {
+	(void)fpath; (void)sb; (void)typeflag; (void)ftwbuf;
 	DEBUG("%s(%s)", __func__, fpath);
 	return 0;
 }
@@ -137,6 +138,7 @@ int mdex_files(int argc, char *argv[])
 		err = nftw(argv[i], &mdex_file, 20, flags);
 		//lc_channel_free(chanmain);
 	}
+	(void)alias;
 	//lc_ctx_free(ctx);
 	return err;
 }
