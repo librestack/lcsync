@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
+/* Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net> */
 
 #include <libgen.h>
 #include <stdio.h>
@@ -9,7 +9,7 @@
 
 void help_usage(void)
 {
-	WARN("usage: '%s source destination'", basename(progname));
+	WARN("usage: '%s source [destination]'", basename(progname));
 }
 
 void help_usage_hex(void)

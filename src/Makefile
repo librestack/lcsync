@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net>
+# Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net>
 
 SHELL = /bin/sh
 .SUFFIXES:
@@ -10,14 +10,10 @@ INSTALL_PROGRAM := $(INSTALL)
 prefix ?= /usr/local
 exec_prefix := $(prefix)
 bindir := $(exec_prefix)/bin
-LDFLAGS += -lm -pthread -llibrecast -llmdb
+LDFLAGS += -lm -pthread -llibrecast
 OBJS = $(PROGRAM).o arg.o file.o globals.o help.o job.o log.o mdex.o misc.o mld.o mtree.o net.o opt.o vec.o
 
-all:		$(PROGRAM) mdex
-
-mdex:		file.o globals.o job.o log.o misc.o mtree.o mdex.o misc.o mld.o net.o vec.o mdextest.o
-		$(CC) $(CFLAGS) $(EXTRAFLAGS) $^ -o $@ $(LDFLAGS)
-
+all:		$(PROGRAM)
 
 $(PROGRAM):	$(OBJS)
 		$(CC) $(CFLAGS) $(EXTRAFLAGS) $^ -o $(PROGRAM) $(LDFLAGS)
