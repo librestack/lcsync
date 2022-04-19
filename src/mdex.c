@@ -45,6 +45,8 @@ int mdex_files(int argc, char *argv[])
 	char hostname[HOST_NAME_MAX];
 	int flags = FTW_MOUNT | FTW_DEPTH;
 	int err = 0;
+
+	/* default to serving current working directory */
 	if (!argc) {
 		argc++;
 		argv = cwd;
@@ -75,15 +77,10 @@ int mdex_files(int argc, char *argv[])
 
 void mdex_free(mdex_t *mdex)
 {
-	if (!mdex) return;
 	free(mdex);
 }
 
 mdex_t *mdex_init()
 {
-	mdex_t *mdex;
-
-	mdex = calloc(1, sizeof(mdex_t));
-
-	return mdex;
+	return calloc(1, sizeof(mdex_t));
 }

@@ -24,6 +24,8 @@
 #ifndef __LSD_LOG
 #define __LSD_LOG 1
 
+#define DEBUG_ON 1
+
 #define LOG_LEVELS(X) \
 	X(0,    LOG_NONE,       "none")                                 \
 	X(1,    LOG_SEVERE,     "severe")                               \
