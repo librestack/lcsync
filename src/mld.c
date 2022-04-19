@@ -102,7 +102,9 @@ void mld_timer_tick(mld_t *mld, unsigned int iface, size_t idx, uint8_t val)
 		}
 		if (*(mld->cont) == 0) break;
 	}
+#ifdef MLD_DEBUG
 	DEBUG("%s()", __func__);
+#endif
 }
 
 void mld_timer_set(mld_t *mld, unsigned int iface, size_t idx, uint8_t val)
@@ -191,7 +193,9 @@ int mld_watch_stop(mld_watch_t *watch)
 
 static void mld_watch_callback(mld_watch_t *watch, struct in6_pktinfo *pi)
 {
+#ifdef MLD_DEBUG
 	DEBUG("%s()", __func__);
+#endif
 	mld_watch_t *event = calloc(1, sizeof(mld_watch_t));
 	if (!event) return;
 	event->mld = watch->mld;
@@ -214,8 +218,9 @@ void *mld_watch_thread(void *arg)
 	iov[0].iov_base = &pi;
 	iov[0].iov_len = sizeof pi;
 
+#ifdef MLD_DEBUG
 	DEBUG("%s()", __func__);
-
+#endif
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 1;
 	msg.msg_control = ctrl;

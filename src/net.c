@@ -890,6 +890,7 @@ int net_send_mdex(int *argc, char *argv[])
 	struct sigaction sa_hup = { .sa_handler = net_hup };
 	sigset_t set;
 	int sig = SIGHUP;
+	mdex_t *mdex;
 	mld_t *mld;
 	mld_watch_t *watch;
 
@@ -912,8 +913,11 @@ int net_send_mdex(int *argc, char *argv[])
 	sigaction(SIGTERM, &sa_int, NULL);
 
 	while (sig == SIGHUP) {
-		mdex_files(*argc, argv);
+		mdex = mdex_init();
+		mdex_files(mdex, *argc, argv);
+		INFO("mdex done - %zi files indexed, %zi bytes", mdex_filecount(mdex), mdex_filebytes(mdex));
 		sigwait(&set, &sig);
+		mdex_free(mdex);
 	}
 
 #if 0

@@ -5,6 +5,7 @@
 #define _MDEX_H 1
 
 #include <netinet/in.h>
+#include <stdint.h>
 
 /* when we see a channel join, which type of object is it for? */
 typedef enum {
@@ -22,8 +23,11 @@ int mdex_get(struct in6_addr *addr, void **data, size_t *size, char *type);
 int mdex_put(struct in6_addr *addr, void  *data, size_t  size, char  type);
 int mdex_del(struct in6_addr *addr);
 
+uint64_t mdex_filecount(mdex_t *mdex);
+uint64_t mdex_filebytes(mdex_t *mdex);
+
 /* index files and directories. Return 0 on success, -1 on error */
-int mdex_files(int argc, char *argv[]);
+int mdex_files(mdex_t *mdex, int argc, char *argv[]);
 
 mdex_t *mdex_init();
 void mdex_free(mdex_t *mdex);

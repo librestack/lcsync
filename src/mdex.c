@@ -21,8 +21,11 @@ struct bnode {
 };
 
 struct mdex_s {
-	// TODO
+	uint64_t files;
+	uint64_t bytes;
 };
+
+static mdex_t *g_mdex;
 
 int mdex_del(struct in6_addr *addr)
 {
@@ -30,14 +33,35 @@ int mdex_del(struct in6_addr *addr)
 	return 0;
 }
 
+uint64_t mdex_filecount(mdex_t *mdex)
+{
+	return mdex->files;
+}
+
+uint64_t mdex_filebytes(mdex_t *mdex)
+{
+	return mdex->bytes;
+}
+
 static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
 {
 	(void)fpath; (void)sb; (void)typeflag; (void)ftwbuf;
 	DEBUG("%s(%s)", __func__, fpath);
+
+	// TODO - count files
+	// TODO - count bytes
+	// TODO - index file / directory
+	// TODO - create mtree
+	// TODO - index blocks
+	//
+	// TODO - mtree for directory? What about metadata?
+	g_mdex->files++;
+	g_mdex->bytes += sb->st_size;
+
 	return 0;
 }
 
-int mdex_files(int argc, char *argv[])
+int mdex_files(mdex_t *mdex, int argc, char *argv[])
 {
 	char *cwd[] = { ".", NULL };
 	char *alias, *p;
@@ -45,6 +69,8 @@ int mdex_files(int argc, char *argv[])
 	char hostname[HOST_NAME_MAX];
 	int flags = FTW_MOUNT | FTW_DEPTH;
 	int err = 0;
+
+	g_mdex = mdex;
 
 	/* default to serving current working directory */
 	if (!argc) {
