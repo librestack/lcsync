@@ -904,6 +904,7 @@ int net_send_mdex(int *argc, char *argv[])
 	assert(watch);
 	mld_watch_start(watch);
 #endif
+
 	sigemptyset(&set);
 	sigaddset(&set, SIGHUP);
 	sigaddset(&set, SIGINT);
@@ -914,9 +915,9 @@ int net_send_mdex(int *argc, char *argv[])
 
 	while (sig == SIGHUP) {
 		mdex = mdex_init();
-		mdex_files(mdex, *argc, argv);
+		sig = mdex_files(mdex, *argc, argv);
 		INFO("mdex done - %zi files indexed, %zi bytes", mdex_filecount(mdex), mdex_filebytes(mdex));
-		sigwait(&set, &sig);
+		if (!sig || sig == SIGHUP) sigwait(&set, &sig);
 		mdex_free(mdex);
 	}
 

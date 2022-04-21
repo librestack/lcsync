@@ -11,6 +11,8 @@
 #include <sys/param.h>
 #include <unistd.h>
 
+static volatile int mdex_status;
+
 struct bnode {
 	struct bnode *l;
 	struct bnode *r;
@@ -46,23 +48,33 @@ uint64_t mdex_filebytes(mdex_t *mdex)
 static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
 {
 	(void)fpath; (void)sb; (void)typeflag; (void)ftwbuf;
-	DEBUG("%s(%s)", __func__, fpath);
 
-	// TODO - count files
-	// TODO - count bytes
-	// TODO - index file / directory
-	// TODO - create mtree
-	// TODO - index blocks
-	//
-	// TODO - mtree for directory? What about metadata?
-	g_mdex->files++;
-	g_mdex->bytes += sb->st_size;
+	if (typeflag == FTW_F) {
 
-	return 0;
+		DEBUG("%s(%s)", __func__, fpath);
+
+		g_mdex->files++;
+		g_mdex->bytes += sb->st_size;
+
+		// TODO - index file / directory
+		// TODO check if mtree exists - compare mtime of file and mtree
+		// TODO - create mtree
+		// TODO - index blocks
+		//
+		// TODO - mtree for directory? What about metadata?
+
+	}
+	return mdex_status;
+}
+
+void mdex_stop(int signo)
+{
+	mdex_status = signo;
 }
 
 int mdex_files(mdex_t *mdex, int argc, char *argv[])
 {
+	struct sigaction sa_int = { .sa_handler = &mdex_stop };
 	char *cwd[] = { ".", NULL };
 	char *alias, *p;
 	char *hostptr = NULL;
@@ -79,6 +91,8 @@ int mdex_files(mdex_t *mdex, int argc, char *argv[])
 	}
 
 	// TODO TODO TODO
+
+	sigaction(SIGINT, &sa_int, NULL);
 
 	for (int i = 0; i < argc && !err; i++) {
 		/* split off colon-delimited alias, if present */
