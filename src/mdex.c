@@ -63,7 +63,7 @@ uint64_t mdex_filebytes(mdex_t *mdex)
 
 static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
 {
-	(void)fpath; (void)sb; (void)typeflag; (void)ftwbuf;
+	(void)ftwbuf;
 
 	if (typeflag == FTW_F) {
 
@@ -71,18 +71,20 @@ static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, str
 		g_mdex->bytes += sb->st_size;
 
 		struct mdex_file *file = calloc(1, sizeof(struct mdex_file));
+		if (!file) return -1;
 		file->next = g_mdex->head;
 		file->typeflag = typeflag;
 		strcpy(file->fpath, fpath);
 		memcpy(&file->sb, sb, sizeof(*sb));
 		g_mdex->head = file;
 
-		// TODO - index file / directory
+		// TODO mtree for directory? What about metadata?
+
 		// TODO check if mtree exists - compare mtime of file and mtree
-		// TODO - create mtree
-		// TODO - index blocks
-		//
-		// TODO - mtree for directory? What about metadata?
+
+		// TODO create mtree
+
+		// TODO index blocks
 
 	}
 	return mdex_status;
