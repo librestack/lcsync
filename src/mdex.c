@@ -22,9 +22,17 @@ struct bnode {
 	void *val;
 };
 
+struct mdex_file {
+	struct mdex_file *next;
+	struct stat sb;
+	char fpath[PATH_MAX];
+	int typeflag;
+};
+
 struct mdex_s {
 	uint64_t files;
 	uint64_t bytes;
+	struct mdex_file *head;
 };
 
 static mdex_t *g_mdex;
@@ -33,6 +41,14 @@ int mdex_del(struct in6_addr *addr)
 {
 	(void)addr;
 	return 0;
+}
+
+void mdex_dump(mdex_t *mdex)
+{
+	DEBUG("dumping mdex");
+	for (struct mdex_file *f = mdex->head; f; f = f->next) {
+		DEBUG("%s", f->fpath);
+	}
 }
 
 uint64_t mdex_filecount(mdex_t *mdex)
@@ -51,10 +67,15 @@ static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, str
 
 	if (typeflag == FTW_F) {
 
-		DEBUG("%s(%s)", __func__, fpath);
-
 		g_mdex->files++;
 		g_mdex->bytes += sb->st_size;
+
+		struct mdex_file *file = calloc(1, sizeof(struct mdex_file));
+		file->next = g_mdex->head;
+		file->typeflag = typeflag;
+		strcpy(file->fpath, fpath);
+		memcpy(&file->sb, sb, sizeof(*sb));
+		g_mdex->head = file;
 
 		// TODO - index file / directory
 		// TODO check if mtree exists - compare mtime of file and mtree
@@ -117,6 +138,12 @@ int mdex_files(mdex_t *mdex, int argc, char *argv[])
 
 void mdex_free(mdex_t *mdex)
 {
+	struct mdex_file *f = mdex->head, *tmp;
+	while (f) {
+		tmp = f;
+		f = f->next;
+		free(tmp);
+	}
 	free(mdex);
 }
 

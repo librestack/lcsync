@@ -23,6 +23,7 @@ int mdex_get(struct in6_addr *addr, void **data, size_t *size, char *type);
 int mdex_put(struct in6_addr *addr, void  *data, size_t  size, char  type);
 int mdex_del(struct in6_addr *addr);
 
+void mdex_dump(mdex_t *mdex);
 uint64_t mdex_filecount(mdex_t *mdex);
 uint64_t mdex_filebytes(mdex_t *mdex);
 

@@ -916,6 +916,7 @@ int net_send_mdex(int *argc, char *argv[])
 	while (sig == SIGHUP) {
 		mdex = mdex_init();
 		sig = mdex_files(mdex, *argc, argv);
+		mdex_dump(mdex);
 		INFO("mdex done - %zi files indexed, %zi bytes", mdex_filecount(mdex), mdex_filebytes(mdex));
 		if (!sig || sig == SIGHUP) sigwait(&set, &sig);
 		mdex_free(mdex);
