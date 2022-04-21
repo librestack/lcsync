@@ -10,9 +10,10 @@
 #include "log.h"
 #include "net.h"
 
-int arg_islocal(char *filename)
+int arg_islocal(char *f)
 {
-	return !!strchr(filename, '/');
+	/* if filename starts with ./ or /, file is local */
+	return !!(f[0] == '/'  || (f[0] == '.' && f[1] == '/'));
 }
 
 int arg_parse(int *argc, char **argv[])
@@ -54,9 +55,6 @@ int arg_parse(int *argc, char **argv[])
 			rc = EXIT_FAILURE;
 		}
 		else action = &file_dump;
-	}
-	else if (mld_enabled) {
-		action = &net_send_mdex;
 	}
 	else if (*argc == 1 && arg_islocal((*argv)[0])) {
 		action = (mld_enabled) ? &net_send_mdex : &net_send;
