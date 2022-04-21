@@ -6,6 +6,8 @@
 #include "mdex.h"
 #include <assert.h>
 #include <ftw.h>
+#include <libgen.h>
+#include <semaphore.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
@@ -22,17 +24,19 @@ struct bnode {
 	void *val;
 };
 
-struct mdex_file {
-	struct mdex_file *next;
+struct mdex_file_s {
+	mdex_file_t *next;
 	struct stat sb;
 	char fpath[PATH_MAX];
 	int typeflag;
 };
 
 struct mdex_s {
+	sem_t lock;
 	uint64_t files;
 	uint64_t bytes;
-	struct mdex_file *head;
+	char *share;
+	mdex_file_t *head;
 };
 
 static mdex_t *g_mdex;
@@ -46,7 +50,7 @@ int mdex_del(struct in6_addr *addr)
 void mdex_dump(mdex_t *mdex)
 {
 	DEBUG("dumping mdex");
-	for (struct mdex_file *f = mdex->head; f; f = f->next) {
+	for (mdex_file_t *f = mdex->head; f; f = f->next) {
 		DEBUG("%s", f->fpath);
 	}
 }
@@ -61,22 +65,58 @@ uint64_t mdex_filebytes(mdex_t *mdex)
 	return mdex->bytes;
 }
 
+static void mdex_fpath_set(mdex_t *mdex, mdex_file_t *file, const char *fpath)
+{
+	char *ptr = file->fpath;
+	char *btmp = strdup(fpath);
+	char *dtmp = strdup(fpath);
+	char *dir, *base;
+	size_t z;
+
+	assert(btmp); assert(dtmp);
+
+	dir = dirname(dtmp);
+	base = basename(btmp);
+
+	/* strip leading ./ if present */
+	if (!strncmp(dir, "./", 2)) dir += 2;
+
+	/* prepend share name */
+	if (mdex->share) {
+		z = strlen(mdex->share);
+		memcpy(ptr, mdex->share, z);
+		ptr += z;
+	}
+
+	/* dirname + / + basename */
+	z = strlen(dir);
+	memcpy(ptr, dir, z);
+	ptr += z;
+	*ptr = '/';
+	ptr++;
+	z = strlen(base);
+	memcpy(ptr, base, z);
+
+	free(btmp);
+	free(dtmp);
+}
+
 static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
 {
 	(void)ftwbuf;
 
 	if (typeflag == FTW_F) {
-
-		g_mdex->files++;
-		g_mdex->bytes += sb->st_size;
-
-		struct mdex_file *file = calloc(1, sizeof(struct mdex_file));
+		mdex_file_t *file = calloc(1, sizeof(mdex_file_t));
 		if (!file) return -1;
-		file->next = g_mdex->head;
 		file->typeflag = typeflag;
-		strcpy(file->fpath, fpath);
+
 		memcpy(&file->sb, sb, sizeof(*sb));
-		g_mdex->head = file;
+		mdex_fpath_set(g_mdex, file, fpath);
+
+		// TODO hash the resulting mess
+		// TODO index hash of file - multicast group
+		// unsigned char hash[HASHSIZE];
+		// eg. hash_generic(hash, HASHSIZE, (unsigned char *)alias, strlen(alias));
 
 		// TODO mtree for directory? What about metadata?
 
@@ -86,6 +126,12 @@ static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, str
 
 		// TODO index blocks
 
+		sem_wait(&g_mdex->lock);
+		g_mdex->files++;
+		g_mdex->bytes += sb->st_size;
+		file->next = g_mdex->head;
+		g_mdex->head = file;
+		sem_post(&g_mdex->lock);
 	}
 	return mdex_status;
 }
@@ -140,16 +186,23 @@ int mdex_files(mdex_t *mdex, int argc, char *argv[])
 
 void mdex_free(mdex_t *mdex)
 {
-	struct mdex_file *f = mdex->head, *tmp;
+	mdex_file_t *f, *tmp;
+
+	sem_wait(&mdex->lock);
+	f = mdex->head;
 	while (f) {
 		tmp = f;
 		f = f->next;
 		free(tmp);
 	}
+	sem_destroy(&mdex->lock);
 	free(mdex);
 }
 
-mdex_t *mdex_init()
+mdex_t *mdex_init(char *share)
 {
-	return calloc(1, sizeof(mdex_t));
+	mdex_t *mdex = calloc(1, sizeof(mdex_t));
+	sem_init(&mdex->lock, 0, 1);
+	if (mdex && share) mdex->share = share;
+	return mdex;
 }

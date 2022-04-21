@@ -17,6 +17,7 @@ typedef enum {
 	MDEX_BLOCK       /* single block. A subtree, but with special handling */
 } mdex_type;
 
+typedef struct mdex_file_s mdex_file_t;
 typedef struct mdex_s mdex_t;
 
 int mdex_get(struct in6_addr *addr, void **data, size_t *size, char *type);
