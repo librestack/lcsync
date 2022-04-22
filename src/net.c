@@ -10,6 +10,7 @@
 #include <libgen.h>
 #include <netdb.h>
 #include <poll.h>
+#include <librecast.h>
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>
@@ -893,8 +894,11 @@ int net_send_mdex(int *argc, char *argv[])
 	mdex_t *mdex;
 	mld_t *mld;
 	mld_watch_t *watch;
+	lc_ctx_t *lctx;
 
 	DEBUG("%s()", __func__);
+
+	lctx = lc_ctx_new();
 
 #if 0
 	DEBUG("starting MLD listener");
@@ -914,7 +918,7 @@ int net_send_mdex(int *argc, char *argv[])
 	sigaction(SIGTERM, &sa_int, NULL);
 
 	while (sig == SIGHUP) {
-		mdex = mdex_init(NULL);
+		mdex = mdex_init(lctx, NULL);
 		sig = mdex_files(mdex, *argc, argv);
 		mdex_dump(mdex);
 		INFO("mdex done - %zi files indexed, %zi bytes", mdex_filecount(mdex), mdex_filebytes(mdex));
@@ -926,6 +930,8 @@ int net_send_mdex(int *argc, char *argv[])
 	mld_watch_cancel(watch);
 	mld_stop(mld);
 #endif
+
+	lc_ctx_free(lctx);
 	DEBUG("exiting");
 
 	return 0;

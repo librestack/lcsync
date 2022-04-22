@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <ftw.h>
 #include <libgen.h>
+#include <librecast.h>
 #include <semaphore.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +29,8 @@ struct mdex_file_s {
 	mdex_file_t *next;
 	struct stat sb;
 	char fpath[PATH_MAX];
+	unsigned char hash[HASHSIZE];
+	lc_channel_t *chan;
 	int typeflag;
 };
 
@@ -35,6 +38,7 @@ struct mdex_s {
 	sem_t lock;
 	uint64_t files;
 	uint64_t bytes;
+	lc_ctx_t *lctx;
 	char *share;
 	mdex_file_t *head;
 };
@@ -113,10 +117,7 @@ static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, str
 		memcpy(&file->sb, sb, sizeof(*sb));
 		mdex_fpath_set(g_mdex, file, fpath);
 
-		// TODO hash the resulting mess
-		// TODO index hash of file - multicast group
-		// unsigned char hash[HASHSIZE];
-		// eg. hash_generic(hash, HASHSIZE, (unsigned char *)alias, strlen(alias));
+		file->chan = lc_channel_new(g_mdex->lctx, file->fpath);
 
 		// TODO mtree for directory? What about metadata?
 
@@ -192,6 +193,7 @@ void mdex_free(mdex_t *mdex)
 	f = mdex->head;
 	while (f) {
 		tmp = f;
+		lc_channel_free(f->chan);
 		f = f->next;
 		free(tmp);
 	}
@@ -199,9 +201,10 @@ void mdex_free(mdex_t *mdex)
 	free(mdex);
 }
 
-mdex_t *mdex_init(char *share)
+mdex_t *mdex_init(lc_ctx_t *lctx, char *share)
 {
 	mdex_t *mdex = calloc(1, sizeof(mdex_t));
+	mdex->lctx = lctx;
 	sem_init(&mdex->lock, 0, 1);
 	if (mdex && share) mdex->share = share;
 	return mdex;
