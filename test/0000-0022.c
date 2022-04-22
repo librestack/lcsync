@@ -15,7 +15,7 @@ int main()
 	char **arg = arg0;
 	int argc = (int) sizeof arg0 / sizeof arg0[0] - 1;
 
-	test_name("arg_parse() - net_send");
+	return test_skip("arg_parse() - net_send");
 
 	test_assert(arg_parse(&argc, &arg) == 0, "arg_parse()");
 	test_assert(action == net_send, "action == net_send()");
