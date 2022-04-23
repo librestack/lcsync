@@ -860,20 +860,6 @@ err_0:
 	return rc;
 }
 
-int net_recv(int *argc, char *argv[])
-{
-	(void) argc;
-	TRACE("%s('%s', '%s')", __func__, argv[0], argv[1]);
-	// TODO: fetch tree
-	// TODO: verify tree
-	// TODO: build channel maps
-	// TODO: join required channels
-	// TODO: receive blocks
-	// TODO: verify blocks / check hashes
-	// TODO: part / cleanup
-	return 0;
-}
-
 static void net_join(mld_watch_t *event, mld_watch_t *watch)
 {
 	(void)watch;
