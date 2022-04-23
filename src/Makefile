@@ -25,10 +25,13 @@ install:        all
 		$(INSTALL_PROGRAM) $(PROGRAM) $(DESTDIR)$(bindir)/$(PROGRAM)
 		setcap cap_net_raw=eip $(DESTDIR)$(bindir)/$(PROGRAM)
 
-.PHONY: clean realclean
+.PHONY: clean realclean setcap
 
 clean:
 	rm -f *.o
 
 realclean: clean
 	rm -f $(PROGRAM)
+
+setcap: $(PROGRAM)
+	setcap cap_net_raw=eip $(PROGRAM)

@@ -9,11 +9,11 @@ export INSTALLDIR
 PROGRAM := lcsync
 export PROGRAM
 
-.PHONY: all clean src test check install net-setup net-teardown
+.PHONY: all clean src test check install net-setup net-teardown setcap
 
 all: src
 
-install: all
+install setcap: all
 	cd src && $(MAKE) $@
 
 src:
