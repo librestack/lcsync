@@ -23,6 +23,15 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#define DEBUG_MLD 1
+#ifdef DEBUG_MLD
+#undef DEBUG
+#define DEBUG(...) do { if (DEBUG_ON) LOG(LOG_DEBUG, __VA_ARGS__); } while(0)
+#else
+#undef DEBUG
+#define DEBUG(...) while(0)
+#endif
+
 static volatile int cont = 1;
 
 /* extract interface number from ancillary control data */
