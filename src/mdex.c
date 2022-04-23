@@ -14,6 +14,15 @@
 #include <sys/param.h>
 #include <unistd.h>
 
+#define DEBUG_MDEX 1
+#ifdef DEBUG_MDEX
+#undef DEBUG
+#define DEBUG(...) do { if (DEBUG_ON) LOG(LOG_DEBUG, __VA_ARGS__); } while(0)
+#else
+#undef DEBUG
+#define DEBUG(...) while(0)
+#endif
+
 static volatile int mdex_status;
 
 struct bnode {
