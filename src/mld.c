@@ -270,6 +270,11 @@ int mld_watch_start(mld_watch_t *watch)
 		}
 	}
 	else mld_filter_grp_add(watch->mld, watch->ifx, lc_channel_in6addr(watch->chan));
+#ifdef DEBUG_MLD
+	char strgrp[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, lc_channel_in6addr(watch->chan), strgrp, INET6_ADDRSTRLEN);
+	DEBUG("%s() - binding to channel %s", __func__, strgrp);
+#endif
 	if ((rc = lc_channel_bind(watch->sock, watch->chan))) {
 		ERROR("lc_channel_bind(): %s", lc_error_msg(rc));
 		goto err_1;
