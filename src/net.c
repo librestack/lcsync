@@ -886,14 +886,12 @@ int net_send_mdex(int *argc, char *argv[])
 
 	lctx = lc_ctx_new();
 
-#if 0
 	DEBUG("starting MLD listener");
 	mld = mld_start(&running);
 	assert(mld);
 	watch = mld_watch_init(mld, 0, NULL, MLD_EVENT_JOIN, &net_join, NULL, 0);
 	assert(watch);
 	mld_watch_start(watch);
-#endif
 
 	sigemptyset(&set);
 	sigaddset(&set, SIGHUP);
@@ -912,10 +910,8 @@ int net_send_mdex(int *argc, char *argv[])
 		mdex_free(mdex);
 	}
 
-#if 0
 	mld_watch_cancel(watch);
 	mld_stop(mld);
-#endif
 
 	lc_ctx_free(lctx);
 	DEBUG("exiting");
