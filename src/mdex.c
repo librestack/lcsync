@@ -58,6 +58,7 @@ static mdex_t *g_mdex;
 int mdex_get(mdex_t *mdex, struct in6_addr *addr, void **data, char *type)
 {
 	char strgrp[INET6_ADDRSTRLEN];
+	int ret = 0;
 	DEBUG("%s", __func__);
 	sem_wait(&mdex->lock);
 	for (mdex_grp_t *grp = mdex->grp; grp; grp = grp->next) {
@@ -85,11 +86,12 @@ int mdex_get(mdex_t *mdex, struct in6_addr *addr, void **data, char *type)
 				DEBUG("MDEX_BLOCK");
 				break;
 			};
-			return 1;
+			ret = 1;
+			break;
 		}
 	}
 	sem_post(&mdex->lock);
-	return 0;
+	return ret;
 }
 
 void mdex_dump(mdex_t *mdex)
