@@ -18,11 +18,10 @@ typedef enum {
 } mdex_type;
 
 typedef struct mdex_file_s mdex_file_t;
+typedef struct mdex_grp_s mdex_grp_t;
 typedef struct mdex_s mdex_t;
 
-int mdex_get(struct in6_addr *addr, void **data, size_t *size, char *type);
-int mdex_put(struct in6_addr *addr, void  *data, size_t  size, char  type);
-int mdex_del(struct in6_addr *addr);
+int mdex_get(mdex_t *mdex, struct in6_addr *addr, void **data, char *type);
 
 void mdex_dump(mdex_t *mdex);
 uint64_t mdex_filecount(mdex_t *mdex);
@@ -32,6 +31,7 @@ uint64_t mdex_filebytes(mdex_t *mdex);
 int mdex_files(mdex_t *mdex, int argc, char *argv[]);
 
 mdex_t *mdex_init();
+void mdex_reinit(mdex_t *mdex);
 void mdex_free(mdex_t *mdex);
 
 #endif /* _MDEX_H */

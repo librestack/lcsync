@@ -162,11 +162,12 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 	if (!(chan = lc_channel_nnew(lctx, hash, HASHSIZE))) goto err_2;
 
 	// FIXME FIXME FIXME
+	char hex[HEXLEN];
+	sodium_bin2hex(hex, HEXLEN, hash, HASHSIZE);
 
 	char strgrp[INET6_ADDRSTRLEN];
-	struct sockaddr_in6 *sa = lc_channel_sockaddr(chan);
-	inet_ntop(AF_INET6, &sa->sin6_addr, strgrp, INET6_ADDRSTRLEN);
-	DEBUG("%s() has been told to fetch tree with alias channel %s", __func__, strgrp);
+	inet_ntop(AF_INET6, lc_channel_in6addr(chan), strgrp, INET6_ADDRSTRLEN);
+	DEBUG("%s() alias channel %s", __func__, strgrp);
 
 	// FIXME FIXME FIXME
 
@@ -862,13 +863,16 @@ err_0:
 
 static void net_join(mld_watch_t *event, mld_watch_t *watch)
 {
-	(void)watch;
+	mdex_t *mdex = (mdex_t *)watch->arg;
 	char strgrp[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
 	DEBUG("%s() received request for grp %s on if=%u", __func__, strgrp, event->ifx);
 
 	// TODO TODO TODO
-	// mdex_file_get();
+	void *data = NULL;
+	char type = 0;
+	mdex_get(mdex, event->grp, &data, &type);
+	if (!data) return;
 }
 
 int net_send_mdex(int *argc, char *argv[])
@@ -889,7 +893,11 @@ int net_send_mdex(int *argc, char *argv[])
 	DEBUG("starting MLD listener");
 	mld = mld_start(&running);
 	assert(mld);
-	watch = mld_watch_init(mld, 0, NULL, MLD_EVENT_JOIN, &net_join, NULL, 0);
+
+	mdex = mdex_init(lctx, NULL);
+	assert(mdex);
+
+	watch = mld_watch_init(mld, 0, NULL, MLD_EVENT_JOIN, &net_join, mdex, 0);
 	assert(watch);
 	mld_watch_start(watch);
 
@@ -902,13 +910,12 @@ int net_send_mdex(int *argc, char *argv[])
 	sigaction(SIGTERM, &sa_int, NULL);
 
 	while (sig == SIGHUP) {
-		mdex = mdex_init(lctx, NULL);
 		sig = mdex_files(mdex, *argc, argv);
-		mdex_dump(mdex);
 		INFO("mdex done - %zi files indexed, %zi bytes", mdex_filecount(mdex), mdex_filebytes(mdex));
 		if (!sig || sig == SIGHUP) sigwait(&set, &sig);
-		mdex_free(mdex);
+		mdex_reinit(mdex);
 	}
+	mdex_free(mdex);
 
 	mld_watch_cancel(watch);
 	mld_stop(mld);
@@ -956,9 +963,10 @@ int net_sync(int *argc, char *argv[])
 	unsigned char hash[HASHSIZE];
 	job_queue_t *q = job_queue_create(1U << net_send_channels);
 	mtree_tree *stree = NULL, *dtree = NULL;
-	TRACE("%s('%s')", __func__, argv[0]);
+	TRACE("%s('%s')", __func__, src);
 	sigaction(SIGINT, &sa_int, NULL);
 	hash_generic(hash, HASHSIZE, (unsigned char *)src, strlen(src));
+
 	if (net_fetch_tree(hash, &stree) == -1) goto err_0;
 	DEBUG("tree fetched");
 	if (mtree_verify(stree, mtree_treelen(stree))) {

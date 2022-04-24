@@ -23,7 +23,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#define DEBUG_MLD 1
+//#define DEBUG_MLD 1
 #ifdef DEBUG_MLD
 #undef DEBUG
 #define DEBUG(...) do { if (DEBUG_ON) LOG(LOG_DEBUG, __VA_ARGS__); } while(0)

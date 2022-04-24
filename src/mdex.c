@@ -4,6 +4,7 @@
 #define _XOPEN_SOURCE 500 /* required for nftw() */
 #include "log.h"
 #include "mdex.h"
+#include <arpa/inet.h>
 #include <assert.h>
 #include <ftw.h>
 #include <libgen.h>
@@ -25,15 +26,6 @@
 
 static volatile int mdex_status;
 
-struct bnode {
-	struct bnode *l;
-	struct bnode *r;
-	size_t klen;
-	size_t vlen;
-	void *key;
-	void *val;
-};
-
 struct mdex_file_s {
 	mdex_file_t *next;
 	struct stat sb;
@@ -43,27 +35,67 @@ struct mdex_file_s {
 	int typeflag;
 };
 
+struct mdex_grp_s {
+	mdex_grp_t *next;
+	struct in6_addr grp;
+	char type;
+	void *entry;
+};
+
 struct mdex_s {
 	sem_t lock;
 	uint64_t files;
 	uint64_t bytes;
 	lc_ctx_t *lctx;
 	char *share;
-	mdex_file_t *head;
+	mdex_grp_t *grp;
+	mdex_file_t *file;
 };
 
 static mdex_t *g_mdex;
 
-int mdex_del(struct in6_addr *addr)
+/* find grp, return object and type */
+int mdex_get(mdex_t *mdex, struct in6_addr *addr, void **data, char *type)
 {
-	(void)addr;
+	char strgrp[INET6_ADDRSTRLEN];
+	DEBUG("%s", __func__);
+	sem_wait(&mdex->lock);
+	for (mdex_grp_t *grp = mdex->grp; grp; grp = grp->next) {
+		inet_ntop(AF_INET6, &grp->grp, strgrp, INET6_ADDRSTRLEN);
+		if (!memcmp(&grp->grp, addr, sizeof(struct in6_addr))) {
+			*data = grp->entry;
+			*type = grp->type;
+			switch (grp->type) {
+			case MDEX_SHARE:
+				DEBUG("MDEX_SHARE");
+				break;
+			case MDEX_DIR:
+				DEBUG("MDEX_DIR");
+				break;
+			case MDEX_FILE:
+				DEBUG("MDEX_FILE");
+				break;
+			case MDEX_MEM:
+				DEBUG("MDEX_MEM");
+				break;
+			case MDEX_SUBTREE:
+				DEBUG("MDEX_SUBTREE");
+				break;
+			case MDEX_BLOCK:
+				DEBUG("MDEX_BLOCK");
+				break;
+			};
+			return 1;
+		}
+	}
+	sem_post(&mdex->lock);
 	return 0;
 }
 
 void mdex_dump(mdex_t *mdex)
 {
 	DEBUG("dumping mdex");
-	for (mdex_file_t *f = mdex->head; f; f = f->next) {
+	for (mdex_file_t *f = mdex->file; f; f = f->next) {
 		DEBUG("%s", f->fpath);
 	}
 }
@@ -121,12 +153,19 @@ static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, str
 	if (typeflag == FTW_F) {
 		mdex_file_t *file = calloc(1, sizeof(mdex_file_t));
 		if (!file) return -1;
+		mdex_grp_t *grp = calloc(1, sizeof(mdex_grp_t));
+		if (!grp) return -1;
 		file->typeflag = typeflag;
 
 		memcpy(&file->sb, sb, sizeof(*sb));
 		mdex_fpath_set(g_mdex, file, fpath);
+		hash_generic(file->hash, HASHSIZE, (unsigned char *)file->fpath, strlen(file->fpath));
+		file->chan = lc_channel_nnew(g_mdex->lctx, file->hash, HASHSIZE);
 
-		file->chan = lc_channel_new(g_mdex->lctx, file->fpath);
+		/* index multicast grp addr -> file */
+		memcpy(&grp->grp, lc_channel_in6addr(file->chan), sizeof(struct in6_addr));
+		grp->type = MDEX_FILE;
+		grp->entry = file;
 
 		// TODO mtree for directory? What about metadata?
 
@@ -139,8 +178,10 @@ static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, str
 		sem_wait(&g_mdex->lock);
 		g_mdex->files++;
 		g_mdex->bytes += sb->st_size;
-		file->next = g_mdex->head;
-		g_mdex->head = file;
+		file->next = g_mdex->file;
+		g_mdex->file = file;
+		grp->next = g_mdex->grp;
+		g_mdex->grp = grp;
 		sem_post(&g_mdex->lock);
 	}
 	return mdex_status;
@@ -194,16 +235,39 @@ int mdex_files(mdex_t *mdex, int argc, char *argv[])
 	return err;
 }
 
-void mdex_free(mdex_t *mdex)
+void mdex_reinit(mdex_t *mdex)
 {
-	mdex_file_t *f, *tmp;
-
+	void *tmp;
 	sem_wait(&mdex->lock);
-	f = mdex->head;
-	while (f) {
+	for (mdex_file_t *f = mdex->file; f;) {
 		tmp = f;
 		lc_channel_free(f->chan);
 		f = f->next;
+		free(tmp);
+	}
+	mdex->file = NULL;
+	for (mdex_grp_t *g = mdex->grp; g;) {
+		tmp = g;
+		g = g->next;
+		free(tmp);
+	}
+	mdex->grp = NULL;
+	sem_post(&mdex->lock);
+}
+
+void mdex_free(mdex_t *mdex)
+{
+	void *tmp;
+	sem_wait(&mdex->lock);
+	for (mdex_file_t *f = mdex->file; f;) {
+		tmp = f;
+		lc_channel_free(f->chan);
+		f = f->next;
+		free(tmp);
+	}
+	for (mdex_grp_t *g = mdex->grp; g;) {
+		tmp = g;
+		g = g->next;
 		free(tmp);
 	}
 	sem_destroy(&mdex->lock);
