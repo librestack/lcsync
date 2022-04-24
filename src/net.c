@@ -868,11 +868,16 @@ static void net_join(mld_watch_t *event, mld_watch_t *watch)
 	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
 	DEBUG("%s() received request for grp %s on if=%u", __func__, strgrp, event->ifx);
 
-	// TODO TODO TODO
 	void *data = NULL;
 	char type = 0;
 	mdex_get(mdex, event->grp, &data, &type);
 	if (!data) return;
+
+	if (type == MDEX_FILE) {
+		mdex_file_t *f = (mdex_file_t *)data;
+		DEBUG("file '%s' requested", mdex_file_fpath(f));
+	}
+	// TODO TODO TODO
 }
 
 int net_send_mdex(int *argc, char *argv[])

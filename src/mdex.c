@@ -110,6 +110,11 @@ uint64_t mdex_filebytes(mdex_t *mdex)
 	return mdex->bytes;
 }
 
+char *mdex_file_fpath(mdex_file_t *f)
+{
+	return f->fpath;
+}
+
 static void mdex_fpath_set(mdex_t *mdex, mdex_file_t *file, const char *fpath)
 {
 	char *ptr = file->fpath;
