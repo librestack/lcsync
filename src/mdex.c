@@ -2,8 +2,12 @@
 /* Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net> */
 
 #define _XOPEN_SOURCE 500 /* required for nftw() */
+#include "file.h"
+#include "globals.h"
+#include "job.h"
 #include "log.h"
 #include "mdex.h"
+#include "mtree.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ftw.h>
@@ -30,7 +34,9 @@ struct mdex_file_s {
 	mdex_file_t *next;
 	struct stat sb;
 	char fpath[PATH_MAX];
+	char alias[PATH_MAX];
 	unsigned char hash[HASHSIZE];
+	mtree_tree *tree;
 	lc_channel_t *chan;
 	int typeflag;
 };
@@ -48,6 +54,7 @@ struct mdex_s {
 	uint64_t bytes;
 	lc_ctx_t *lctx;
 	char *share;
+	job_queue_t *q;
 	mdex_grp_t *grp;
 	mdex_file_t *file;
 };
@@ -112,6 +119,11 @@ uint64_t mdex_filebytes(mdex_t *mdex)
 	return mdex->bytes;
 }
 
+char *mdex_file_alias(mdex_file_t *f)
+{
+	return f->alias;
+}
+
 char *mdex_file_fpath(mdex_file_t *f)
 {
 	return f->fpath;
@@ -119,7 +131,7 @@ char *mdex_file_fpath(mdex_file_t *f)
 
 static void mdex_fpath_set(mdex_t *mdex, mdex_file_t *file, const char *fpath)
 {
-	char *ptr = file->fpath;
+	char *ptr = file->alias;
 	char *btmp = strdup(fpath);
 	char *dtmp = strdup(fpath);
 	char *dir, *base;
@@ -149,8 +161,25 @@ static void mdex_fpath_set(mdex_t *mdex, mdex_file_t *file, const char *fpath)
 	z = strlen(base);
 	memcpy(ptr, base, z);
 
+	strcpy(file->fpath, fpath);
+
 	free(btmp);
 	free(dtmp);
+}
+
+static int mdex_file_mtree(mdex_t *mdex, mdex_file_t *file)
+{
+	char *smap;
+	ssize_t sz_s;
+	int fds;
+
+	if ((sz_s = file_map(file->fpath, &fds, &smap, 0, PROT_READ, &file->sb)) == -1)
+		return -1;
+
+	file->tree = mtree_create(sz_s, blocksize);
+	mtree_build(file->tree, smap, mdex->q);
+
+	return 0;
 }
 
 static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
@@ -166,7 +195,7 @@ static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, str
 
 		memcpy(&file->sb, sb, sizeof(*sb));
 		mdex_fpath_set(g_mdex, file, fpath);
-		hash_generic(file->hash, HASHSIZE, (unsigned char *)file->fpath, strlen(file->fpath));
+		hash_generic(file->hash, HASHSIZE, (unsigned char *)file->alias, strlen(file->alias));
 		file->chan = lc_channel_nnew(g_mdex->lctx, file->hash, HASHSIZE);
 
 		/* index multicast grp addr -> file */
@@ -178,13 +207,12 @@ static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, str
 
 		// TODO check if mtree exists - compare mtime of file and mtree
 
-		// TODO create mtree
-
 		// TODO index blocks
 
 		sem_wait(&g_mdex->lock);
 		g_mdex->files++;
 		g_mdex->bytes += sb->st_size;
+		mdex_file_mtree(g_mdex, file);
 		file->next = g_mdex->file;
 		g_mdex->file = file;
 		grp->next = g_mdex->grp;
@@ -249,6 +277,7 @@ void mdex_reinit(mdex_t *mdex)
 	for (mdex_file_t *f = mdex->file; f;) {
 		tmp = f;
 		lc_channel_free(f->chan);
+		mtree_free(f->tree);
 		f = f->next;
 		free(tmp);
 	}
@@ -269,6 +298,7 @@ void mdex_free(mdex_t *mdex)
 	for (mdex_file_t *f = mdex->file; f;) {
 		tmp = f;
 		lc_channel_free(f->chan);
+		mtree_free(f->tree);
 		f = f->next;
 		free(tmp);
 	}
@@ -277,6 +307,7 @@ void mdex_free(mdex_t *mdex)
 		g = g->next;
 		free(tmp);
 	}
+	job_queue_destroy(mdex->q);
 	sem_destroy(&mdex->lock);
 	free(mdex);
 }
@@ -285,6 +316,7 @@ mdex_t *mdex_init(lc_ctx_t *lctx, char *share)
 {
 	mdex_t *mdex = calloc(1, sizeof(mdex_t));
 	mdex->lctx = lctx;
+	mdex->q = job_queue_create(128);
 	sem_init(&mdex->lock, 0, 1);
 	if (mdex && share) mdex->share = share;
 	return mdex;

@@ -37,7 +37,7 @@ ssize_t file_map(char *filename, int *fd, char **map, off_t sz, int prot, struct
 		perror("open");
 		return -1;
 	}
-	if (fstat(*fd, sb) == -1) {
+	if (!sb->st_ino && fstat(*fd, sb) == -1) {
 		perror("fstat");
 		return -1;
 	}

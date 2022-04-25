@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
+#define MLD_ENABLE 1
 #define _XOPEN_SOURCE 500
 #define _DEFAULT_SOURCE 1
 #include <arpa/inet.h>
@@ -861,6 +862,8 @@ err_0:
 	return rc;
 }
 
+/* MLD JOIN detected - lets see what they want */
+#ifdef MLD_ENABLE
 static void net_join(mld_watch_t *event, mld_watch_t *watch)
 {
 	mdex_t *mdex = (mdex_t *)watch->arg;
@@ -876,9 +879,12 @@ static void net_join(mld_watch_t *event, mld_watch_t *watch)
 	if (type == MDEX_FILE) {
 		mdex_file_t *f = (mdex_file_t *)data;
 		DEBUG("file '%s' requested", mdex_file_fpath(f));
+		// TODO send mtree
+		//job_push_new(data->q, &net_job_send_tree, data, sz, NULL, 0);
 	}
 	// TODO TODO TODO
 }
+#endif
 
 int net_send_mdex(int *argc, char *argv[])
 {
@@ -887,25 +893,27 @@ int net_send_mdex(int *argc, char *argv[])
 	sigset_t set;
 	int sig = SIGHUP;
 	mdex_t *mdex;
+#ifdef MLD_ENABLE
 	mld_t *mld;
 	mld_watch_t *watch;
+#endif
 	lc_ctx_t *lctx;
 
 	DEBUG("%s()", __func__);
 
 	lctx = lc_ctx_new();
-
+#ifdef MLD_ENABLE
 	DEBUG("starting MLD listener");
 	mld = mld_start(&running);
 	assert(mld);
-
+#endif
 	mdex = mdex_init(lctx, NULL);
 	assert(mdex);
-
+#ifdef MLD_ENABLE
 	watch = mld_watch_init(mld, 0, NULL, MLD_EVENT_JOIN, &net_join, mdex, 0);
 	assert(watch);
 	mld_watch_start(watch);
-
+#endif
 	sigemptyset(&set);
 	sigaddset(&set, SIGHUP);
 	sigaddset(&set, SIGINT);
@@ -921,10 +929,10 @@ int net_send_mdex(int *argc, char *argv[])
 		mdex_reinit(mdex);
 	}
 	mdex_free(mdex);
-
+#ifdef MLD_ENABLE
 	mld_watch_cancel(watch);
 	mld_stop(mld);
-
+#endif
 	lc_ctx_free(lctx);
 	DEBUG("exiting");
 
@@ -936,7 +944,7 @@ int net_send(int *argc, char *argv[])
 	(void) argc;
 	int fds;
 	ssize_t sz_s;
-	struct stat sbs;
+	struct stat sbs = {0};
 	struct sigaction sa_int = { .sa_handler = net_stop };
 	char *src = argv[0];
 	char *alias = basename(src);

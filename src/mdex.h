@@ -26,6 +26,7 @@ int mdex_get(mdex_t *mdex, struct in6_addr *addr, void **data, char *type);
 void mdex_dump(mdex_t *mdex);
 uint64_t mdex_filecount(mdex_t *mdex);
 uint64_t mdex_filebytes(mdex_t *mdex);
+char *mdex_file_alias(mdex_file_t *f);
 char *mdex_file_fpath(mdex_file_t *f);
 
 /* index files and directories. Return 0 on success, -1 on error */
