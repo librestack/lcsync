@@ -732,8 +732,6 @@ mld_t *mld_start(volatile int *cont)
 	for (struct ifaddrs *ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
 		if (ifa->ifa_addr->sa_family !=AF_INET6)
 			continue;
-		if ((ifa->ifa_flags & IFF_MULTICAST) != IFF_MULTICAST)
-			continue;
 		if (!(req.ipv6mr_interface = if_nametoindex(ifa->ifa_name)))
 			continue;
 		if (!setsockopt(sock, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req))) {
