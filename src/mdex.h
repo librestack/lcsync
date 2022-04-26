@@ -4,6 +4,9 @@
 #ifndef _MDEX_H
 #define _MDEX_H 1
 
+#include "job.h"
+#include "mtree.h"
+#include <librecast/types.h>
 #include <netinet/in.h>
 #include <stdint.h>
 
@@ -28,6 +31,10 @@ uint64_t mdex_filecount(mdex_t *mdex);
 uint64_t mdex_filebytes(mdex_t *mdex);
 char *mdex_file_alias(mdex_file_t *f);
 char *mdex_file_fpath(mdex_file_t *f);
+lc_channel_t *mdex_file_chan(mdex_file_t *f);
+mtree_tree *mdex_file_tree(mdex_file_t *f);
+job_queue_t *mdex_q(mdex_t *mdex);
+struct stat * mdex_file_sb(mdex_file_t *file);
 
 /* index files and directories. Return 0 on success, -1 on error */
 int mdex_files(mdex_t *mdex, int argc, char *argv[]);

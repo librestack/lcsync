@@ -92,13 +92,13 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree);
 
 /* send a data block or tree to a librecast channel
  * return bytes sent or -1 on error
-	int		sock		datagram socket
-	struct addrinfo *addr		addr to send to
+	
+	lc_channel_t *  chan		Librecast channel to send to
 	size_t		len;		len of scatter-gather array
 	struct iovec	iov[];		scatter-gather array
 First iovec is assumed to be the header and will be sent with every packet.
 */
-ssize_t net_send_tree(int sock, struct sockaddr_in6 *sa, size_t vlen, struct iovec *iov);
+ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov);
 
 ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root);
 ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root);

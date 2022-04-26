@@ -31,6 +31,13 @@ enum {
 	NET_SEARCH_MTREE    = -2
 };
 
+struct net_data_event_s {
+	mdex_file_t *file;
+	mld_t *mld;
+	struct in6_addr grp;
+	unsigned int ifx;
+};
+
 static volatile int running = 1;
 static sem_t stop;
 
@@ -223,7 +230,7 @@ err_0:
 	return iov;
 }
 
-ssize_t net_send_tree(int sock, struct sockaddr_in6 *sa, size_t vlen, struct iovec *iov)
+ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov)
 {
 	TRACE("%s()", __func__);
 	ssize_t byt = 0, rc;
@@ -239,24 +246,17 @@ ssize_t net_send_tree(int sock, struct sockaddr_in6 *sa, size_t vlen, struct iov
 		return -1;
 	}
 	memcpy(data, iov[1].iov_base, len);
-	/* TODO - ensure we're not already sending the same thing */
 	while (running && len) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		iov[1].iov_len = sz;
 		iov[1].iov_base = data + off;
-		msgh.msg_name = sa;
-		msgh.msg_namelen = sizeof(struct sockaddr_in6);
 		msgh.msg_iov = iov;
 		msgh.msg_iovlen = vlen;
 		hdr->idx = htobe32(idx++);
 		hdr->len = htobe32(sz);
 		off += sz;
 		len -= sz;
-		// FIXME: Cannot assign requested address - test 0034
-		int on = 1;
-		// FIXME - is this next line needed?  Doesn't Librecast do this?
-		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
-		if ((rc = sendmsg(sock, &msgh, 0)) == -1) {
+		if ((rc = lc_channel_sendmsg(chan, &msgh, 0)) == -1) {
 			perror("sendmsg()");
 			byt = -1; break;
 		}
@@ -272,7 +272,6 @@ void *net_job_send_tree(void *arg)
 {
 	TRACE("%s()", __func__);
 	const int on = 1;
-	int s;
 	enum { vlen = 2 };
 	struct iovec iov[vlen];
 	struct sockaddr_in6 *sa;
@@ -295,7 +294,6 @@ void *net_job_send_tree(void *arg)
 		goto err_1;
 	if (lc_channel_bind(sock, chan))
 		goto err_2;
-	s = lc_channel_socket_raw(chan);
 	sa = lc_channel_sockaddr(chan);
 	grp = &sa->sin6_addr;
 	net_treehead_t hdr = {
@@ -329,7 +327,7 @@ void *net_job_send_tree(void *arg)
 		if (mld_enabled && data->mld) mld_wait(data->mld, 0, grp);
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
-		if (net_send_tree(s, sa, vlen, iov) == -1) {
+		if (net_send_tree(chan, vlen, iov) == -1) {
 			ERROR("error sending tree - aborting");
 			break;
 		}
@@ -862,27 +860,83 @@ err_0:
 	return rc;
 }
 
+/* send mtree while MLD grp active */
+static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, struct in6_addr *grp)
+{
+	lc_ctx_t *lctx;
+	lc_socket_t *sock;
+	lc_channel_t *chan = mdex_file_chan(f);
+	mtree_tree *tree = mdex_file_tree(f);
+	enum { vlen = 2 };
+	struct iovec iov[vlen];
+	size_t treesz = mtree_treelen(tree);
+	const int on = 1;
+	net_treehead_t hdr = {
+		.data = htobe64((uint64_t)mdex_file_sb(f)->st_size),
+		.size = htobe64(treesz),
+		.blocksz = htobe32(mtree_blocksz(tree)),
+		.chan = net_send_channels,
+		.pkts = htobe32(howmany(treesz, DATA_FIXED))
+	};
+
+	DEBUG("%s() - %s", __func__, mdex_file_alias(f));
+	lctx = lc_channel_ctx(chan);
+	sock = lc_socket_new(lctx);
+	lc_socket_bind(sock, ifx);
+	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof on);
+	lc_channel_bind(sock, chan);
+
+	memcpy(&hdr.hash, mtree_root(tree), HASHSIZE);
+	iov[0].iov_base = &hdr;
+	iov[0].iov_len = sizeof hdr;
+
+	do {
+		iov[1].iov_len = treesz;
+		iov[1].iov_base = mtree_data(tree, 0);
+		if (net_send_tree(chan, vlen, iov) == -1) {
+			ERROR("error sending tree - aborting");
+			break;
+		}
+	}
+	while (running && mld_filter_grp_cmp(mld, ifx, grp));
+
+	/* clean up */
+	lc_socket_close(sock);
+}
+
+static void *net_job_mdex_send_tree(void *arg)
+{
+	struct net_data_event_s *data = (struct net_data_event_s *)arg;
+	net_send_file_tree(data->file, data->mld, data->ifx, &data->grp);
+	return arg;
+}
+
 /* MLD JOIN detected - lets see what they want */
 #ifdef MLD_ENABLE
 static void net_join(mld_watch_t *event, mld_watch_t *watch)
 {
 	mdex_t *mdex = (mdex_t *)watch->arg;
 	char strgrp[INET6_ADDRSTRLEN];
+	void *data = NULL;
+	char type = 0;
+
 	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
 	DEBUG("%s() received request for grp %s on if=%u", __func__, strgrp, event->ifx);
 
-	void *data = NULL;
-	char type = 0;
 	mdex_get(mdex, event->grp, &data, &type);
 	if (!data) return;
 
 	if (type == MDEX_FILE) {
 		mdex_file_t *f = (mdex_file_t *)data;
+		struct net_data_event_s *arg = calloc(1, sizeof (struct net_data_event_s));
+		if (!arg) return;
 		DEBUG("file '%s' requested", mdex_file_fpath(f));
-		// TODO send mtree
-		//job_push_new(data->q, &net_job_send_tree, data, sz, NULL, 0);
+		arg->mld = event->mld;
+		arg->ifx = event->ifx;
+		memcpy(&arg->grp, event->grp, sizeof(struct in6_addr));
+		arg->file = f;
+		job_push_new(mdex_q(mdex), &net_job_mdex_send_tree, arg, 0, &free, 0);
 	}
-	// TODO TODO TODO
 }
 #endif
 

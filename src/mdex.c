@@ -4,10 +4,8 @@
 #define _XOPEN_SOURCE 500 /* required for nftw() */
 #include "file.h"
 #include "globals.h"
-#include "job.h"
 #include "log.h"
 #include "mdex.h"
-#include "mtree.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ftw.h>
@@ -127,6 +125,26 @@ char *mdex_file_alias(mdex_file_t *f)
 char *mdex_file_fpath(mdex_file_t *f)
 {
 	return f->fpath;
+}
+
+lc_channel_t *mdex_file_chan(mdex_file_t *f)
+{
+	return f->chan;
+}
+
+mtree_tree *mdex_file_tree(mdex_file_t *f)
+{
+	return f->tree;
+}
+
+job_queue_t *mdex_q(mdex_t *mdex)
+{
+	return mdex->q;
+}
+
+struct stat * mdex_file_sb(mdex_file_t *file)
+{
+	return &file->sb;
 }
 
 static void mdex_fpath_set(mdex_t *mdex, mdex_file_t *file, const char *fpath)
