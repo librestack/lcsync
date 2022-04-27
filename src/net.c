@@ -261,7 +261,7 @@ ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov)
 			perror("sendmsg()");
 			byt = -1; break;
 		}
-		DEBUG("%zi bytes sent", rc);
+		DEBUG("%zi bytes sent (mtree)", rc);
 		byt += rc;
 		if (DELAY) usleep(DELAY);
 	}
@@ -437,6 +437,7 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 	if (hex) mtree_hexdump(stree, stderr);
 	DEBUG("recving subtree with root %zu", root);
 	byt = net_recv_subtree(s, stree, dtree, root);
+	DEBUG("complete subtree with root %zu", root);
 	lc_channel_part(chan);
 err_3:
 	lc_channel_free(chan);
@@ -686,6 +687,7 @@ void *net_job_sync_subtree(void *arg)
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *stree = data->iov[0].iov_base;
 	mtree_tree *dtree = data->iov[1].iov_base;
+	DEBUG("%s() starting", __func__);
 	net_sync_subtree(stree, dtree, data->n);
 	DEBUG("%s() done", __func__);
 	return arg;
@@ -958,6 +960,10 @@ ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
 	min = mtree_subtree_data_min(base, root);
         max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 
+	char strgrp[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, grp, strgrp, INET6_ADDRSTRLEN);
+	DEBUG("%s blocks %zu to %zu on %s", __func__, min, max, strgrp);
+
 	while (running) {
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
 			DEBUG("sending block %zu with idx=%zu", blk, idx);
@@ -1042,8 +1048,7 @@ static void net_join(mld_watch_t *event, mld_watch_t *watch)
 		DEBUG("file '%s' requested", mdex_file_fpath((mdex_file_t *)data));
 		net_queue_job(mdex, event, (mdex_file_t *)data, node, &net_job_mdex_send_tree);
 	}
-	else if (type == MDEX_BLOCK) {
-		DEBUG("block requested");
+	else if (type == MDEX_SUBTREE || type == MDEX_BLOCK) {
 		net_queue_job(mdex, event, (mdex_file_t *)data, node, &net_job_mdex_send_subtree);
 	}
 	else return;

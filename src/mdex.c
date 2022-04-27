@@ -65,7 +65,6 @@ int mdex_get(mdex_t *mdex, struct in6_addr *addr, void **data, char *type, size_
 {
 	char strgrp[INET6_ADDRSTRLEN];
 	int ret = 0;
-	DEBUG("%s", __func__);
 	sem_wait(&mdex->lock);
 	for (mdex_grp_t *grp = mdex->grp; grp; grp = grp->next) {
 		inet_ntop(AF_INET6, &grp->grp, strgrp, INET6_ADDRSTRLEN);
@@ -192,13 +191,14 @@ static int mdex_file_blocks(mdex_t *mdex, mdex_file_t *file)
 	unsigned char *hash = mtree_data(file->tree, 0);
 	lc_channel_t *chan = NULL;
 
-	for (size_t z = 0; z <= mtree_nodes(file->tree); z++, hash += HASHSIZE) {
+	for (size_t z = 0; z < mtree_nodes(file->tree); z++) {
+		hash = mtree_nnode(file->tree, z);
 		chan = lc_channel_nnew(mdex->lctx, hash, HASHSIZE);
 		if (!chan) return -1;
 		mdex_grp_t *grp = calloc(1, sizeof(mdex_grp_t));
 		if (!grp) return -1;
 		memcpy(&grp->grp, lc_channel_in6addr(chan), sizeof(struct in6_addr));
-		grp->type = (z > mtree_blocks(file->tree)) ? MDEX_SUBTREE : MDEX_BLOCK;
+		grp->type = (z >= mtree_node_num(file->tree, 0, 0)) ? MDEX_BLOCK : MDEX_SUBTREE;
 		grp->entry = file;
 		grp->node = z;
 		grp->next = g_mdex->grp;
