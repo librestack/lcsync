@@ -1140,6 +1140,8 @@ int net_sync(int *argc, char *argv[])
 	struct stat sbd = {0};
 	char *src = argv[0];
 	char *dst = argv[1];
+	char *base;
+	char *ddst = NULL;
 	char *dmap = NULL;
 	struct sigaction sa_int = { .sa_handler = net_stop };
 	unsigned char hash[HASHSIZE];
@@ -1158,7 +1160,16 @@ int net_sync(int *argc, char *argv[])
 	DEBUG("mapping dst: %s", dst);
 	len = mtree_len(stree);
 	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // TODO - set from packet data
+retry_dir:
 	if ((sz_d = file_map(dst, &fdd, &dmap, len, PROT_READ|PROT_WRITE, &sbd)) == -1) {
+		if (errno == EISDIR) {
+			ddst = malloc(PATH_MAX);
+			base = strdup(src);
+			snprintf(ddst, PATH_MAX, "%s/%s", dst, basename(base));
+			free(base);
+			dst = ddst;
+			goto retry_dir;
+		}
 		goto err_0;
 	}
 	blocksz = mtree_blocksz(stree);
@@ -1172,6 +1183,7 @@ int net_sync(int *argc, char *argv[])
 	rc = 0;
 err_1:
 	mtree_free(dtree);
+	free(ddst);
 err_0:
 	mtree_free(stree);
 	job_queue_destroy(q);
