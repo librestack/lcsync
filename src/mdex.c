@@ -162,7 +162,9 @@ static void mdex_fpath_set(mdex_t *mdex, mdex_file_t *file, const char *fpath)
 	base = basename(btmp);
 
 	/* strip leading ./ if present */
-	if (!strncmp(dir, "./", 2)) dir += 2;
+	if (!strncmp(dir, "../", 3)) dir += 3;
+	else if (!strncmp(dir, "./", 2)) dir += 2;
+	else if (!strncmp(dir, "/", 1)) dir += 1;
 
 	/* prepend share name */
 	if (mdex->share) {
@@ -261,6 +263,7 @@ static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, str
 		grp->next = g_mdex->grp;
 		g_mdex->grp = grp;
 		sem_post(&g_mdex->lock);
+		DEBUG("%s", mdex_file_alias(file));
 	}
 	return mdex_status;
 }
