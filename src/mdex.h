@@ -24,7 +24,7 @@ typedef struct mdex_file_s mdex_file_t;
 typedef struct mdex_grp_s mdex_grp_t;
 typedef struct mdex_s mdex_t;
 
-int mdex_get(mdex_t *mdex, struct in6_addr *addr, void **data, char *type);
+int mdex_get(mdex_t *mdex, struct in6_addr *addr, void **data, char *type, size_t *node);
 
 void mdex_dump(mdex_t *mdex);
 uint64_t mdex_filecount(mdex_t *mdex);

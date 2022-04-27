@@ -36,6 +36,7 @@ struct net_data_event_s {
 	mld_t *mld;
 	struct in6_addr grp;
 	unsigned int ifx;
+	size_t node;
 };
 
 static volatile int running = 1;
@@ -904,6 +905,102 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 	lc_socket_close(sock);
 }
 
+/* break a block into DATA_FIXED size pieces and send with header
+ * header is in iov[0], data in iov[1]
+ * idx and len need updating */
+static void net_send_block_chan(lc_channel_t *chan, size_t vlen, struct iovec *iov, size_t blk)
+{
+	ssize_t byt;
+	size_t len = iov[1].iov_len;
+	char * ptr = iov[1].iov_base;
+	net_blockhead_t *hdr = iov[0].iov_base;
+	unsigned bits = howmany(len, DATA_FIXED);
+	size_t idx = blk * bits;
+	size_t sz;
+	struct msghdr msgh = {
+		.msg_iov = iov,
+		.msg_iovlen = vlen,
+	};
+	while (running && len) {
+		sz = MIN(len, DATA_FIXED);
+		iov[1].iov_len = sz;
+		iov[1].iov_base = ptr;
+		hdr->len = htobe32(sz);
+		hdr->idx = htobe32(idx);
+		if ((byt = lc_channel_sendmsg(chan, &msgh, 0)) == -1) {
+			perror("lc_channel_sendmsg()");
+			break;
+		}
+		DEBUG("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
+		len -= sz;
+		ptr += sz;
+		idx++;
+	}
+}
+
+
+
+ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
+	lc_channel_t *chan, unsigned int ifx, mld_t *mld)
+{
+	ssize_t rc = -1;
+	size_t base, min, max;
+	enum { vlen = 2 };
+	struct iovec iov[vlen];
+	struct in6_addr *grp = lc_channel_in6addr(chan);
+
+	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
+
+	iov[0].iov_base = &hdr;
+	iov[0].iov_len = sizeof hdr;
+
+	base = mtree_base(stree);
+	min = mtree_subtree_data_min(base, root);
+        max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
+
+	while (running) {
+		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
+			DEBUG("sending block %zu with idx=%zu", blk, idx);
+			iov[1].iov_base = mtree_blockn(stree, blk);
+			if (!iov[1].iov_base) continue;
+			iov[1].iov_len = mtree_blockn_len(stree, blk);
+			hdr.len = htobe32((uint32_t)iov[1].iov_len);
+			net_send_block_chan(chan, vlen, iov, idx);
+			if (DELAY) usleep(DELAY);
+		}
+		if (mld && !mld_filter_grp_cmp(mld, ifx, grp)) break;
+	}
+
+	return rc;
+}
+
+#ifdef MLD_ENABLE
+static void *net_job_mdex_send_subtree(void *arg)
+{
+	DEBUG("%s", __func__);
+	struct net_data_event_s *req = (struct net_data_event_s *)arg;
+	lc_ctx_t *lctx = lc_channel_ctx(mdex_file_chan(req->file));
+	lc_socket_t *sock;
+	lc_channel_t *chan;
+	mtree_tree *stree = mdex_file_tree(req->file);
+	const int on = 1;
+
+	DEBUG("node %zu of %s requested", req->node, mdex_file_alias(req->file));
+
+	sock = lc_socket_new(lctx);
+	lc_socket_bind(sock, req->ifx);
+	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
+	chan = lc_channel_nnew(lctx, mtree_nnode(stree, req->node), HASHSIZE);
+	lc_channel_bind(sock, chan);
+
+	net_send_subtree_tmp(stree, req->node, chan, req->ifx, req->mld);
+
+	lc_channel_free(chan);
+	lc_socket_close(sock);
+
+	return arg;
+}
+
 static void *net_job_mdex_send_tree(void *arg)
 {
 	struct net_data_event_s *data = (struct net_data_event_s *)arg;
@@ -911,32 +1008,45 @@ static void *net_job_mdex_send_tree(void *arg)
 	return arg;
 }
 
+static void net_queue_job(mdex_t *mdex, mld_watch_t *event, mdex_file_t *file, size_t node,
+		void *(*f)(void *arg))
+{
+	struct net_data_event_s *arg = calloc(1, sizeof (struct net_data_event_s));
+	if (!arg) return;
+	memcpy(&arg->grp, event->grp, sizeof(struct in6_addr));
+	arg->mld = event->mld;
+	arg->ifx = event->ifx;
+	arg->file = file;
+	arg->node = node;
+	job_push_new(mdex_q(mdex), f, arg, 0, &free, 0);
+}
+
 /* MLD JOIN detected - lets see what they want */
-#ifdef MLD_ENABLE
 static void net_join(mld_watch_t *event, mld_watch_t *watch)
 {
 	mdex_t *mdex = (mdex_t *)watch->arg;
 	char strgrp[INET6_ADDRSTRLEN];
 	void *data = NULL;
+	size_t node = 0;
 	char type = 0;
 
 	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
 	DEBUG("%s() received request for grp %s on if=%u", __func__, strgrp, event->ifx);
 
-	mdex_get(mdex, event->grp, &data, &type);
+	// FIXME - refactor: allocate struct net_data_event_s in mdex_get() and
+	// pass straight to job_push_new() - net_queue_job() is a waste of space
+	mdex_get(mdex, event->grp, &data, &type, &node);
 	if (!data) return;
 
 	if (type == MDEX_FILE) {
-		mdex_file_t *f = (mdex_file_t *)data;
-		struct net_data_event_s *arg = calloc(1, sizeof (struct net_data_event_s));
-		if (!arg) return;
-		DEBUG("file '%s' requested", mdex_file_fpath(f));
-		arg->mld = event->mld;
-		arg->ifx = event->ifx;
-		memcpy(&arg->grp, event->grp, sizeof(struct in6_addr));
-		arg->file = f;
-		job_push_new(mdex_q(mdex), &net_job_mdex_send_tree, arg, 0, &free, 0);
+		DEBUG("file '%s' requested", mdex_file_fpath((mdex_file_t *)data));
+		net_queue_job(mdex, event, (mdex_file_t *)data, node, &net_job_mdex_send_tree);
 	}
+	else if (type == MDEX_BLOCK) {
+		DEBUG("block requested");
+		net_queue_job(mdex, event, (mdex_file_t *)data, node, &net_job_mdex_send_subtree);
+	}
+	else return;
 }
 #endif
 

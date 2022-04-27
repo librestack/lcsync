@@ -43,6 +43,7 @@ struct mdex_grp_s {
 	mdex_grp_t *next;
 	struct in6_addr grp;
 	char type;
+	size_t node;
 	void *entry;
 };
 
@@ -60,7 +61,7 @@ struct mdex_s {
 static mdex_t *g_mdex;
 
 /* find grp, return object and type */
-int mdex_get(mdex_t *mdex, struct in6_addr *addr, void **data, char *type)
+int mdex_get(mdex_t *mdex, struct in6_addr *addr, void **data, char *type, size_t *node)
 {
 	char strgrp[INET6_ADDRSTRLEN];
 	int ret = 0;
@@ -71,6 +72,7 @@ int mdex_get(mdex_t *mdex, struct in6_addr *addr, void **data, char *type)
 		if (!memcmp(&grp->grp, addr, sizeof(struct in6_addr))) {
 			*data = grp->entry;
 			*type = grp->type;
+			*node = grp->node;
 			switch (grp->type) {
 			case MDEX_SHARE:
 				DEBUG("MDEX_SHARE");
@@ -185,6 +187,28 @@ static void mdex_fpath_set(mdex_t *mdex, mdex_file_t *file, const char *fpath)
 	free(dtmp);
 }
 
+static int mdex_file_blocks(mdex_t *mdex, mdex_file_t *file)
+{
+	unsigned char *hash = mtree_data(file->tree, 0);
+	lc_channel_t *chan = NULL;
+
+	for (size_t z = 0; z <= mtree_nodes(file->tree); z++, hash += HASHSIZE) {
+		chan = lc_channel_nnew(mdex->lctx, hash, HASHSIZE);
+		if (!chan) return -1;
+		mdex_grp_t *grp = calloc(1, sizeof(mdex_grp_t));
+		if (!grp) return -1;
+		memcpy(&grp->grp, lc_channel_in6addr(chan), sizeof(struct in6_addr));
+		grp->type = (z > mtree_blocks(file->tree)) ? MDEX_SUBTREE : MDEX_BLOCK;
+		grp->entry = file;
+		grp->node = z;
+		grp->next = g_mdex->grp;
+		g_mdex->grp = grp;
+		lc_channel_free(chan);
+	}
+
+	return 0;
+}
+
 static int mdex_file_mtree(mdex_t *mdex, mdex_file_t *file)
 {
 	char *smap;
@@ -230,7 +254,8 @@ static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, str
 		sem_wait(&g_mdex->lock);
 		g_mdex->files++;
 		g_mdex->bytes += sb->st_size;
-		mdex_file_mtree(g_mdex, file);
+		mdex_file_mtree(g_mdex, file); // FIXME - check return value == -1
+		mdex_file_blocks(g_mdex, file);
 		file->next = g_mdex->file;
 		g_mdex->file = file;
 		grp->next = g_mdex->grp;
