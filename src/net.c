@@ -874,6 +874,7 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 	struct iovec iov[vlen];
 	size_t treesz = mtree_treelen(tree);
 	const int on = 1;
+	unsigned int iface = mld_idx_iface(mld, ifx);
 	net_treehead_t hdr = {
 		.data = htobe64((uint64_t)mdex_file_sb(f)->st_size),
 		.size = htobe64(treesz),
@@ -893,7 +894,7 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 
-	do {
+	while (running && mld_filter_grp_cmp(mld, iface, grp)) {
 		iov[1].iov_len = treesz;
 		iov[1].iov_base = mtree_data(tree, 0);
 		if (net_send_tree(chan, vlen, iov) == -1) {
@@ -901,7 +902,6 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 			break;
 		}
 	}
-	while (running && mld_filter_grp_cmp(mld, ifx, grp));
 
 	/* clean up */
 	lc_socket_close(sock);
@@ -950,6 +950,7 @@ ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
 	enum { vlen = 2 };
 	struct iovec iov[vlen];
 	struct in6_addr *grp = lc_channel_in6addr(chan);
+	unsigned int iface = mld_idx_iface(mld, ifx);
 
 	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
 
@@ -958,13 +959,13 @@ ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
 
 	base = mtree_base(stree);
 	min = mtree_subtree_data_min(base, root);
-        max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
+	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 
 	char strgrp[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, grp, strgrp, INET6_ADDRSTRLEN);
 	DEBUG("%s blocks %zu to %zu on %s", __func__, min, max, strgrp);
 
-	while (running) {
+	while (running && mld_filter_grp_cmp(mld, iface, grp)) {
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
 			DEBUG("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_base = mtree_blockn(stree, blk);
@@ -974,7 +975,6 @@ ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
 			net_send_block_chan(chan, vlen, iov, idx);
 			if (DELAY) usleep(DELAY);
 		}
-		if (mld && !mld_filter_grp_cmp(mld, ifx, grp)) break;
 	}
 
 	return rc;
