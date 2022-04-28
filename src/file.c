@@ -2,6 +2,7 @@
 /* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
 
 #include <err.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
@@ -34,7 +35,7 @@ ssize_t file_map(char *filename, int *fd, char **map, off_t sz, int prot, struct
 		mode = sb->st_mode;
 	}
 	if ((*fd = open(filename, oflag, mode)) == -1) {
-		perror("open");
+		if (errno != EISDIR) perror("open");
 		return -1;
 	}
 	if (!sb->st_ino && fstat(*fd, sb) == -1) {
