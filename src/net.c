@@ -26,6 +26,8 @@
 #include "globals.h"
 #include "file.h"
 
+#define NET_PRINTMAP 0
+
 enum {
 	NET_SEARCH_NOTFOUND = -1,
 	NET_SEARCH_MTREE    = -2
@@ -52,6 +54,7 @@ static unsigned int hamm(unsigned char *map, size_t len)
 
 void printmap(unsigned char *map, size_t len)
 {
+#if NET_PRINTMAP
 	if (quiet) return;
 	logwait(); /* stop logger from scribbling until we're done */
 	for (size_t i = 0; i < len; i++) {
@@ -59,6 +62,9 @@ void printmap(unsigned char *map, size_t len)
 	}
 	fputc('\n', stderr);
 	logdone(); /* release lock */
+#else
+	(void)map; (void)len;
+#endif
 }
 
 void net_reset(void)
