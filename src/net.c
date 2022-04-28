@@ -183,7 +183,7 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 	if (lc_channel_bind(sock, chan) || lc_channel_join(chan)) goto err_3;
 	s = lc_socket_raw(sock);
 	byt = net_recv_tree(s, iov, &blocksz);
-	if (byt > 0) {
+	if (running && byt > 0) {
 		DEBUG("%s(): tree received (%zi bytes)", __func__, byt);
 		*tree = mtree_create(iov[1].iov_len, blocksz);
 		mtree_setdata(*tree, iov[0].iov_base);
