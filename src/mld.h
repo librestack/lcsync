@@ -58,8 +58,15 @@ typedef enum {
 typedef struct mld_s mld_t;
 typedef struct mld_addr_rec_s mld_addr_rec_t;
 typedef struct mld_filter_s mld_filter_t;
+typedef struct mld_grp_s mld_grp_t;
 typedef struct mld_timerjob_s mld_timerjob_t;
 typedef struct mld_watch_s mld_watch_t;
+
+struct mld_grp_s {
+	mld_t *mld;
+	unsigned int iface;
+	struct in6_addr *grp;
+};
 
 struct mld_watch_s {
 	mld_t *mld;

@@ -231,7 +231,14 @@ err_0:
 	return iov;
 }
 
-ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov)
+/* return -1 (true) if filter matches, 0 if not. If NULL filter, return true */
+int net_check_mld_filter(mld_grp_t *g)
+{
+	return (g) ? mld_filter_grp_cmp(g->mld, g->iface, g->grp) : -1;
+}
+
+ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov,
+		mld_grp_t *check)
 {
 	TRACE("%s()", __func__);
 	ssize_t byt = 0, rc;
@@ -247,7 +254,7 @@ ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov)
 		return -1;
 	}
 	memcpy(data, iov[1].iov_base, len);
-	while (running && len) {
+	while (running && len && net_check_mld_filter(check)) {
 		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
 		iov[1].iov_len = sz;
 		iov[1].iov_base = data + off;
@@ -328,7 +335,7 @@ void *net_job_send_tree(void *arg)
 		if (mld_enabled && data->mld) mld_wait(data->mld, 0, grp);
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
-		if (net_send_tree(chan, vlen, iov) == -1) {
+		if (net_send_tree(chan, vlen, iov, NULL) == -1) {
 			ERROR("error sending tree - aborting");
 			break;
 		}
@@ -378,7 +385,6 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	iov[1].iov_base = buf;
 	iov[1].iov_len = DATA_FIXED;
 	if (!dryrun) while (running && hamm(bitmap, maplen) && PKTS) {
-		DEBUG("%s() recvmsg", __func__);
 		// FIXME - we get here (0066), but no further
 		while (running && !(rc = poll(&fds, 1, 100)));
 		if (rc > 0 && (msglen = recvmsg(sock, &msgh, 0)) == -1) {
@@ -882,6 +888,11 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 		.chan = net_send_channels,
 		.pkts = htobe32(howmany(treesz, DATA_FIXED))
 	};
+	mld_grp_t check = {
+		.mld = mld,
+		.iface = iface,
+		.grp = grp
+	};
 
 	DEBUG("%s() - %s", __func__, mdex_file_alias(f));
 	lctx = lc_channel_ctx(chan);
@@ -897,7 +908,7 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 	while (running && mld_filter_grp_cmp(mld, iface, grp)) {
 		iov[1].iov_len = treesz;
 		iov[1].iov_base = mtree_data(tree, 0);
-		if (net_send_tree(chan, vlen, iov) == -1) {
+		if (net_send_tree(chan, vlen, iov, &check) == -1) {
 			ERROR("error sending tree - aborting");
 			break;
 		}
@@ -910,7 +921,9 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 /* break a block into DATA_FIXED size pieces and send with header
  * header is in iov[0], data in iov[1]
  * idx and len need updating */
-static void net_send_block_chan(lc_channel_t *chan, size_t vlen, struct iovec *iov, size_t blk)
+static void net_send_block_chan(lc_channel_t *chan, mld_t *mld, unsigned int iface,
+	struct in6_addr *grp,
+	size_t vlen, struct iovec *iov, size_t blk)
 {
 	ssize_t byt;
 	size_t len = iov[1].iov_len;
@@ -923,7 +936,7 @@ static void net_send_block_chan(lc_channel_t *chan, size_t vlen, struct iovec *i
 		.msg_iov = iov,
 		.msg_iovlen = vlen,
 	};
-	while (running && len) {
+	while (running && len && mld_filter_grp_cmp(mld, iface, grp)) {
 		sz = MIN(len, DATA_FIXED);
 		iov[1].iov_len = sz;
 		iov[1].iov_base = ptr;
@@ -972,7 +985,8 @@ ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
 			if (!iov[1].iov_base) continue;
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
-			net_send_block_chan(chan, vlen, iov, idx);
+			net_send_block_chan(chan, mld, iface, grp, vlen, iov, idx);
+			if (!mld_filter_grp_cmp(mld, iface, grp)) return rc;
 			if (DELAY) usleep(DELAY);
 		}
 	}
