@@ -113,7 +113,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 			byt = -1;
 			break;
 		}
-		DEBUG("%s(): recv %zi bytes", __func__, msglen);
+		FTRACE("%s(): recv %zi bytes", __func__, msglen);
 		hdr = (net_treehead_t *)buf;
 		if (!bitmap) {
 			pkts = be32toh(hdr->pkts);
@@ -121,7 +121,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 				DEBUG("invalid packet header");
 				return -1;
 			}
-			DEBUG("packets = %lu", pkts);
+			FTRACE("packets = %lu", pkts);
 			maplen = howmany(pkts, CHAR_BIT);
 			if (!(bitmap = malloc(maplen))) {
 				perror("malloc()");
@@ -152,7 +152,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 		}
 		byt += be32toh(hdr->len);
 		printmap(bitmap, pkts);
-		DEBUG("packets still required=%u", hamm(bitmap, maplen));
+		FTRACE("packets still required=%u", hamm(bitmap, maplen));
 	}
 	while (running && hamm(bitmap, maplen));
 	// TODO verify tree (check hashes, mark bitmap with any that don't
@@ -274,7 +274,7 @@ ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov,
 			perror("sendmsg()");
 			byt = -1; break;
 		}
-		DEBUG("%zi bytes sent (mtree)", rc);
+		FTRACE("%zi bytes sent (mtree)", rc);
 		byt += rc;
 		if (DELAY) usleep(DELAY);
 	}
@@ -400,25 +400,25 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 		else if (rc == -1) {
 			perror("poll()");
 		}
-		DEBUG("%s(): recv %zi bytes", __func__, msglen);
+		FTRACE("%s(): recv %zi bytes", __func__, msglen);
 		idx = be32toh(hdr.idx);
 		len = (size_t)be32toh(hdr.len);
 		blk = idx / bits;
 		if (isset(bitmap, idx)) {
 			off = (idx % bits) * DATA_FIXED;
-			DEBUG("recv'd a block I wanted idx=%u, blk=%zu", idx, blk);
+			FTRACE("recv'd a block I wanted idx=%u, blk=%zu", idx, blk);
 			memcpy(mtree_blockn(dtree, blk + min) + off, buf, len);
 			clrbit(bitmap, idx);
 			PKTS--;
 		}
 		else {
-			DEBUG("recv'd a block I didn't want idx=%u, blk=%zu", idx, blk);
+			FTRACE("recv'd a block I didn't want idx=%u, blk=%zu", idx, blk);
 		}
 		byt += be32toh(hdr.len);
-		DEBUG("packets still required=%u", hamm(bitmap, maplen));
-		//printmap(bitmap, mtree_base_subtree(stree, root) * bits);
+		FTRACE("packets still required=%u", hamm(bitmap, maplen));
+		printmap(bitmap, mtree_base_subtree(stree, root) * bits);
 	}
-	DEBUG("receiver - all blocks received");
+	FTRACE("receiver - all blocks received");
 	free(bitmap);
 	return byt;
 }
@@ -442,14 +442,14 @@ ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root)
 	sa = lc_channel_sockaddr(chan);
 	grp = &sa->sin6_addr;
 	inet_ntop(AF_INET6, grp, straddr, INET6_ADDRSTRLEN);
-	DEBUG("recving subtree root=%zu on channel addr: %s", root, straddr);
+	FTRACE("recving subtree root=%zu on channel addr: %s", root, straddr);
 	if (lc_channel_bind(sock, chan) || lc_channel_join(chan))
 		goto err_3;
 	s = lc_socket_raw(sock);
 	if (hex) mtree_hexdump(stree, stderr);
-	DEBUG("recving subtree with root %zu", root);
+	FTRACE("recving subtree with root %zu", root);
 	byt = net_recv_subtree(s, stree, dtree, root);
-	DEBUG("complete subtree with root %zu", root);
+	FTRACE("complete subtree with root %zu", root);
 	lc_channel_part(chan);
 err_3:
 	lc_channel_free(chan);
@@ -630,7 +630,7 @@ static void net_send_block(int sock, struct sockaddr_in6 *sa, size_t vlen, struc
 			perror("sendmsg()");
 			break;
 		}
-		DEBUG("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
+		FTRACE("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
 		len -= sz;
 		ptr += sz;
 		idx++;
@@ -675,7 +675,7 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 			 * on all interfaces and wait to be told what blocks to
 			 * send, firing up a thread only when required */
 			if (mld_enabled && mld) mld_wait(mld, 0, &sa->sin6_addr);
-			DEBUG("sending block %zu with idx=%zu", blk, idx);
+			FTRACE("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_base = mtree_blockn(stree, blk);
 			if (!iov[1].iov_base) continue;
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
@@ -699,9 +699,9 @@ void *net_job_sync_subtree(void *arg)
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *stree = data->iov[0].iov_base;
 	mtree_tree *dtree = data->iov[1].iov_base;
-	DEBUG("%s() starting", __func__);
+	FTRACE("%s() starting", __func__);
 	net_sync_subtree(stree, dtree, data->n);
-	DEBUG("%s() done", __func__);
+	FTRACE("%s() done", __func__);
 	return arg;
 }
 
@@ -753,7 +753,7 @@ static ssize_t net_tree_level_search(lc_ctx_t *lctx, mtree_tree *tree, size_t lv
 	sa = lc_channel_sockaddr(chan);
 	inet_ntop(AF_INET6, grp, strgrp, INET6_ADDRSTRLEN);
 	inet_ntop(AF_INET6, &sa->sin6_addr, strgrpa, INET6_ADDRSTRLEN);
-	DEBUG("checking %s (grp)\n              == %s (alias)", strgrp, strgrpa);
+	FTRACE("checking %s (grp)\n              == %s (alias)", strgrp, strgrpa);
 
 	/// FIXME FIXME FIXME
 	// receiving request for grp which is not the alias
@@ -900,7 +900,6 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 		.grp = grp
 	};
 
-	DEBUG("%s() - %s", __func__, mdex_file_alias(f));
 	lctx = lc_channel_ctx(chan);
 	sock = lc_socket_new(lctx);
 	lc_socket_bind(sock, ifx);
@@ -911,6 +910,8 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 
+	INFO("sending tree for %s (%zu bytes, %zu nodes)", mdex_file_alias(f), mtree_treelen(tree),
+			mtree_nodes(tree));
 	while (running && mld_filter_grp_cmp(mld, iface, grp)) {
 		iov[1].iov_len = treesz;
 		iov[1].iov_base = mtree_data(tree, 0);
@@ -952,7 +953,7 @@ static void net_send_block_chan(lc_channel_t *chan, mld_t *mld, unsigned int ifa
 			perror("lc_channel_sendmsg()");
 			break;
 		}
-		DEBUG("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
+		FTRACE("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
 		len -= sz;
 		ptr += sz;
 		idx++;
@@ -982,11 +983,11 @@ ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
 
 	char strgrp[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, grp, strgrp, INET6_ADDRSTRLEN);
-	DEBUG("%s blocks %zu to %zu on %s", __func__, min, max, strgrp);
+	FTRACE("%s blocks %zu to %zu on %s", __func__, min, max, strgrp);
 
 	while (running && mld_filter_grp_cmp(mld, iface, grp)) {
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
-			DEBUG("sending block %zu with idx=%zu", blk, idx);
+			FTRACE("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_base = mtree_blockn(stree, blk);
 			if (!iov[1].iov_base) continue;
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
@@ -1003,7 +1004,7 @@ ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
 #ifdef MLD_ENABLE
 static void *net_job_mdex_send_subtree(void *arg)
 {
-	DEBUG("%s", __func__);
+	TRACE("%s", __func__);
 	struct net_data_event_s *req = (struct net_data_event_s *)arg;
 	lc_ctx_t *lctx = lc_channel_ctx(mdex_file_chan(req->file));
 	lc_socket_t *sock;
@@ -1011,7 +1012,7 @@ static void *net_job_mdex_send_subtree(void *arg)
 	mtree_tree *stree = mdex_file_tree(req->file);
 	const int on = 1;
 
-	DEBUG("node %zu of %s requested", req->node, mdex_file_alias(req->file));
+	FTRACE("node %zu of %s requested", req->node, mdex_file_alias(req->file));
 
 	sock = lc_socket_new(lctx);
 	lc_socket_bind(sock, req->ifx);
@@ -1088,7 +1089,7 @@ int net_send_mdex(int *argc, char *argv[])
 #endif
 	lc_ctx_t *lctx;
 
-	DEBUG("%s()", __func__);
+	TRACE("%s()", __func__);
 
 	lctx = lc_ctx_new();
 #ifdef MLD_ENABLE

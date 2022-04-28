@@ -43,7 +43,7 @@ enum {
 };
 
 #define LOG_LOGLEVEL_DEFAULT 15
-#define LOG_LOGLEVEL_VERBOSE 127
+#define LOG_LOGLEVEL_VERBOSE 79
 extern unsigned int loglevel;
 
 #define LOG(lvl, ...) if ((lvl & loglevel) == lvl) logmsg(lvl, __VA_ARGS__)
@@ -64,6 +64,7 @@ extern unsigned int loglevel;
 #define FAIL(err) {LOG(LOG_ERROR, err_msg(err));  return err;}
 #define FAILMSG(err, ...) do {LOG(LOG_ERROR, __VA_ARGS__);  return err;} while(0)
 #define TRACE(...) do {LOG(LOG_TRACE, __VA_ARGS__);} while(0)
+#define FTRACE(...) do {LOG(LOG_FULLTRACE, __VA_ARGS__);} while(0)
 #define WARN(...) do {LOG(LOG_WARNING, __VA_ARGS__);} while(0)
 
 /* initialize logger & enable locking (optional) */
