@@ -1183,27 +1183,31 @@ int net_sync(int *argc, char *argv[])
 	DEBUG("mapping dst: %s", dst);
 	len = mtree_len(stree);
 
-	/* check if destination file exists */
 	if (stat(dst, &sbd) == -1) return -1;
+	if ((sbd.st_mode & S_IFMT) == S_IFDIR) {
+		DEBUG("destination '%s' is a directory", dst);
+		ddst = malloc(PATH_MAX);
+		base = strdup(src);
+		snprintf(ddst, PATH_MAX, "%s/%s", dst, basename(base));
+		free(base);
+		dst = ddst;
+		if (stat(dst, &sbd) == -1) {
+			if (errno != ENOENT) {
+				perror("stat");
+				return -1;
+			}
+		}
+	}
 	have_data = ((sbd.st_mode & S_IFMT) == S_IFREG && sbd.st_size > 0);
-	DEBUG("destination '%s' exists and has data", dst);
 
 	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // TODO - set from packet data
-retry_dir:
 	if ((sz_d = file_map(dst, &fdd, &dmap, len, PROT_READ|PROT_WRITE, &sbd)) == -1) {
-		if (errno == EISDIR) {
-			ddst = malloc(PATH_MAX);
-			base = strdup(src);
-			snprintf(ddst, PATH_MAX, "%s/%s", dst, basename(base));
-			free(base);
-			dst = ddst;
-			goto retry_dir;
-		}
 		goto err_0;
 	}
 	blocksz = mtree_blocksz(stree);
 	len = mtree_len(stree);
 	dtree = mtree_create(len, blocksz);
+
 	if (have_data) {
 		mtree_build(dtree, dmap, NULL);
 		if (mtree_verify(dtree, mtree_treelen(dtree))) goto err_1;
