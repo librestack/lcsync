@@ -192,7 +192,7 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 	if (running && byt > 0) {
 		DEBUG("%s(): tree received (%zi bytes)", __func__, byt);
 		*tree = mtree_create(iov[1].iov_len, blocksz);
-		mtree_setdata(*tree, iov[0].iov_base);
+		mtree_settree(*tree, iov[0].iov_base);
 		assert(!mtree_verify(*tree, mtree_treelen(*tree)));
 	}
 	lc_channel_part(chan);
@@ -545,26 +545,21 @@ static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 	TRACE("%s()", __func__);
 	unsigned channels = 1U << net_send_channels; // FIXME - get this from tree
 	job_t *job[channels];
-	const size_t vlen = (dtree) ? 2 : 1;
+	const size_t vlen = 2;
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * vlen;
 	net_data_t *data;
-
 	if (!(data = calloc(1, sz))) return -1;
 	data->len = vlen;
 #ifdef NET_DEBUG
-	if (dtree) {
-		DEBUG("root hashes differ:");
-		hash_hex_debug(stderr, mtree_root(stree), HASHSIZE);
-		hash_hex_debug(stderr, mtree_root(dtree), HASHSIZE);
-	}
+	DEBUG("root hashes differ:");
+	hash_hex_debug(stderr, mtree_root(stree), HASHSIZE);
+	hash_hex_debug(stderr, mtree_root(dtree), HASHSIZE);
 #endif
 	data->byt = mtree_len(stree);
 	data->iov[0].iov_len = mtree_treelen(stree);
 	data->iov[0].iov_base = stree;
-	if (dtree) {
-		data->iov[1].iov_len = mtree_treelen(dtree);
-		data->iov[1].iov_base = dtree;
-	}
+	data->iov[1].iov_len = mtree_treelen(dtree);
+	data->iov[1].iov_base = dtree;
 	unsigned nodes = MIN(channels, mtree_blocks(stree));
 	for (unsigned chan = 0; chan < nodes; chan++) {
 		data->n = nodes - 1 + chan;
@@ -703,7 +698,7 @@ void *net_job_sync_subtree(void *arg)
 {
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *stree = data->iov[0].iov_base;
-	mtree_tree *dtree = (data->len > 1) ? data->iov[1].iov_base : NULL;
+	mtree_tree *dtree = data->iov[1].iov_base;
 	FTRACE("%s() starting", __func__);
 	net_sync_subtree(stree, dtree, data->n);
 	FTRACE("%s() done", __func__);
@@ -1208,12 +1203,15 @@ retry_dir:
 	}
 	blocksz = mtree_blocksz(stree);
 	len = mtree_len(stree);
+	dtree = mtree_create(len, blocksz);
 	if (have_data) {
-		dtree = mtree_create(len, blocksz);
 		mtree_build(dtree, dmap, NULL);
 		if (mtree_verify(dtree, mtree_treelen(dtree))) goto err_1;
 	}
-	if (!have_data || memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
+	else {
+		mtree_setdata(dtree, dmap);
+	}
+	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
 		net_sync_trees(stree, dtree, q);
 	}
 	rc = 0;
