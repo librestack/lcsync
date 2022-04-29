@@ -9,7 +9,7 @@ export INSTALLDIR
 PROGRAM := lcsync
 export PROGRAM
 
-.PHONY: all clean src test check install net-setup net-teardown setcap
+.PHONY: all clean src test check install net-setup net-teardown setcap testfiles
 
 all: src
 
@@ -67,3 +67,13 @@ net-teardown:
 	ip netns del vnet0
 	ip netns del vnet1
 	ip netns show
+
+testfiles:
+	@dir="/tmp/lcsync/testfiles" ; \
+	echo $$dir ; \
+	mkdir -p $$dir; \
+	for z in {1..10}; do \
+		c=$$((2 ** $$z * 1024)); \
+		echo $$c; \
+		dd if=/dev/random of=$$dir/testfile.$$z bs=1024 count=$$c; \
+	done
