@@ -495,11 +495,12 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root, u
 	job_queue_t *q;
 	job_t *job;
 	unsigned char *map = NULL;
-	if (!memcmp(mtree_nnode(t1, root), mtree_nnode(t2, root), HASHSIZE))
+	if (t2 && !memcmp(mtree_nnode(t1, root), mtree_nnode(t2, root), HASHSIZE))
 		return NULL; /* subtree root matches, stop now */
 	base = mtree_base_subtree(t1, root);
 	n = (base + (CHAR_BIT - 1)) / CHAR_BIT;
 	map = calloc(bits, n);
+	if (!t2) return map;
 	child = mtree_child(t1, root);
 	if (!child) { /* leaf node */
 		map[0] |= 1U;

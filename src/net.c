@@ -545,21 +545,26 @@ static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 	TRACE("%s()", __func__);
 	unsigned channels = 1U << net_send_channels; // FIXME - get this from tree
 	job_t *job[channels];
-	const size_t vlen = 2;
+	const size_t vlen = (dtree) ? 2 : 1;
 	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * vlen;
 	net_data_t *data;
+
 	if (!(data = calloc(1, sz))) return -1;
 	data->len = vlen;
 #ifdef NET_DEBUG
-	DEBUG("root hashes differ:");
-	hash_hex_debug(stderr, mtree_root(stree), HASHSIZE);
-	hash_hex_debug(stderr, mtree_root(dtree), HASHSIZE);
+	if (dtree) {
+		DEBUG("root hashes differ:");
+		hash_hex_debug(stderr, mtree_root(stree), HASHSIZE);
+		hash_hex_debug(stderr, mtree_root(dtree), HASHSIZE);
+	}
 #endif
 	data->byt = mtree_len(stree);
 	data->iov[0].iov_len = mtree_treelen(stree);
 	data->iov[0].iov_base = stree;
-	data->iov[1].iov_len = mtree_treelen(dtree);
-	data->iov[1].iov_base = dtree;
+	if (dtree) {
+		data->iov[1].iov_len = mtree_treelen(dtree);
+		data->iov[1].iov_base = dtree;
+	}
 	unsigned nodes = MIN(channels, mtree_blocks(stree));
 	for (unsigned chan = 0; chan < nodes; chan++) {
 		data->n = nodes - 1 + chan;
@@ -698,7 +703,7 @@ void *net_job_sync_subtree(void *arg)
 {
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *stree = data->iov[0].iov_base;
-	mtree_tree *dtree = data->iov[1].iov_base;
+	mtree_tree *dtree = (data->len > 1) ? data->iov[1].iov_base : NULL;
 	FTRACE("%s() starting", __func__);
 	net_sync_subtree(stree, dtree, data->n);
 	FTRACE("%s() done", __func__);
@@ -1166,6 +1171,8 @@ int net_sync(int *argc, char *argv[])
 	char *dmap = NULL;
 	struct sigaction sa_int = { .sa_handler = net_stop };
 	unsigned char hash[HASHSIZE];
+	int have_data;
+
 	job_queue_t *q = job_queue_create(1U << net_send_channels);
 	mtree_tree *stree = NULL, *dtree = NULL;
 	TRACE("%s('%s')", __func__, src);
@@ -1180,6 +1187,12 @@ int net_sync(int *argc, char *argv[])
 	}
 	DEBUG("mapping dst: %s", dst);
 	len = mtree_len(stree);
+
+	/* check if destination file exists */
+	if (stat(dst, &sbd) == -1) return -1;
+	have_data = ((sbd.st_mode & S_IFMT) == S_IFREG && sbd.st_size > 0);
+	DEBUG("destination '%s' exists and has data", dst);
+
 	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // TODO - set from packet data
 retry_dir:
 	if ((sz_d = file_map(dst, &fdd, &dmap, len, PROT_READ|PROT_WRITE, &sbd)) == -1) {
@@ -1195,10 +1208,12 @@ retry_dir:
 	}
 	blocksz = mtree_blocksz(stree);
 	len = mtree_len(stree);
-	dtree = mtree_create(len, blocksz);
-	mtree_build(dtree, dmap, NULL);
-	if (mtree_verify(dtree, mtree_treelen(dtree))) goto err_1;
-	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
+	if (have_data) {
+		dtree = mtree_create(len, blocksz);
+		mtree_build(dtree, dmap, NULL);
+		if (mtree_verify(dtree, mtree_treelen(dtree))) goto err_1;
+	}
+	if (!have_data || memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
 		net_sync_trees(stree, dtree, q);
 	}
 	rc = 0;
