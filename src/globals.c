@@ -15,7 +15,7 @@ size_t PKTS = SIZE_MAX;
 int quiet = 0;
 int verbose = 0;
 char *progname;
-size_t blocksize = 1024;
+size_t blocksize = 4096;
 uint8_t net_send_channels = 3;
 
 int succeed(int *argc, char *argv[])
