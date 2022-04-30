@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net>
+# Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net>
 
+SHELL = /bin/bash
 CFLAGS := -Wall -Wextra -Wpedantic -g
 CFLAGS-CLANG := -Wno-gnu-zero-variadic-macro-arguments
 export CFLAGS
