@@ -929,7 +929,10 @@ int net_sync(int *argc, char *argv[])
 	DEBUG("mapping dst: %s", dst);
 	len = mtree_len(stree);
 
-	if (stat(dst, &sbd) == -1) return -1;
+	if (stat(dst, &sbd) == -1 && errno != ENOENT) {
+		perror("stat");
+		return -1;
+	}
 	if ((sbd.st_mode & S_IFMT) == S_IFDIR) {
 		DEBUG("destination '%s' is a directory", dst);
 		ddst = malloc(PATH_MAX);
