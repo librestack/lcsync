@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
+/* Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net> */
 
 #include <err.h>
 #include <errno.h>
@@ -92,7 +92,8 @@ int file_sync(int *argc, char *argv[])
 	char *smap = NULL, *dmap = NULL;
 	size_t base, blocksz, n, nthreads, off, sz;
 	ssize_t sz_s, sz_d;
-	struct stat sbs, sbd;
+	struct stat sbs = {0};
+	struct stat sbd = {0};
 	job_queue_t *jobq;
 	mtree_tree *stree, *dtree;
 	DEBUG("mapping src: %s", src);
