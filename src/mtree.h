@@ -167,10 +167,4 @@ size_t mtree_data_first(size_t nchunks, size_t nthreads, size_t id);
 size_t mtree_data_last(size_t nchunks, size_t nthreads, size_t id);
 size_t mtree_tree_first(size_t nchunks, size_t nthreads, size_t id);
 
-#if 0
-/* search a level (numbered from top=0) for hash, returning node number, or -1
- * if not found */
-ssize_t mtree_level_search(mtree_tree *tree, size_t lvl, unsigned char *hash);
-#endif
-
 #endif /* _MTREE_H */

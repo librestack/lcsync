@@ -65,16 +65,4 @@ struct mld_addr_rec_s {
 static_assert(sizeof(struct mld_addr_rec_s) == 20, "ensure struct doesn't need packing");
 #endif
 
-/* Version 2 Multicast Listener Report Message */
-#if 0
-struct mld_lrm_t {
-	uint8_t         type;	/* type field */
-	uint8_t         res1;   /* reserved */
-	uint16_t        cksm;   /* checksum field */
-	uint16_t        res2;   /* reserved */
-	uint16_t        recs;   /* Nr of Mcast Address Records */
-	char *		mrec;   /* First MCast Address Record */
-} __attribute__((__packed__));
-#endif
-
 #endif /* MLD_PVT_H */

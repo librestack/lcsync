@@ -17,12 +17,6 @@
 #define MTU_FIXED 1194
 #define DATA_FIXED 1024
 
-#if 0
-enum net_channel_flags {
-	NET_TREE = 1,
-};
-#endif
-
 /* packet header for tree data */
 typedef struct net_treehead_s {
 	/* packet index 0 to n-1 of tree */

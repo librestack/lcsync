@@ -558,20 +558,3 @@ void mtree_update(mtree_tree *tree, char *data, size_t n)
 		hash_final(&state, parent, HASHSIZE);
 	}
 }
-
-#if 0
-ssize_t mtree_level_search(mtree_tree *tree, size_t lvl, unsigned char *hash)
-{
-	// TODO
-	size_t n;
-	size_t first = (1 << lvl) - 1;
-	size_t last = (node + 1) * 2 - 1;
-	for (n = first; n <= last; n++) {
-		// TODO compare hashes
-		if (!memcmp(hash, mtree_?(n), sizeof something) {
-			return (ssize_t)n;
-		}
-	}
-	return -1;
-}
-#endif

@@ -1,19 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
+/* Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net> */
 
 #ifndef _JOB_H
 #define _JOB_H 1
 
 #include <pthread.h>
 #include <semaphore.h>
-
-#if 0
-enum job_status {
-	JOB_STATUS_READY,
-	JOB_STATUS_DONE_OK,
-	JOB_STATUS_DONE_ERR
-};
-#endif
 
 enum job_flag {
 	JOB_COPY = 1,	/* copy arg */

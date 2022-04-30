@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
+/* Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net> */
 #define _GNU_SOURCE /* required for struct in6_pktinfo */
 #include "mld_pvt.h"
 #include "log.h"
@@ -23,8 +23,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-//#define DEBUG_MLD 1
-#ifdef DEBUG_MLD
+#define DEBUG_MLD 0
+#if DEBUG_MLD
 #undef DEBUG
 #define DEBUG(...) do { if (DEBUG_ON) LOG(LOG_DEBUG, __VA_ARGS__); } while(0)
 #else
@@ -164,14 +164,6 @@ lc_channel_t *mld_notification_channel(mld_t *mld, struct in6_addr *addr, int ev
 		addr = &any;
 	}
 	memcpy(&sa.sin6_addr, addr, sizeof(struct in6_addr));
-#if 0
-	// FIXME
-	if (!inet_ntop(AF_INET6, addr, &sa.sin6_addr, INET6_ADDRSTRLEN)) {
-		ERROR("inet_ntop()");
-		return NULL;
-	}
-#endif
-
 	tmp = lc_channel_init(mld->lctx, &sa);
 	if (!tmp) return NULL;
 	return lc_channel_sidehash(tmp, (unsigned char *)&events, sizeof(unsigned char));
@@ -239,7 +231,7 @@ void *mld_watch_thread(void *arg)
 	for (;;) {
 		DEBUG("%s() - waiting for notification", __func__);
 		recvmsg(s, &msg, 0);
-#ifdef DEBUG_MLD
+#if DEBUG_MLD
 		char strgrp[INET6_ADDRSTRLEN];
 		inet_ntop(AF_INET6, &pi.ipi6_addr, strgrp, INET6_ADDRSTRLEN);
 		DEBUG("%s() - notification for grp %s (%u) received, doing callback",
@@ -270,7 +262,7 @@ int mld_watch_start(mld_watch_t *watch)
 		}
 	}
 	else mld_filter_grp_add(watch->mld, watch->ifx, lc_channel_in6addr(watch->chan));
-#ifdef DEBUG_MLD
+#if DEBUG_MLD
 	char strgrp[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, lc_channel_in6addr(watch->chan), strgrp, INET6_ADDRSTRLEN);
 	DEBUG("%s() - binding to channel %s", __func__, strgrp);
@@ -359,7 +351,7 @@ exit_err_0:
 /* wait on a specific address */
 int mld_wait(mld_t *mld, unsigned int ifx, struct in6_addr *addr)
 {
-#ifdef DEBUG_MLD
+#if DEBUG_MLD
 	char straddr[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, addr, straddr, INET6_ADDRSTRLEN);
 	DEBUG("%s(ifx=%u): %s", __func__, ifx, straddr);
@@ -525,7 +517,7 @@ int mld_filter_grp_cmp(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 
 int mld_filter_grp_del(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
-#ifdef DEBUG_MLD
+#if DEBUG_MLD
 	char straddr[INET6_ADDRSTRLEN];
 	char ifname[IF_NAMESIZE];
 	unsigned ifx = mld->ifx[iface];
@@ -543,7 +535,7 @@ int mld_filter_grp_del_ai(mld_t *mld, unsigned int iface, struct addrinfo *ai)
 
 int mld_filter_grp_add(mld_t *mld, unsigned int iface, struct in6_addr *saddr)
 {
-#ifdef DEBUG_MLD
+#if DEBUG_MLD
 	char straddr[INET6_ADDRSTRLEN];
 	char ifname[IF_NAMESIZE];
 	unsigned ifx = mld->ifx[iface];
