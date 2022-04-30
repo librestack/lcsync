@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
+/* Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net> */
 
 #define MLD_ENABLE 1
 #define _XOPEN_SOURCE 500
@@ -77,7 +77,6 @@ void net_stop(int signo)
 	(void) signo;
 	running = 0;
 	sem_post(&stop);
-	DEBUG("stopping on signal");
 }
 
 void net_hup(int signo)
@@ -171,21 +170,11 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 	lc_socket_t *sock;
 	lc_channel_t *chan;
 	struct iovec *iov = calloc(1, sizeof(struct iovec) * 2);
+
 	if (!iov) return -1;
 	if (!(lctx = lc_ctx_new())) goto err_0;
 	if (!(sock = lc_socket_new(lctx))) goto err_1;
 	if (!(chan = lc_channel_nnew(lctx, hash, HASHSIZE))) goto err_2;
-
-	// FIXME FIXME FIXME
-	char hex[HEXLEN];
-	sodium_bin2hex(hex, HEXLEN, hash, HASHSIZE);
-
-	char strgrp[INET6_ADDRSTRLEN];
-	inet_ntop(AF_INET6, lc_channel_in6addr(chan), strgrp, INET6_ADDRSTRLEN);
-	DEBUG("%s() alias channel %s", __func__, strgrp);
-
-	// FIXME FIXME FIXME
-
 	if (lc_channel_bind(sock, chan) || lc_channel_join(chan)) goto err_3;
 	s = lc_socket_raw(sock);
 	byt = net_recv_tree(s, iov, &blocksz);
@@ -205,36 +194,6 @@ err_1:
 err_0:
 	free(iov);
 	return byt;
-}
-
-void *net_job_recv_tree(void *arg)
-{
-	TRACE("%s()", __func__);
-	int s;
-	size_t blocksz;
-	ssize_t byt;
-	net_data_t *data = (net_data_t *)arg;
-	lc_ctx_t *lctx;
-	lc_socket_t *sock;
-	lc_channel_t *chan;
-	struct iovec *iov = NULL;
-	if (!(lctx = lc_ctx_new())) return NULL;
-	if (!(sock = lc_socket_new(lctx))) goto err_0;
-	if (!(chan = lc_channel_nnew(lctx, data->alias, HASHSIZE))) goto err_1;
-	if (!(iov = calloc(1, sizeof(struct iovec) * 2))) goto err_2;
-	if (lc_channel_bind(sock, chan) || lc_channel_join(chan)) goto err_2;
-	s = lc_socket_raw(sock);
-	byt = net_recv_tree(s, iov, &blocksz);
-	if (byt == -1) ERROR("error in net_recv_tree");
-	DEBUG("%s(): tree received (%zi bytes)", __func__, byt);
-	lc_channel_part(chan);
-err_2:
-	lc_channel_free(chan);
-err_1:
-	lc_socket_close(sock);
-err_0:
-	lc_ctx_free(lctx);
-	return iov;
 }
 
 /* return -1 (true) if filter matches, 0 if not. If NULL filter, return true */
@@ -282,14 +241,12 @@ ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov,
 	return byt;
 }
 
-void *net_job_send_tree(void *arg)
+static void *net_job_send_tree(void *arg)
 {
 	TRACE("%s()", __func__);
 	const int on = 1;
 	enum { vlen = 2 };
 	struct iovec iov[vlen];
-	struct sockaddr_in6 *sa;
-	struct in6_addr *grp;
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *tree = (mtree_tree *)data->iov[0].iov_base;
 	unsigned char * base = mtree_data(tree, 0);
@@ -308,8 +265,6 @@ void *net_job_send_tree(void *arg)
 		goto err_1;
 	if (lc_channel_bind(sock, chan))
 		goto err_2;
-	sa = lc_channel_sockaddr(chan);
-	grp = &sa->sin6_addr;
 	net_treehead_t hdr = {
 		.data = htobe64((uint64_t)data->byt),
 		.size = htobe64(data->iov[0].iov_len),
@@ -317,28 +272,10 @@ void *net_job_send_tree(void *arg)
 		.chan = net_send_channels,
 		.pkts = htobe32(howmany(data->iov[0].iov_len, DATA_FIXED))
 	};
-	/* TODO - ensure we're not already sending the same thing */
-#ifdef NET_DEBUG
-	char straddr[INET6_ADDRSTRLEN];
-	inet_ntop(AF_INET6, grp, straddr, INET6_ADDRSTRLEN);
-	DEBUG("sending tree on channel addr: %s", straddr);
-	DEBUG("idx=%u", be32toh(hdr.idx));
-	DEBUG("len=%u", be32toh(hdr.len));
-	DEBUG("data=%lu", be64toh(hdr.data));
-	DEBUG("size=%lu", be64toh(hdr.size));
-	DEBUG("blocksz=%u", be32toh(hdr.blocksz));
-	DEBUG("pkts=%u", be32toh(hdr.pkts));
-	DEBUG("chan=%u", hdr.chan);
-	DEBUG("sizeof hdr=%zu", sizeof hdr);
-#endif
 	memcpy(&hdr.hash, data->hash, HASHSIZE);
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 	while (running) {
-		// FIXME - sending needs to be triggered by a join on a specific
-		// interface.  We don't want to block for a join on each
-		// interface, but only fire up our threads when there is a join
-		if (mld_enabled && data->mld) mld_wait(data->mld, 0, grp);
 		iov[1].iov_len = len;
 		iov[1].iov_base = base;
 		if (net_send_tree(chan, vlen, iov, NULL) == -1) {
@@ -375,13 +312,13 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 		.events = POLL_IN
 	};
 	int rc = 0;
-#if 0
-	DEBUG("%s(): blocks  = %zu", __func__, mtree_blocks(stree));
-	DEBUG("%s(): base    = %zu", __func__, mtree_base_subtree(stree, root));
-	DEBUG("%s(): blocksz = %zu", __func__, blocksz);
-	DEBUG("%s(): bits    = %u", __func__, bits);
-	DEBUG("%s(): maplen  = %zu", __func__, maplen);
-#endif
+
+	FTRACE("%s(): blocks  = %zu", __func__, mtree_blocks(stree));
+	FTRACE("%s(): base    = %zu", __func__, mtree_base_subtree(stree, root));
+	FTRACE("%s(): blocksz = %zu", __func__, blocksz);
+	FTRACE("%s(): bits    = %u", __func__, bits);
+	FTRACE("%s(): maplen  = %zu", __func__, maplen);
+
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
 	if (!bitmap) return -1;
 	DEBUG("packets required=%u", hamm(bitmap, maplen));
@@ -391,7 +328,6 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	iov[1].iov_base = buf;
 	iov[1].iov_len = DATA_FIXED;
 	if (!dryrun) while (running && hamm(bitmap, maplen) && PKTS) {
-		// FIXME - we get here (0066), but no further
 		while (running && !(rc = poll(&fds, 1, 100)));
 		if (rc > 0 && (msglen = recvmsg(sock, &msgh, 0)) == -1) {
 			perror("recv()");
@@ -461,84 +397,16 @@ err_0:
 	return byt;
 }
 
-// TODO: write test for this function
-// pass in arg with appropriate data and map
-// check map is updated
-// check jobs are queued
-// data syncing?
-//
-// what does this job do?
-// check a node, if different, queue it up
-// if (and only if) we're at the channel level,
-//	call mtree_diff_subtree() to build channel map
-//	sync data on that channel
-//	(this will be a separate function)
-#if 0
-static void *net_job_diff_tree(void *arg)
+static void *net_job_sync_subtree(void *arg)
 {
 	net_data_t *data = (net_data_t *)arg;
-	size_t sz = sizeof(net_data_t) + sizeof(struct iovec) * data->len;
-	job_queue_t *q = (job_queue_t *)data->iov[0].iov_base;
-	mtree_tree *t1 = (mtree_tree *)data->iov[1].iov_base;
-	mtree_tree *t2 = (mtree_tree *)data->iov[2].iov_base;
-	//char *dstdata = (char *)data->iov[3].iov_base;
-	//size_t len = data->iov[3].iov_len;
-	size_t n = data->n;
-	size_t child;
-
-	DEBUG("sz %zu", sz);
-	DEBUG("checking node %zu", n);
-	if (memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE)) {
-		DEBUG("node %zu is different, but that's not its fault", n);
-		if ((child = mtree_child(t1, n))) {
-			// FIXME: if level == channel, call net_sync_subtree()
-#if 0
-			data->n = child;
-			DEBUG("child of %zu is %zu\n", n, child);
-			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
-			data->n = child + 1;
-			DEBUG("child of %zu is %zu\n", n, child + 1);
-			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
-#endif
-		}
-	}
-	clrbit(data->map, n - 1);
-	printmap(data->map, howmany(data->chan, CHAR_BIT));
-	if (!hamm(data->map, data->chan - 1)) {
-		DEBUG("map is clear - all done");
-		sem_post(&q->done);
-	}
-	return NULL;
+	mtree_tree *stree = data->iov[0].iov_base;
+	mtree_tree *dtree = data->iov[1].iov_base;
+	FTRACE("%s() starting", __func__);
+	net_sync_subtree(stree, dtree, data->n);
+	FTRACE("%s() done", __func__);
+	return arg;
 }
-#endif
-#if 0
-		// TODO: split this out into a function
-	/* if root nodes differ, perform bredth-first search */
-		else {
-			data->map = calloc(1, howmany(data->chan, CHAR_BIT));
-			for (size_t i = 0; i < data->chan; i++) setbit(data->map, i);
-			DEBUG("starting map: ");
-			printmap(data->map, howmany(data->chan, CHAR_BIT));
-
-			// TODO: diff trees, build maps
-			// TODO: bredth search of tree, then mtree_diff_subtree() once at channel level
-
-			data->iov[0].iov_base = q;
-			data->iov[0].iov_len = sz;
-			data->iov[1].iov_base = stree;
-			data->iov[2].iov_base = dtree;
-			data->iov[3].iov_len = *len;
-			data->iov[3].iov_base = dstdata;
-
-			/* push on first two children */
-			data->n = 1;
-			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
-			data->n = 2;
-			job_push_new(q, &net_job_diff_tree, data, sz, &free, JOB_COPY|JOB_FREE);
-			sem_wait(&q->done);
-		}
-		// TODO: recv data blocks - this will happen in net_job_diff_tree()
-#endif
 
 static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 {
@@ -625,7 +493,6 @@ static void net_send_block(int sock, struct sockaddr_in6 *sa, size_t vlen, struc
 		iov[1].iov_base = ptr;
 		hdr->len = htobe32(sz);
 		hdr->idx = htobe32(idx);
-		// FIXME - Syscall param sendmsg(msg.msg_iov[1]) points to unaddressable byte(s)
 		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
 			perror("sendmsg()");
 			break;
@@ -670,10 +537,6 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 	while (running) {
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
-			/* FIXME - we don't want to block here in MLD mode - we
-			 * should subscribe for notifications on all addresses
-			 * on all interfaces and wait to be told what blocks to
-			 * send, firing up a thread only when required */
 			if (mld_enabled && mld) mld_wait(mld, 0, &sa->sin6_addr);
 			FTRACE("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_base = mtree_blockn(stree, blk);
@@ -694,18 +557,7 @@ err_0:
 	return rc;
 }
 
-void *net_job_sync_subtree(void *arg)
-{
-	net_data_t *data = (net_data_t *)arg;
-	mtree_tree *stree = data->iov[0].iov_base;
-	mtree_tree *dtree = data->iov[1].iov_base;
-	FTRACE("%s() starting", __func__);
-	net_sync_subtree(stree, dtree, data->n);
-	FTRACE("%s() done", __func__);
-	return arg;
-}
-
-void *net_job_send_subtree(void *arg)
+static void *net_job_send_subtree(void *arg)
 {
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *stree = data->iov[0].iov_base;
@@ -729,99 +581,6 @@ static void net_send_queue_jobs(net_data_t *data, size_t sz, size_t blocks, unsi
 		free(job_data[chan]);
 	}
 	free(job_tree);
-}
-
-/* Search lvl of tree for node whose hash corresponds to grp.
- * Returns:
- * - node number if found,
- * - NET_SEARCH_MTREE if mtree requested
- * - NET_SEARCH_NOTFOUND if not found */
-static ssize_t net_tree_level_search(lc_ctx_t *lctx, mtree_tree *tree, size_t lvl, struct in6_addr *grp,
-		unsigned char *alias, lc_channel_t *chan)
-{
-	size_t n;
-	size_t first = (1 << lvl) - 1;
-	size_t last = (first + 1) * 2 - 1;
-	struct sockaddr_in6 *sa;
-	ssize_t rc = NET_SEARCH_NOTFOUND;
-	char strgrp[INET6_ADDRSTRLEN];
-	char strgrpa[INET6_ADDRSTRLEN];
-
-	/* first check alias (mtree) hash */
-	/* create a channel from the alias so we can compare addresses */
-	chan = lc_channel_nnew(lctx, alias, HASHSIZE);
-	sa = lc_channel_sockaddr(chan);
-	inet_ntop(AF_INET6, grp, strgrp, INET6_ADDRSTRLEN);
-	inet_ntop(AF_INET6, &sa->sin6_addr, strgrpa, INET6_ADDRSTRLEN);
-	FTRACE("checking %s (grp)\n              == %s (alias)", strgrp, strgrpa);
-
-	/// FIXME FIXME FIXME
-	// receiving request for grp which is not the alias
-	// is it a side-channel?
-
-	if (!memcmp(grp, &sa->sin6_addr, IPV6_BYTES)) {
-		rc = NET_SEARCH_MTREE;
-	}
-	else for (n = first; n <= last; n++) {
-		lc_channel_free(chan);
-		chan = lc_channel_nnew(lctx, mtree_nnode(tree, n), HASHSIZE);
-		sa = lc_channel_sockaddr(chan);
-#ifdef NET_DEBUG
-		inet_ntop(AF_INET6, &sa->sin6_addr, strgrp, INET6_ADDRSTRLEN);
-		DEBUG("%s() checking %s", __func__, strgrp);
-#endif
-		// FIXME - this *never* matches - why?
-		if (!memcmp(grp, &sa->sin6_addr, IPV6_BYTES)) {
-			rc = (ssize_t)n;
-			break;
-		}
-	}
-	lc_channel_free(chan);
-	return rc;
-}
-
-/* this is a callback from within a watch loop
- * it does not need to be reentrant, but we want to keep it tight
- * just push a job and exit so the watch loop can proceed */
-static void net_send_event(mld_watch_t *event, mld_watch_t *watch)
-{
-	net_data_t *data = (net_data_t *)watch->arg;
-	mtree_tree *stree = data->iov[0].iov_base;
-	mld_t *mld = data->mld;
-	lc_ctx_t *lctx = mld_lctx(mld);
-	lc_channel_t *chan = NULL;
-
-#ifdef NET_DEBUG
-	assert(event); assert(mld); assert(stree); assert(lctx);
-	char strgrp[INET6_ADDRSTRLEN];
-	inet_ntop(AF_INET6, event->grp, strgrp, INET6_ADDRSTRLEN);
-	DEBUG("%s() received request for grp %s on if=%u", __func__, strgrp, event->ifx);
-#endif
-
-	ssize_t n;
-	size_t lvl = net_send_channels; //FIXME - are you sure?
-	size_t sz = sizeof(net_data_t) + sizeof(struct iovec);
-
-	// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
-	//
-	// the alias is not being found in net_tree_level_search()
-	//
-	// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
-
-	n = net_tree_level_search(lctx, stree, lvl, event->grp, data->alias, chan);
-	if (n == NET_SEARCH_MTREE) { /* send tree */
-		//unsigned int iface = mld_idx_iface(mld, event->ifx); // FIXME - use iface
-		DEBUG("------------------ MTREE REQUESTED MON COLONEL ------------------------------");
-		job_push_new(data->q, &net_job_send_tree, data, sz, NULL, 0); // FIXME
-	}
-	else if (n >= 0) {           /* send subtree */
-		DEBUG("------------------ BLOCK %zi REQUESTED MON COLONEL --------------------------", n);
-		data->n = (size_t)n;
-		job_push_new(data->q, &net_job_send_subtree, data, sz, &free, JOB_COPY|JOB_FREE);
-	}
-	else {
-		DEBUG("------------------ I HAVE NOT THE THING THAT YOU ARE LOOKING FOR ------------");
-	}
 }
 
 ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
@@ -853,19 +612,8 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->byt = len;
 	data->iov[0].iov_len = mtree_treelen(tree);
 	data->iov[0].iov_base = tree;
-	if (mld_enabled) {
-		mld_watch_t *watch;
-		data->mld = mld_start(&running);
-		if (!data->mld) goto err_3;
-		watch = mld_watch_init(data->mld, 0, NULL, MLD_EVENT_JOIN, &net_send_event, data, 0);
-		mld_watch_start(watch);
-		sem_wait(&stop);
-		mld_watch_cancel(watch);
-		mld_stop(data->mld);
-	}
-	else net_send_queue_jobs(data, sz, blocks, channels);
+	net_send_queue_jobs(data, sz, blocks, channels);
 	rc = 0;
-err_3:
 	free(data);
 err_2:
 	job_queue_destroy(q);
@@ -959,8 +707,6 @@ static void net_send_block_chan(lc_channel_t *chan, mld_t *mld, unsigned int ifa
 		idx++;
 	}
 }
-
-
 
 ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
 	lc_channel_t *chan, unsigned int ifx, mld_t *mld)

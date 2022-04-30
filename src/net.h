@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
+/* Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net> */
 
 #ifndef _NET_H
 #define _NET_H 1
@@ -72,7 +72,6 @@ struct net_data_s {
 	struct iovec	iov[];		/* scatter-gather array */
 };
 
-unsigned int countmap(unsigned char *map, size_t len);
 void printmap(unsigned char *map, size_t len);
 
 /* signal server threads to stop work/exit */
@@ -102,12 +101,6 @@ ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov, mld_gr
 
 ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root);
 ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root);
-
-/* thread job functions for above */
-void *net_job_recv_tree(void *arg);
-void *net_job_send_tree(void *arg);
-void *net_job_sync_subtree(void *arg);
-void *net_job_send_subtree(void *arg);
 
 /* recv data with root hash (or alias) into memory at dstdata which has size len
  * if dstdata is NULL, memory will be allocated. If len is too small, dstdata
