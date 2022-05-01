@@ -230,7 +230,7 @@ ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov,
 		off += sz;
 		len -= sz;
 		if ((rc = lc_channel_sendmsg(chan, &msgh, 0)) == -1) {
-			perror("sendmsg()");
+			perror("lc_channel_sendmsg()");
 			byt = -1; break;
 		}
 		FTRACE("%zi bytes sent (mtree)", rc);
@@ -472,7 +472,7 @@ err_0:
 /* break a block into DATA_FIXED size pieces and send with header
  * header is in iov[0], data in iov[1]
  * idx and len need updating */
-static void net_send_block(int sock, struct sockaddr_in6 *sa, size_t vlen, struct iovec *iov, size_t blk)
+static void net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, size_t blk)
 {
 	ssize_t byt;
 	size_t len = iov[1].iov_len;
@@ -482,8 +482,6 @@ static void net_send_block(int sock, struct sockaddr_in6 *sa, size_t vlen, struc
 	size_t idx = blk * bits;
 	size_t sz;
 	struct msghdr msgh = {
-		.msg_name = sa,
-		.msg_namelen = sizeof *sa,
 		.msg_iov = iov,
 		.msg_iovlen = vlen,
 	};
@@ -493,8 +491,8 @@ static void net_send_block(int sock, struct sockaddr_in6 *sa, size_t vlen, struc
 		iov[1].iov_base = ptr;
 		hdr->len = htobe32(sz);
 		hdr->idx = htobe32(idx);
-		if ((byt = sendmsg(sock, &msgh, 0)) == -1) {
-			perror("sendmsg()");
+		if ((byt = lc_channel_sendmsg(chan, &msgh, 0)) == -1) {
+			perror("lc_channel_sendmsg()");
 			break;
 		}
 		FTRACE("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
@@ -504,21 +502,16 @@ static void net_send_block(int sock, struct sockaddr_in6 *sa, size_t vlen, struc
 	}
 }
 
-ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
+ssize_t net_send_subtree(lc_ctx_t *lctx, mtree_tree *stree, size_t root)
 {
 	TRACE("%s()", __func__);
 	const int on = 1;
-	int s;
 	ssize_t rc = -1;
 	size_t base, min, max;
 	enum { vlen = 2 };
 	struct iovec iov[vlen];
-	struct sockaddr_in6 *sa;
-	lc_ctx_t *lctx;
 	lc_socket_t *sock;
 	lc_channel_t *chan;
-	if (!(lctx = lc_ctx_new()))
-		return -1;
 	if (!(sock = lc_socket_new(lctx)))
 		goto err_0;
 	if (lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on)))
@@ -527,8 +520,6 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 		goto err_1;
 	if (lc_channel_bind(sock, chan))
 		goto err_1;
-	s = lc_channel_socket_raw(chan);
-	sa = lc_channel_sockaddr(chan);
 	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
@@ -537,13 +528,12 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
 	while (running) {
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
-			if (mld_enabled && mld) mld_wait(mld, 0, &sa->sin6_addr);
 			FTRACE("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_base = mtree_blockn(stree, blk);
 			if (!iov[1].iov_base) continue;
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
-			net_send_block(s, sa, vlen, iov, idx);
+			net_send_block(chan, vlen, iov, idx);
 			if (DELAY) usleep(DELAY);
 		}
 	}
@@ -553,7 +543,6 @@ ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root)
 err_1:
 	lc_socket_close(sock);
 err_0:
-	lc_ctx_free(lctx);
 	return rc;
 }
 
@@ -561,7 +550,7 @@ static void *net_job_send_subtree(void *arg)
 {
 	net_data_t *data = (net_data_t *)arg;
 	mtree_tree *stree = data->iov[0].iov_base;
-	net_send_subtree(data->mld, stree, data->n);
+	net_send_subtree(data->lctx, stree, data->n);
 	return arg;
 }
 
@@ -605,6 +594,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 		perror("calloc");
 		goto err_2;
 	}
+	data->lctx = lc_ctx_new();
 	data->q = q;
 	data->chan = channels;
 	data->hash = mtree_root(tree);
@@ -614,6 +604,7 @@ ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
 	data->iov[0].iov_base = tree;
 	net_send_queue_jobs(data, sz, blocks, channels);
 	rc = 0;
+	lc_ctx_free(data->lctx);
 	free(data);
 err_2:
 	job_queue_destroy(q);

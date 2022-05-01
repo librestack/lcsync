@@ -54,6 +54,7 @@ typedef union {
 /* struct for send/recving tree/data block */
 typedef struct net_data_s net_data_t;
 struct net_data_s {
+	lc_ctx_t      * lctx;		/* Librecast Context */
 	unsigned char * alias;		/* hash of file alias */
 	unsigned char * hash;		/* hash of file/data */
 	unsigned char * map;		/* channel bitmap */
@@ -94,7 +95,7 @@ First iovec is assumed to be the header and will be sent with every packet.
 ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov, mld_grp_t *check);
 
 ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root);
-ssize_t net_send_subtree(mld_t *mld, mtree_tree *stree, size_t root);
+ssize_t net_send_subtree(lc_ctx_t *lctx, mtree_tree *stree, size_t root);
 
 /* recv data with root hash (or alias) into memory at dstdata which has size len
  * if dstdata is NULL, memory will be allocated. If len is too small, dstdata
