@@ -468,7 +468,7 @@ err_0:
 /* break a block into DATA_FIXED size pieces and send with header
  * header is in iov[0], data in iov[1]
  * idx and len need updating */
-static void net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, size_t blk)
+static int net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, size_t blk)
 {
 	ssize_t byt;
 	size_t len = iov[1].iov_len;
@@ -481,6 +481,7 @@ static void net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, s
 		.msg_iov = iov,
 		.msg_iovlen = vlen,
 	};
+	int rc = 0;
 	while (running && len) {
 		sz = MIN(len, DATA_FIXED);
 		iov[1].iov_len = sz;
@@ -489,6 +490,7 @@ static void net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, s
 		hdr->idx = htobe32(idx);
 		if ((byt = lc_channel_sendmsg(chan, &msgh, 0)) == -1) {
 			perror("lc_channel_sendmsg()");
+			rc = -1;
 			break;
 		}
 		FTRACE("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
@@ -496,6 +498,7 @@ static void net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, s
 		ptr += sz;
 		idx++;
 	}
+	return rc;
 }
 
 ssize_t net_send_subtree(lc_ctx_t *lctx, mtree_tree *stree, size_t root)
@@ -529,7 +532,7 @@ ssize_t net_send_subtree(lc_ctx_t *lctx, mtree_tree *stree, size_t root)
 			if (!iov[1].iov_base) continue;
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
-			net_send_block(chan, vlen, iov, idx);
+			if (net_send_block(chan, vlen, iov, idx) == -1) return -1;
 			if (DELAY) usleep(DELAY);
 		}
 	}
@@ -554,7 +557,6 @@ static void net_send_queue_jobs(net_data_t *data, size_t sz, size_t blocks, unsi
 {
 	TRACE("%s()", __func__);
 	job_t *job_tree, *job_data[channels];
-	data->lctx = lc_ctx_new();
 	job_tree = job_push_new(data->q, &net_job_send_tree, data, sz, NULL, 0);
 	unsigned nodes = MIN(channels, blocks);
 	for (unsigned chan = 0; chan < nodes; chan++) {
@@ -567,7 +569,6 @@ static void net_send_queue_jobs(net_data_t *data, size_t sz, size_t blocks, unsi
 		free(job_data[chan]);
 	}
 	free(job_tree);
-	lc_ctx_free(data->lctx);
 }
 
 ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
