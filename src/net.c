@@ -251,17 +251,14 @@ static void *net_job_send_tree(void *arg)
 	mtree_tree *tree = (mtree_tree *)data->iov[0].iov_base;
 	unsigned char * base = mtree_data(tree, 0);
 	size_t len = mtree_treelen(tree);
-	lc_ctx_t *lctx;
 	lc_socket_t *sock;
 	lc_channel_t *chan;
 	assert(!mtree_verify(tree, len));
-	if (!(lctx = lc_ctx_new()))
-		return NULL;
-	if (!(sock = lc_socket_new(lctx)))
+	if (!(sock = lc_socket_new(data->lctx)))
 		goto err_0;
 	if (lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof on))
 		goto err_1;
-	if (!(chan = lc_channel_nnew(lctx, data->alias, HASHSIZE)))
+	if (!(chan = lc_channel_nnew(data->lctx, data->alias, HASHSIZE)))
 		goto err_1;
 	if (lc_channel_bind(sock, chan))
 		goto err_2;
@@ -288,7 +285,6 @@ err_2:
 err_1:
 	lc_socket_close(sock);
 err_0:
-	lc_ctx_free(lctx);
 	return NULL;
 }
 
@@ -558,6 +554,7 @@ static void net_send_queue_jobs(net_data_t *data, size_t sz, size_t blocks, unsi
 {
 	TRACE("%s()", __func__);
 	job_t *job_tree, *job_data[channels];
+	data->lctx = lc_ctx_new();
 	job_tree = job_push_new(data->q, &net_job_send_tree, data, sz, NULL, 0);
 	unsigned nodes = MIN(channels, blocks);
 	for (unsigned chan = 0; chan < nodes; chan++) {
@@ -570,6 +567,7 @@ static void net_send_queue_jobs(net_data_t *data, size_t sz, size_t blocks, unsi
 		free(job_data[chan]);
 	}
 	free(job_tree);
+	lc_ctx_free(data->lctx);
 }
 
 ssize_t net_send_data(unsigned char *hash, char *srcdata, size_t len)
