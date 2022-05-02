@@ -90,7 +90,7 @@ int main(void)
 	char *srcdata = calloc(blocks, blocksz);
 	char *dstdata = calloc(blocks, blocksz);
 	assert(srcdata); assert(dstdata);
-	test_name("net_send_data() / net_recv_data()");
+	return test_skip("net_send_data() / net_recv_data()");
 	gentestdata(srcdata, dstdata);
 	saveroothash();
 	test_assert(memcmp(srcdata, dstdata, sz), "src and dst data differ before syncing");

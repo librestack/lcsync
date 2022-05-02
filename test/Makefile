@@ -62,7 +62,7 @@ build:
 	@echo -ne "\n== $@" >> $(LOGFILE)
 	@if [[ (-n $(CAPS) && $EUID -ne 0) || (-z $(CAPS) && $EUID -eq 0) ]]; then echo -e "$(SKIP)"; else $(MEMCHECK) ./$@ 2>> $(LOGFILE) && echo -e " $(PASS)" || echo -e " $(FAIL)"; fi
 	@ln -sf $(LOGFILE) $(LASTLOG)
-	@rm $@
+	@#rm $@
 	@$(eval tests_run=$(shell echo $$(($(tests_run)+1))))
 
 %.check: MEMCHECK = $(VALGRIND)
