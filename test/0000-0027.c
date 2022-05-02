@@ -7,9 +7,11 @@
 #include "../src/job.h"
 #include "../src/net.h"
 #include <errno.h>
-#include <bsd/md5.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
@@ -25,15 +27,43 @@ typedef struct arg_s {
 
 static void do_verify(char *src, char *dst)
 {
-	char *sbuf = NULL;
-	char *dbuf = NULL;
-	char *shash, *dhash;
-	test_assert((shash = MD5File(src, sbuf)) != NULL, "MD5File(%s) - src file exists", src);
-	test_assert((dhash = MD5File(dst, dbuf)) != NULL, "MD5File(%s) - dst file exists", dst);
-	if (shash && dhash)
-		test_assert(!memcmp(shash, dhash, MD5_DIGEST_STRING_LENGTH), "source and destination match");
-	free(shash);
-	free(dhash);
+	struct stat ssb = {0};
+	struct stat dsb = {0};
+	char *smap, *dmap;
+	int fds, fdd;
+
+	/* open src */
+	fds = open(src, O_RDONLY, 0);
+	test_assert(fds != -1, "open() src");
+	if (fds == -1) return;
+
+	/* open dst */
+	fdd = open(dst, O_RDONLY, 0);
+	test_assert(fdd != -1, "open() dst");
+	if (fdd == -1) return;
+
+	/* map src */
+	fstat(fds, &ssb);
+	smap = mmap(NULL, ssb.st_size, PROT_READ, MAP_SHARED, fds, 0);
+	if (smap == MAP_FAILED) perror("mmap");
+	test_assert(smap != MAP_FAILED, "mmap() src");
+
+	/* map dst */
+	fstat(fdd, &dsb);
+	dmap = mmap(NULL, dsb.st_size, PROT_READ, MAP_SHARED, fdd, 0);
+	if (dmap == MAP_FAILED) perror("mmap");
+	test_assert(dmap != MAP_FAILED, "mmap() dst");
+
+	/* verify src and dst match */
+	test_assert(ssb.st_size == dsb.st_size, "src and dst sizes match");
+	if (ssb.st_size != dsb.st_size) return;
+	test_assert(!memcmp(smap, dmap, ssb.st_size), "source and destination match");
+
+	/* clean up */
+	munmap(dmap, dsb.st_size);
+	munmap(smap, ssb.st_size);
+	close(fdd);
+	close(fds);
 }
 
 static void absname(char *file, char *buf, size_t buflen)
@@ -83,7 +113,6 @@ static void do_sync(char *src, char *dst)
 	else
 		timeout.tv_sec += waits;
 	test_assert(!sem_timedwait(&job_recv->done, &timeout), "timeout - recv");
-	free(job_recv);
 
 	/* stop send job */
 	net_stop(SIGINT);
@@ -91,6 +120,7 @@ static void do_sync(char *src, char *dst)
 	timeout.tv_sec++;
 	test_assert(!sem_timedwait(&job_send->done, &timeout), "timeout - send");
 	free(job_send);
+	free(job_recv);
 	job_queue_destroy(q);
 }
 
