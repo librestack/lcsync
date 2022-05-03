@@ -481,25 +481,21 @@ static int net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, si
 		.msg_iovlen = vlen,
 	};
 	int rc = 0;
-	while (running && net_check_mld_filter(check)) {
-		size_t idx = blk * bits;
-		char * ptr = iov[1].iov_base;
-		for (size_t len = blocklen, off = 0; len; len -= sz) {
-			sz = MIN(len, DATA_FIXED);
-			iov[1].iov_len = sz;
-			iov[1].iov_base = ptr + off;
-			hdr->idx = htobe32(idx);
-			hdr->len = htobe32(sz);
-			if ((byt = lc_channel_sendmsg(chan, &msgh, 0)) == -1) {
-				perror("lc_channel_sendmsg()");
-				rc = -1;
-				break;
-			}
-			FTRACE("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
-			if (DELAY) usleep(DELAY);
-			off += sz;
-			idx++;
+	size_t idx = blk * bits;
+	char * ptr = iov[1].iov_base;
+	for (size_t len = blocklen, off = 0; len; len -= sz, off += sz) {
+		if (!net_check_mld_filter(check)) break;
+		sz = MIN(len, DATA_FIXED);
+		iov[1].iov_len = sz;
+		iov[1].iov_base = ptr + off;
+		hdr->idx = htobe32(idx++);
+		hdr->len = htobe32(sz);
+		if ((byt = lc_channel_sendmsg(chan, &msgh, 0)) == -1) {
+			perror("lc_channel_sendmsg()");
+			_exit(EXIT_FAILURE);
 		}
+		FTRACE("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
+		if (DELAY) usleep(DELAY);
 	}
 	return rc;
 }
