@@ -666,9 +666,8 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 /* break a block into DATA_FIXED size pieces and send with header
  * header is in iov[0], data in iov[1]
  * idx and len need updating */
-static void net_send_block_chan(lc_channel_t *chan, mld_t *mld, unsigned int iface,
-	struct in6_addr *grp,
-	size_t vlen, struct iovec *iov, size_t blk)
+static void net_send_block_chan(lc_channel_t *chan, size_t vlen, struct iovec *iov, size_t blk,
+		mld_grp_t *check)
 {
 	ssize_t byt;
 	size_t len = iov[1].iov_len;
@@ -681,7 +680,7 @@ static void net_send_block_chan(lc_channel_t *chan, mld_t *mld, unsigned int ifa
 		.msg_iov = iov,
 		.msg_iovlen = vlen,
 	};
-	while (running && len && mld_filter_grp_cmp(mld, iface, grp)) {
+	while (running && len &&  net_check_mld_filter(check)) {
 		sz = MIN(len, DATA_FIXED);
 		iov[1].iov_len = sz;
 		iov[1].iov_base = ptr;
@@ -707,6 +706,11 @@ ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
 	struct iovec iov[vlen];
 	struct in6_addr *grp = lc_channel_in6addr(chan);
 	unsigned int iface = mld_idx_iface(mld, ifx);
+	mld_grp_t check = {
+		.mld = mld,
+		.iface = iface,
+		.grp = grp
+	};
 
 	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
 
@@ -728,7 +732,7 @@ ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
 			if (!iov[1].iov_base) continue;
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
-			net_send_block_chan(chan, mld, iface, grp, vlen, iov, idx);
+			net_send_block_chan(chan, vlen, iov, idx, &check);
 			if (!mld_filter_grp_cmp(mld, iface, grp)) return rc;
 			if (DELAY) usleep(DELAY);
 		}
