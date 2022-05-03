@@ -323,7 +323,7 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	iov[0].iov_len = sizeof hdr;
 	iov[1].iov_base = buf;
 	iov[1].iov_len = DATA_FIXED;
-	if (!dryrun) while (running && hamm(bitmap, maplen) && PKTS) {
+	if (!dryrun) while (running && hamm(bitmap, maplen)) {
 		while (running && !(rc = poll(&fds, 1, 100)));
 		if (rc > 0 && (msglen = recvmsg(sock, &msgh, 0)) == -1) {
 			perror("recv()");
@@ -341,7 +341,6 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 			FTRACE("recv'd a block I wanted idx=%u, blk=%zu", idx, blk);
 			memcpy(mtree_blockn(dtree, blk + min) + off, buf, len);
 			clrbit(bitmap, idx);
-			PKTS--;
 		}
 		else {
 			FTRACE("recv'd a block I didn't want idx=%u, blk=%zu", idx, blk);
@@ -468,35 +467,36 @@ err_0:
 /* break a block into DATA_FIXED size pieces and send with header
  * header is in iov[0], data in iov[1]
  * idx and len need updating */
-static int net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, size_t blk)
+static int net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, size_t blk,
+		mld_grp_t *check)
 {
 	ssize_t byt;
-	size_t len = iov[1].iov_len;
-	char * ptr = iov[1].iov_base;
+	size_t blocklen = iov[1].iov_len;
 	net_blockhead_t *hdr = iov[0].iov_base;
-	unsigned bits = howmany(len, DATA_FIXED);
-	size_t idx = blk * bits;
+	unsigned bits = howmany(blocklen, DATA_FIXED);
 	size_t sz;
 	struct msghdr msgh = {
 		.msg_iov = iov,
 		.msg_iovlen = vlen,
 	};
 	int rc = 0;
-	while (running && len) {
-		sz = MIN(len, DATA_FIXED);
-		iov[1].iov_len = sz;
-		iov[1].iov_base = ptr;
-		hdr->len = htobe32(sz);
-		hdr->idx = htobe32(idx);
-		if ((byt = lc_channel_sendmsg(chan, &msgh, 0)) == -1) {
-			perror("lc_channel_sendmsg()");
-			rc = -1;
-			break;
+	while (running && net_check_mld_filter(check)) {
+		size_t idx = blk * bits;
+		char * ptr = iov[1].iov_base;
+		for (size_t len = blocklen, off = 0; len; len -= sz, off += sz) {
+			sz = MIN(len, DATA_FIXED);
+			iov[1].iov_len = sz;
+			iov[1].iov_base = ptr + off;
+			hdr->idx = htobe32(idx++);
+			hdr->len = htobe32(sz);
+			if ((byt = lc_channel_sendmsg(chan, &msgh, 0)) == -1) {
+				perror("lc_channel_sendmsg()");
+				rc = -1;
+				break;
+			}
+			FTRACE("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
+			if (DELAY) usleep(DELAY);
 		}
-		FTRACE("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
-		len -= sz;
-		ptr += sz;
-		idx++;
 	}
 	return rc;
 }
@@ -532,8 +532,7 @@ ssize_t net_send_subtree(lc_ctx_t *lctx, mtree_tree *stree, size_t root)
 			if (!iov[1].iov_base) continue;
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
-			if (net_send_block(chan, vlen, iov, idx) == -1) return -1;
-			if (DELAY) usleep(DELAY);
+			if (net_send_block(chan, vlen, iov, idx, NULL) == -1) return -1;
 		}
 	}
 	if (hex) mtree_hexdump(stree, stderr);
@@ -663,40 +662,6 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 	lc_socket_close(sock);
 }
 
-/* break a block into DATA_FIXED size pieces and send with header
- * header is in iov[0], data in iov[1]
- * idx and len need updating */
-static void net_send_block_chan(lc_channel_t *chan, size_t vlen, struct iovec *iov, size_t blk,
-		mld_grp_t *check)
-{
-	ssize_t byt;
-	size_t len = iov[1].iov_len;
-	char * ptr = iov[1].iov_base;
-	net_blockhead_t *hdr = iov[0].iov_base;
-	unsigned bits = howmany(len, DATA_FIXED);
-	size_t idx = blk * bits;
-	size_t sz;
-	struct msghdr msgh = {
-		.msg_iov = iov,
-		.msg_iovlen = vlen,
-	};
-	while (running && len &&  net_check_mld_filter(check)) {
-		sz = MIN(len, DATA_FIXED);
-		iov[1].iov_len = sz;
-		iov[1].iov_base = ptr;
-		hdr->len = htobe32(sz);
-		hdr->idx = htobe32(idx);
-		if ((byt = lc_channel_sendmsg(chan, &msgh, 0)) == -1) {
-			perror("lc_channel_sendmsg()");
-			break;
-		}
-		FTRACE("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
-		len -= sz;
-		ptr += sz;
-		idx++;
-	}
-}
-
 ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
 	lc_channel_t *chan, unsigned int ifx, mld_t *mld)
 {
@@ -732,7 +697,7 @@ ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
 			if (!iov[1].iov_base) continue;
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
-			net_send_block_chan(chan, vlen, iov, idx, &check);
+			net_send_block(chan, vlen, iov, idx, &check);
 			if (!mld_filter_grp_cmp(mld, iface, grp)) return rc;
 			if (DELAY) usleep(DELAY);
 		}

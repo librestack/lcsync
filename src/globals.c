@@ -11,7 +11,6 @@ int DELAY = 0;
 int dryrun = 0;
 int hex = 0;
 int mld_enabled = 1;
-size_t PKTS = SIZE_MAX;
 int quiet = 0;
 int verbose = 0;
 char *progname;

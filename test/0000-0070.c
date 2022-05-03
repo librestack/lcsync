@@ -168,7 +168,7 @@ int main(void)
 	int rc = 0;
 
 	loginit();
-	test_name("TODO mdex file syncing");
+	test_name("net_send_mdex() file syncing");
 
 	rc = generate_test_files(src, dst);
 	test_assert(rc != -1, "generate_test_files()");
