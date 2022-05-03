@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include "valgrind.h"
 
-static size_t filesize = 16000;
+static off_t filesize = 16000;
 const int waits = 8;
 const int waits_valgrind = 25; // high for valgrind
 
@@ -74,7 +74,6 @@ static void absname(char *file, char *buf, size_t buflen)
 static void *do_recv(void *arg)
 {
 	int argc = 2;
-	//char *src = ((char **)arg)[0];
 	char src[PATH_MAX];
 	char dst[PATH_MAX];
 	char *argv[] = { src, dst, NULL };
@@ -129,9 +128,9 @@ static void sync_files(char *src, char *dst)
 
 static int generate_test_files(char *src, char *dst)
 {
-	ssize_t byt;
-	size_t off;
-	char buf[filesize];
+	ssize_t byt, tot = 0;
+	off_t off;
+	char buf[blocksize];
 	int fds, fdr;
 
 	/* create and map src file */
@@ -143,14 +142,19 @@ static int generate_test_files(char *src, char *dst)
 		perror("open /dev/random");
 		return -1;
 	}
-	byt = read(fdr, buf, sizeof buf);
-	if (byt == -1) {
-		perror("read random bytes");
-		return -1;
-	}
-	if (write(fds, buf, sizeof buf) != (ssize_t)sizeof buf) {
-		perror("write");
-		return -1;
+	while (tot < filesize) {
+		size_t len = filesize - tot;
+		if (len > sizeof buf) len = sizeof buf;
+		byt = read(fdr, buf, len);
+		if (byt == -1) {
+			perror("read random bytes");
+			return -1;
+		}
+		tot += byt;
+		if (write(fds, buf, len) != (ssize_t)len) {
+			perror("write");
+			return -1;
+		}
 	}
 	close(fdr);
 
