@@ -506,7 +506,10 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root, u
 	map = calloc(bits, n);
 	child = mtree_child(t1, root);
 	if (!child) { /* leaf node */
-		map[0] |= 1U;
+		n = mtree_node_offset_subtree(n, root);
+		for (unsigned i = 0; i < bits; i++) {
+			setbit(map, n * bits + i);
+		}
 		return map;
 	}
 	q = job_queue_create(0);

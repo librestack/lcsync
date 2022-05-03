@@ -2,6 +2,7 @@
 /* Copyright (c) 2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "test.h"
+#include "../src/globals.h"
 #include "../src/mtree.h"
 #include <errno.h>
 
@@ -11,7 +12,7 @@ void cmp_tree(size_t sz, size_t blk, size_t n, uint8_t bin)
 	mtree_tree *t1 = NULL;
 	mtree_tree *t2 = NULL;
 	size_t off;
-	const size_t blocksz = 4096;
+	const size_t blocksz = blocksize;
 	char *data = calloc(sz, blocksz);
 	char *copy = calloc(sz, blocksz);
 	t1 = mtree_create(sz * blocksz, blocksz);
