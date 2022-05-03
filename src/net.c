@@ -314,6 +314,7 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 	FTRACE("%s(): blocksz = %zu", __func__, blocksz);
 	FTRACE("%s(): bits    = %u", __func__, bits);
 	FTRACE("%s(): maplen  = %zu", __func__, maplen);
+	FTRACE("%s(): root    = %zu", __func__, root);
 
 	bitmap = mtree_diff_subtree(stree, dtree, root, bits);
 	if (!bitmap) return -1;
@@ -483,11 +484,11 @@ static int net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, si
 	while (running && net_check_mld_filter(check)) {
 		size_t idx = blk * bits;
 		char * ptr = iov[1].iov_base;
-		for (size_t len = blocklen, off = 0; len; len -= sz, off += sz) {
+		for (size_t len = blocklen, off = 0; len; len -= sz) {
 			sz = MIN(len, DATA_FIXED);
 			iov[1].iov_len = sz;
 			iov[1].iov_base = ptr + off;
-			hdr->idx = htobe32(idx++);
+			hdr->idx = htobe32(idx);
 			hdr->len = htobe32(sz);
 			if ((byt = lc_channel_sendmsg(chan, &msgh, 0)) == -1) {
 				perror("lc_channel_sendmsg()");
@@ -496,6 +497,8 @@ static int net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, si
 			}
 			FTRACE("%zi bytes sent (blk=%zu, idx = %zu)", byt, blk, idx);
 			if (DELAY) usleep(DELAY);
+			off += sz;
+			idx++;
 		}
 	}
 	return rc;
