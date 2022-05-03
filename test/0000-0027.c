@@ -17,7 +17,8 @@
 #include <unistd.h>
 #include "valgrind.h"
 
-const int waits = 1;
+static off_t filesize = 40960;
+const int waits = 3;
 const int waits_valgrind = 25; // high for valgrind
 
 typedef struct arg_s {
@@ -25,7 +26,7 @@ typedef struct arg_s {
 	char **argv;
 } arg_t;
 
-static void do_verify(char *src, char *dst)
+static void verify_test_files(char *src, char *dst)
 {
 	struct stat ssb = {0};
 	struct stat dsb = {0};
@@ -34,12 +35,13 @@ static void do_verify(char *src, char *dst)
 
 	/* open src */
 	fds = open(src, O_RDONLY, 0);
-	test_assert(fds != -1, "open() src");
+	test_assert(fds != -1, "open() src '%s'", src);
 	if (fds == -1) return;
 
 	/* open dst */
 	fdd = open(dst, O_RDONLY, 0);
-	test_assert(fdd != -1, "open() dst");
+	if (fdd == -1) perror("open");
+	test_assert(fdd != -1, "open() dst '%s'", dst);
 	if (fdd == -1) return;
 
 	/* map src */
@@ -78,11 +80,20 @@ static void absname(char *file, char *buf, size_t buflen)
 static void *do_recv(void *arg)
 {
 	int argc = 2;
-	char *src = ((char **)arg)[0];
+	char src[PATH_MAX];
 	char dst[PATH_MAX];
 	char *argv[] = { src, dst, NULL };
+	size_t len;
+	absname(((char **)arg)[0], src, PATH_MAX);
 	absname(((char **)arg)[1], dst, PATH_MAX);
+	len = strlen(src) - 1;
+	memmove(src, src + 1, len);
+	src[len] = 0;
+	sleep(1);
+	test_log("requesting '%s'\n", src);
+	test_log("writing to '%s'\n", dst);
 	net_sync(&argc, argv);
+	test_log("receive job exiting\n");
 	return NULL;
 }
 
@@ -96,15 +107,15 @@ static void *do_send(void *arg)
 	return NULL;
 }
 
-static void do_sync(char *src, char *dst)
+static void sync_files(char *src, char *dst)
 {
 	char *arg[2] = { src, dst };
 	struct timespec timeout;
 	job_queue_t *q = job_queue_create(2);
 
 	/* queue up send/recv jobs */
-	job_t *job_send = job_push_new(q, &do_send, src, sizeof src, NULL, 0);
 	job_t *job_recv = job_push_new(q, &do_recv, arg, sizeof arg, NULL, 0);
+	job_t *job_send = job_push_new(q, &do_send, src, sizeof src, NULL, 0);
 
 	/* wait for recv job to finish, check for timeout */
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
@@ -117,40 +128,67 @@ static void do_sync(char *src, char *dst)
 	/* stop send job */
 	net_stop(SIGINT);
 	test_assert(!clock_gettime(CLOCK_REALTIME, &timeout), "clock_gettime()");
-	timeout.tv_sec++;
-	test_assert(!sem_timedwait(&job_send->done, &timeout), "timeout - send");
 	free(job_send);
-	free(job_recv);
 	job_queue_destroy(q);
 }
 
-static void gentestfiles(char *src, char *dst)
+static int generate_test_files(char *src, char *dst)
 {
-	const size_t nchunks = 127;
-	const size_t blocksz = blocksize;
-	FILE *fds;
-	test_assert(mkstemp(src) != -1, "mkstemp()");
-	size_t off = strlen(src) - 6;
-	memcpy(dst + off, src + off, 6);
-	fds = fopen(src, "w");
-	char *data = calloc(1, blocksz);
-	for (size_t i = 1; i <= nchunks; i++) {
-		data[0] = (char)i;
-		fwrite(data, 1, blocksz, fds);
+	ssize_t byt, tot = 0;
+	off_t off;
+	char buf[blocksize];
+	int fds, fdr;
+
+	/* create and map src file */
+	fds = mkstemp(src);
+	test_assert(fds != -1, "mkstemp()");
+
+	/* copy random bytes to src */
+	if ((fdr = open("/dev/random", O_RDONLY, 0)) == -1) {
+		perror("open /dev/random");
+		return -1;
 	}
-	fwrite(data, 1, 17, fds); /* write a few extra bytes */
-	fclose(fds);
-	free(data);
+	while (tot < filesize) {
+		size_t len = filesize - tot;
+		if (len > sizeof buf) len = sizeof buf;
+		byt = read(fdr, buf, len);
+		if (byt == -1) {
+			perror("read random bytes");
+			return -1;
+		}
+		tot += byt;
+		if (write(fds, buf, len) != (ssize_t)len) {
+			perror("write");
+			return -1;
+		}
+	}
+	close(fdr);
+
+	/* set dst filename */
+	off = strlen(src) - 6;
+	memcpy(dst + off, src + off, 6);
+
+	return 0;
 }
 
 int main(void)
 {
-	loginit();
 	char src[] = "0000-0027.src.tmp.XXXXXX";
 	char dst[] = "0000-0027.dst.tmp.XXXXXX";
+	int rc = 0;
+
+	loginit();
 	test_name("net_send() / net_sync()");
-	gentestfiles(src, dst);
-	//do_sync(src, dst);
-	do_verify(src, dst);
+
+	rc = generate_test_files(src, dst);
+	test_assert(rc != -1, "generate_test_files()");
+	if (rc == -1) return fails;
+
+	sync_files(src, dst);
+
+	verify_test_files(src, dst);
+
+	test_rusage();
+
 	return fails;
 }

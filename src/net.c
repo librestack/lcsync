@@ -483,12 +483,12 @@ static int net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, si
 	int rc = 0;
 	size_t idx = blk * bits;
 	char * ptr = iov[1].iov_base;
-	for (size_t len = blocklen, off = 0; len; len -= sz, off += sz) {
+	for (size_t len = blocklen, off = 0; len; len -= sz, off += sz, idx++) {
 		if (!net_check_mld_filter(check)) break;
 		sz = MIN(len, DATA_FIXED);
 		iov[1].iov_len = sz;
 		iov[1].iov_base = ptr + off;
-		hdr->idx = htobe32(idx++);
+		hdr->idx = htobe32(idx);
 		hdr->len = htobe32(sz);
 		if ((byt = lc_channel_sendmsg(chan, &msgh, 0)) == -1) {
 			perror("lc_channel_sendmsg()");
@@ -500,56 +500,74 @@ static int net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, si
 	return rc;
 }
 
-ssize_t net_send_subtree(lc_ctx_t *lctx, mtree_tree *stree, size_t root)
+ssize_t net_send_subtree(mtree_tree *stree, size_t root,
+	lc_channel_t *chan, unsigned int ifx, mld_t *mld)
 {
-	TRACE("%s()", __func__);
-	const int on = 1;
 	ssize_t rc = -1;
 	size_t base, min, max;
 	enum { vlen = 2 };
 	struct iovec iov[vlen];
-	lc_socket_t *sock;
-	lc_channel_t *chan;
-	if (!(sock = lc_socket_new(lctx)))
-		goto err_0;
-	if (lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on)))
-		goto err_1;
-	if (!(chan = lc_channel_nnew(lctx, mtree_nnode(stree, root), HASHSIZE)))
-		goto err_1;
-	if (lc_channel_bind(sock, chan))
-		goto err_1;
+	struct in6_addr *grp = lc_channel_in6addr(chan);
+	mld_grp_t *check = NULL;
+	mld_grp_t mld_check = {0};
 	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
+
+	if (mld) {
+		mld_check.mld = mld;
+		mld_check.iface = mld_idx_iface(mld, ifx);
+		mld_check.grp = grp;
+		check = &mld_check;
+	}
+
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 	base = mtree_base(stree);
 	min = mtree_subtree_data_min(base, root);
 	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
-	while (running) {
+
+	char strgrp[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, grp, strgrp, INET6_ADDRSTRLEN);
+	FTRACE("%s blocks %zu to %zu on %s", __func__, min, max, strgrp);
+
+	while (running && net_check_mld_filter(check)) {
 		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
 			FTRACE("sending block %zu with idx=%zu", blk, idx);
 			iov[1].iov_base = mtree_blockn(stree, blk);
 			if (!iov[1].iov_base) continue;
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
-			if (net_send_block(chan, vlen, iov, idx, NULL) == -1) return -1;
+			net_send_block(chan, vlen, iov, idx, check);
+			if (!net_check_mld_filter(check)) return rc;
 		}
 	}
-	if (hex) mtree_hexdump(stree, stderr);
-	rc = 0;
-	lc_channel_free(chan);
-err_1:
-	lc_socket_close(sock);
-err_0:
+
 	return rc;
 }
 
 static void *net_job_send_subtree(void *arg)
 {
-	net_data_t *data = (net_data_t *)arg;
-	mtree_tree *stree = data->iov[0].iov_base;
-	net_send_subtree(data->lctx, stree, data->n);
+	TRACE("%s", __func__);
+	net_data_t *req = (net_data_t *)arg;
+	lc_ctx_t *lctx = req->lctx;
+	lc_socket_t *sock;
+	lc_channel_t *chan;
+	mtree_tree *stree = req->iov[0].iov_base;
+	const int on = 1;
+
+	sock = lc_socket_new(lctx);
+	lc_socket_bind(sock, req->ifx);
+	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof(on));
+	chan = lc_channel_nnew(lctx, mtree_nnode(stree, req->n), HASHSIZE);
+	lc_channel_bind(sock, chan);
+
+	net_send_subtree(stree, req->n, chan, 0, NULL);
+
+	lc_channel_free(chan);
+	lc_socket_close(sock);
+
 	return arg;
 }
+
 
 static void net_send_queue_jobs(net_data_t *data, size_t sz, size_t blocks, unsigned channels)
 {
@@ -648,7 +666,7 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 
 	INFO("sending tree for %s (%zu bytes, %zu nodes)", mdex_file_alias(f), mtree_treelen(tree),
 			mtree_nodes(tree));
-	while (running && mld_filter_grp_cmp(mld, iface, grp)) {
+	while (running && net_check_mld_filter(&check)) {
 		iov[1].iov_len = treesz;
 		iov[1].iov_base = mtree_data(tree, 0);
 		if (net_send_tree(chan, vlen, iov, &check) == -1) {
@@ -659,50 +677,6 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 
 	/* clean up */
 	lc_socket_close(sock);
-}
-
-ssize_t net_send_subtree_tmp(mtree_tree *stree, size_t root,
-	lc_channel_t *chan, unsigned int ifx, mld_t *mld)
-{
-	ssize_t rc = -1;
-	size_t base, min, max;
-	enum { vlen = 2 };
-	struct iovec iov[vlen];
-	struct in6_addr *grp = lc_channel_in6addr(chan);
-	unsigned int iface = mld_idx_iface(mld, ifx);
-	mld_grp_t check = {
-		.mld = mld,
-		.iface = iface,
-		.grp = grp
-	};
-
-	net_blockhead_t hdr = { .len = htobe32(mtree_len(stree)) };
-
-	iov[0].iov_base = &hdr;
-	iov[0].iov_len = sizeof hdr;
-
-	base = mtree_base(stree);
-	min = mtree_subtree_data_min(base, root);
-	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
-
-	char strgrp[INET6_ADDRSTRLEN];
-	inet_ntop(AF_INET6, grp, strgrp, INET6_ADDRSTRLEN);
-	FTRACE("%s blocks %zu to %zu on %s", __func__, min, max, strgrp);
-
-	while (running && mld_filter_grp_cmp(mld, iface, grp)) {
-		for (size_t blk = min, idx = 0; running && blk <= max; blk++, idx++) {
-			FTRACE("sending block %zu with idx=%zu", blk, idx);
-			iov[1].iov_base = mtree_blockn(stree, blk);
-			if (!iov[1].iov_base) continue;
-			iov[1].iov_len = mtree_blockn_len(stree, blk);
-			hdr.len = htobe32((uint32_t)iov[1].iov_len);
-			net_send_block(chan, vlen, iov, idx, &check);
-			if (!mld_filter_grp_cmp(mld, iface, grp)) return rc;
-			if (DELAY) usleep(DELAY);
-		}
-	}
-
-	return rc;
 }
 
 #ifdef MLD_ENABLE
@@ -724,7 +698,7 @@ static void *net_job_mdex_send_subtree(void *arg)
 	chan = lc_channel_nnew(lctx, mtree_nnode(stree, req->node), HASHSIZE);
 	lc_channel_bind(sock, chan);
 
-	net_send_subtree_tmp(stree, req->node, chan, req->ifx, req->mld);
+	net_send_subtree(stree, req->node, chan, req->ifx, req->mld);
 
 	lc_channel_free(chan);
 	lc_socket_close(sock);
@@ -841,11 +815,17 @@ int net_send(int *argc, char *argv[])
 	struct stat sbs = {0};
 	struct sigaction sa_int = { .sa_handler = net_stop };
 	char *src = argv[0];
-	char *alias = basename(src);
+	char alias[PATH_MAX];
 	char *smap = NULL;
 	unsigned char hash[HASHSIZE];
+
+	sz_s = strlen(src) - 1;
+	memcpy(alias, src + 1, sz_s);
+	alias[sz_s] = 0;
+
 	TRACE("%s('%s')", __func__, argv[0]);
 	DEBUG("mapping src: %s", src);
+	DEBUG("alias: %s", alias);
 	if ((sz_s = file_map(src, &fds, &smap, 0, PROT_READ, &sbs)) == -1) return -1;
 	sigaction(SIGINT, &sa_int, NULL);
 	hash_generic(hash, HASHSIZE, (unsigned char *)alias, strlen(alias));

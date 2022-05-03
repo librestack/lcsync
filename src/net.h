@@ -58,6 +58,7 @@ struct net_data_s {
 	unsigned char * alias;		/* hash of file alias */
 	unsigned char * hash;		/* hash of file/data */
 	unsigned char * map;		/* channel bitmap */
+	unsigned int    ifx;		/* interface index, 0 => all */
 	mld_t         * mld;		/* MLD handle */
 	job_queue_t   * q;		/* job queue */
 	size_t		byt;		/* data bytes */
@@ -95,7 +96,8 @@ First iovec is assumed to be the header and will be sent with every packet.
 ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov, mld_grp_t *check);
 
 ssize_t net_sync_subtree(mtree_tree *stree, mtree_tree *dtree, size_t root);
-ssize_t net_send_subtree(lc_ctx_t *lctx, mtree_tree *stree, size_t root);
+ssize_t net_send_subtree(mtree_tree *stree, size_t root,
+		lc_channel_t *chan, unsigned int ifx, mld_t *mld);
 
 /* recv data with root hash (or alias) into memory at dstdata which has size len
  * if dstdata is NULL, memory will be allocated. If len is too small, dstdata
