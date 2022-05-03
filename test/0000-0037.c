@@ -2,11 +2,12 @@
 /* Copyright (c) 2021 Brett Sheffield <bacs@librecast.net> */
 
 #include "test.h"
+#include "../src/globals.h"
 #include "../src/mtree.h"
 #include <errno.h>
 void test_mtree_base_subtree(size_t base, size_t n, size_t subbase)
 {
-	mtree_tree *tree = mtree_create(4096 * base, 4096);
+	mtree_tree *tree = mtree_create(blocksize * base, blocksize);
 	size_t res = mtree_base_subtree(tree, n);
 	test_assert(res == subbase, "mtree_base_subtree(%zu, %zu) == %zu", base, n, res);
 	mtree_free(tree);
