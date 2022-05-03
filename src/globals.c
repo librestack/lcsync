@@ -14,7 +14,7 @@ int mld_enabled = 1;
 int quiet = 0;
 int verbose = 0;
 char *progname;
-size_t blocksize = 4096;
+size_t blocksize = 2 << 14;
 uint8_t net_send_channels = 3;
 
 int succeed(int *argc, char *argv[])
