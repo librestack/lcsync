@@ -17,7 +17,7 @@
 
 long file_chunksize(void)
 {
-	return sysconf(_SC_PAGESIZE);
+	return blocksize;
 }
 
 ssize_t file_map(char *filename, int *fd, char **map, off_t sz, int prot, struct stat *sb)
