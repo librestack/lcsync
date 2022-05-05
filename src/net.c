@@ -523,7 +523,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root,
 	iov[0].iov_len = sizeof hdr;
 	base = mtree_base(stree);
 	min = mtree_subtree_data_min(base, root);
-	max = MIN(mtree_subtree_data_max(base, root), mtree_blocks(stree) + min - 1);
+	max = mtree_subtree_data_max_n(stree, root);
 
 	char strgrp[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, grp, strgrp, INET6_ADDRSTRLEN);

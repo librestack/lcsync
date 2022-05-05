@@ -278,6 +278,16 @@ size_t mtree_subtree_data_min(size_t base, size_t root)
 	return n;
 }
 
+size_t mtree_subtree_data_max_n(mtree_tree *tree, size_t root)
+{
+	size_t base = mtree_base(tree);
+	size_t max = mtree_subtree_data_max(base, root);
+	size_t min = mtree_subtree_data_min(base, root);
+	/* limit to highest data block in tree */
+	max = MIN(max, mtree_blocks(tree) + min - 1);
+	return max;
+}
+
 size_t mtree_data_first(size_t nchunks, size_t nthreads, size_t id)
 {
 	if (nthreads == 0) nthreads++;
