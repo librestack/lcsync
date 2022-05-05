@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include "valgrind.h"
 
-static off_t filesize = 2097152; /* 2MiB */
+static off_t filesize = 328183;
 const int waits = 8;
 const int waits_valgrind = 25; // high for valgrind
 
