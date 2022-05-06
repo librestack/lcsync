@@ -45,9 +45,10 @@ static volatile int running = 1;
 static sem_t stop;
 
 /* return number of bits set in bitmap (Hamming Weight) */
-static unsigned int hamm(unsigned char *map, size_t len)
+unsigned int hamm(unsigned char *map, size_t len)
 {
 	unsigned int c = 0;
+	if (!map) return c;
 	while (len--) for (char v = map[len]; v; c++) v &= v - 1;
 	return c;
 }

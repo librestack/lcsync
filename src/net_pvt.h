@@ -8,6 +8,4 @@
 
 #include "net.h"
 
-static unsigned int hamm(unsigned char *map, size_t len);
-
 #endif /* _NET_PRIV_H */

@@ -70,6 +70,9 @@ struct net_data_s {
 
 void printmap(unsigned char *map, size_t len);
 
+/* return Hamming Weight */
+unsigned int hamm(unsigned char *map, size_t len);
+
 /* signal server threads to stop work/exit */
 void net_stop(int signo);
 
