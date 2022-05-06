@@ -521,9 +521,9 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root, u
 	unsigned char *map = NULL;
 	if (!memcmp(mtree_nnode(t1, root), mtree_nnode(t2, root), HASHSIZE))
 		return NULL; /* subtree root matches, stop now */
-	base = mtree_base_subtree(t1, root);
+	base = mtree_blocks_subtree(t1, root);
 	n = (base + (CHAR_BIT - 1)) / CHAR_BIT;
-	map = calloc(bits, n);
+	map = calloc(bits, base);
 	child = mtree_child(t1, root);
 	if (!child) { /* leaf node */
 		n = mtree_node_offset_subtree(n, root);
@@ -547,7 +547,9 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root, u
 			}
 			else { /* leaf node, update bitmap */
 				n = mtree_node_offset_subtree(n, root);
-				for (unsigned i = 0; i < bits; i++) {
+				size_t blen = mtree_block_len(t1, n);
+				unsigned j = howmany(blen, t1->blocksz / bits);
+				for (unsigned i = 0; i < j; i++) {
 					setbit(map, n * bits + i);
 				}
 			}

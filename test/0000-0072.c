@@ -33,71 +33,68 @@ int main()
 	mtree_tree *t1, *t2;
 	size_t blocksz, len;
 	size_t maplen;
-	size_t pkts;
+	size_t bits;
 	char *d1, *d2;
 	unsigned char *bitmap;
-	const int wholeblks = 12;
+	const int wholeblks = 2;
 	size_t extrabytes;
 
 	test_name("mtree_diff_subtree()");
 
 	q = job_queue_create(8);
 
-	/* run the test with different block sizes */
-	//for (int i = 10; i < 14; i++) {
-	for (int i = 13; i < 14; i++) {
-		blocksz = 2 << i;
+	blocksz = 16384;
 
-		/* ensure length of data isn't an exact multiple of block size */
-		extrabytes = blocksz / 3;
-		len = blocksz * wholeblks + extrabytes;
+	/* ensure length of data isn't an exact multiple of block size */
+	extrabytes = 1;
+	len = blocksz * wholeblks + extrabytes;
 
-		/* create two trees with same random data */
-		pkts = blocksz / DATA_FIXED;
-		t1 = mtree_create(len, blocksz);
-		d1 = get_random_data(len);
-		mtree_build(t1, d1, q);
+	/* create two trees with same random data */
+	bits = blocksz / DATA_FIXED;
+	t1 = mtree_create(len, blocksz);
+	d1 = get_random_data(len);
+	mtree_build(t1, d1, q);
 
-		t2 = mtree_create(len, blocksz);
-		d2 = malloc(len);
-		memcpy(d2, d1, len);
-		mtree_build(t2, d2, q);
+	t2 = mtree_create(len, blocksz);
+	d2 = malloc(len);
+	memcpy(d2, d1, len);
+	mtree_build(t2, d2, q);
 
-		/* compare the trees, ensure they match */
-		test_assert(mtree_diff_data(t1, t2) == 0, "trees match");
+	/* compare the trees, ensure they match */
+	test_assert(mtree_diff_data(t1, t2) == 0, "trees match");
 
-		/* create diffmap, ensure all bits zero */
-		bitmap = mtree_diff_subtree(t1, t2, 0, pkts);
-		maplen = howmany(pkts, CHAR_BIT);
-		test_assert(!hamm(bitmap, maplen), "zeroed bitmap");
+	/* create diffmap, ensure all bits zero */
+	unsigned e = bits * wholeblks + howmany(extrabytes, DATA_FIXED);
+	bitmap = mtree_diff_subtree(t1, t2, 0, bits);
+	size_t base = mtree_blocks_subtree(t1, 0);
+	maplen = base * bits;
+	test_log("e = %u\n", e);
+	test_log("maplen = %zu\n", maplen);
+	test_assert(!hamm(bitmap, maplen), "zeroed bitmap");
 
-		/* change some data */
-		char *ptr;
-		ptr = d2 + blocksz * 3;
-		memset(ptr, ~ptr[0], 1);
+	/* change some data */
+	char *ptr;
+	ptr = d2; //+ blocksz * wholeblks;
+	memset(ptr, ~ptr[0], 1);
 
-		/* rebuild changed tree */
-		mtree_build(t2, d2, q);
-		test_assert(mtree_diff_data(t1, t2) != 0, "trees no longer match");
+	ptr += blocksz * wholeblks;
+	memset(ptr, ~ptr[0], 1);
 
-		/* recheck bitmap */
-		bitmap = mtree_diff_subtree(t1, t2, 0, pkts);
-		unsigned hw = hamm(bitmap, maplen);
-		test_assert(hw > 0, "bitmap registered the change, hw = %u", hw);
-		//test_assert(hw == pkts,
-		//		"shave and a haircut, two bits changed, pkts=%zu, hw=%u",
-		//		pkts, hw);
-		test_log("hamming weight = %u, expected %zu\n", hw, pkts);
+	/* rebuild changed tree */
+	mtree_build(t2, d2, q);
+	test_assert(mtree_diff_data(t1, t2) != 0, "trees no longer match");
 
-		/* TODO verify correct number of bits set for last block */
+	/* recheck bitmap */
+	bitmap = mtree_diff_subtree(t1, t2, 0, bits);
+	unsigned hw = hamm(bitmap, maplen);
+	test_assert(hw == 17, "bitmap registered the change, hw = %u/%u", hw, 17);
 
-		/* clean up */
-		free(bitmap);
-		free(d1);
-		free(d2);
-		mtree_free(t1);
-		mtree_free(t2);
-	}
+	/* clean up */
+	free(bitmap);
+	free(d1);
+	free(d2);
+	mtree_free(t1);
+	mtree_free(t2);
 
 	job_queue_destroy(q);
 
