@@ -167,8 +167,8 @@ static int generate_test_files(char *src, char *dst)
 
 int main(void)
 {
-	char src[] = "0000-0070.src.tmp.XXXXXX";
-	char dst[] = "0000-0070.dst.tmp.XXXXXX";
+	char src[] = "0000-0071.src.tmp.XXXXXX";
+	char dst[] = "0000-0071.dst.tmp.XXXXXX";
 	int rc = 0;
 
 	loginit();

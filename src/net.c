@@ -340,12 +340,12 @@ static ssize_t net_recv_subtree(int sock, mtree_tree *stree, mtree_tree *dtree, 
 		blk = idx / bits;
 		if (isset(bitmap, idx)) {
 			off = (idx % bits) * DATA_FIXED;
-			FTRACE("recv'd a block I wanted idx=%u, blk=%zu", idx, blk);
+			FTRACE("root %zu recv'd a block I wanted idx=%u, blk=%zu", root, idx, blk);
 			memcpy(mtree_blockn(dtree, blk + min) + off, buf, len);
 			clrbit(bitmap, idx);
 		}
 		else {
-			FTRACE("recv'd a block I didn't want idx=%u, blk=%zu", idx, blk);
+			FTRACE("root %zu recv'd a block I didn't want idx=%u, blk=%zu", root, idx, blk);
 		}
 		byt += be32toh(hdr.len);
 		FTRACE("packets still required=%u", hamm(bitmap, maplen));
@@ -426,6 +426,7 @@ static int net_sync_trees(mtree_tree *stree, mtree_tree *dtree, job_queue_t *q)
 	data->iov[1].iov_len = mtree_treelen(dtree);
 	data->iov[1].iov_base = dtree;
 	unsigned nodes = MIN(channels, mtree_blocks(stree));
+	DEBUG("channels = %u, nodes=%u", channels, nodes);
 	for (unsigned chan = 0; chan < nodes; chan++) {
 		data->n = nodes - 1 + chan;
 		job[chan] = job_push_new(q, &net_job_sync_subtree, data, sz, NULL, JOB_COPY|JOB_FREE);

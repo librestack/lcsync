@@ -527,7 +527,9 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root, u
 	child = mtree_child(t1, root);
 	if (!child) { /* leaf node */
 		n = mtree_node_offset_subtree(n, root);
-		for (unsigned i = 0; i < bits; i++) {
+		size_t blen = mtree_block_len(t1, n);
+		unsigned j = howmany(blen, t1->blocksz / bits);
+		for (unsigned i = 0; i < j; i++) {
 			setbit(map, n * bits + i);
 		}
 		return map;
@@ -546,8 +548,8 @@ unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root, u
 				job_push_new(q, NULL, &child, sizeof child, NULL, JOB_COPY);
 			}
 			else { /* leaf node, update bitmap */
+				size_t blen = mtree_blockn_len(t1, n);
 				n = mtree_node_offset_subtree(n, root);
-				size_t blen = mtree_block_len(t1, n);
 				unsigned j = howmany(blen, t1->blocksz / bits);
 				for (unsigned i = 0; i < j; i++) {
 					setbit(map, n * bits + i);

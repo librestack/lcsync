@@ -36,7 +36,7 @@ int main()
 	size_t bits;
 	char *d1, *d2;
 	unsigned char *bitmap;
-	const int wholeblks = 2;
+	const int wholeblks = 20;
 	size_t extrabytes;
 
 	test_name("mtree_diff_subtree()");
@@ -46,7 +46,7 @@ int main()
 	blocksz = 16384;
 
 	/* ensure length of data isn't an exact multiple of block size */
-	extrabytes = 1;
+	extrabytes = 503;
 	len = blocksz * wholeblks + extrabytes;
 
 	/* create two trees with same random data */
@@ -88,6 +88,15 @@ int main()
 	bitmap = mtree_diff_subtree(t1, t2, 0, bits);
 	unsigned hw = hamm(bitmap, maplen);
 	test_assert(hw == 17, "bitmap registered the change, hw = %u/%u", hw, 17);
+	free(bitmap);
+
+	/* get bitmap for last block */
+	size_t root = 12;
+	base = mtree_blocks_subtree(t1, root);
+	maplen = base * bits;
+	bitmap = mtree_diff_subtree(t1, t2, root, bits);
+	hw = hamm(bitmap, maplen);
+	test_assert(hw == 1, "bitmap registered the change, hw = %u/%u", hw, 1);
 
 	/* clean up */
 	free(bitmap);
