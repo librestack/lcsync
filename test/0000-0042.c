@@ -43,5 +43,10 @@ int main()
 	test_f(&mtree_subtree_data_min, 32, 25, 51);
 	test_f(&mtree_subtree_data_max, 32, 25, 52);
 
+	/* node is a data node */
+	test_f(&mtree_subtree_data_min, 32, 47, 47);
+	test_f(&mtree_subtree_data_min, 32, 51, 51);
+	test_f(&mtree_subtree_data_max, 32, 51, 51);
+
 	return fails;
 }
