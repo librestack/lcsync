@@ -466,10 +466,9 @@ err_0:
 	return rc;
 }
 
-/* break a block into DATA_FIXED size pieces and send with header
- * header is in iov[0], data in iov[1]
- * idx and len need updating */
-static int net_send_block(lc_channel_t *chan, size_t vlen, struct iovec *iov, size_t blk,
+/* send data in DATA_FIXED size pieces and send with header
+ * header is in iov[0], data in iov[1] */
+static int net_send_subtree_blocks(lc_channel_t *chan, size_t vlen, struct iovec *iov, size_t blk,
 		mld_grp_t *check)
 {
 	ssize_t byt;
@@ -537,7 +536,7 @@ ssize_t net_send_subtree(mtree_tree *stree, size_t root,
 			if (!iov[1].iov_base) continue;
 			iov[1].iov_len = mtree_blockn_len(stree, blk);
 			hdr.len = htobe32((uint32_t)iov[1].iov_len);
-			net_send_block(chan, vlen, iov, idx, check);
+			net_send_subtree_blocks(chan, vlen, iov, idx, check);
 			if (!net_check_mld_filter(check)) return rc;
 		}
 	}
