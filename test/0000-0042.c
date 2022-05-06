@@ -33,5 +33,15 @@ int main()
 	test_f(&mtree_subtree_data_max, 8, 5, 12);
 	test_f(&mtree_subtree_data_max, 8, 6, 14);
 
+	test_f(&mtree_subtree_data_min, 32, 0, 31);
+	test_f(&mtree_subtree_data_max, 32, 0, 62);
+	test_f(&mtree_subtree_data_min, 32, 5, 47);
+	test_f(&mtree_subtree_data_max, 32, 5, 54);
+
+	test_f(&mtree_subtree_data_min, 32, 11, 47);
+	test_f(&mtree_subtree_data_max, 32, 11, 50);
+	test_f(&mtree_subtree_data_min, 32, 25, 51);
+	test_f(&mtree_subtree_data_max, 32, 25, 52);
+
 	return fails;
 }
