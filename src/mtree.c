@@ -219,9 +219,9 @@ unsigned char *mtree_data(mtree_tree *tree, size_t n)
 size_t mtree_block_len(mtree_tree *tree, size_t n)
 {
 	size_t mod;
-	if (n > tree->nchunks) return 0;
+	if (n > tree->nchunks - 1) return 0;
 	mod = tree->len % tree->blocksz;
-	return ((mod) && n == tree->nchunks) ? mod : tree->blocksz;
+	return ((mod) && n == tree->nchunks - 1) ? mod : tree->blocksz;
 }
 
 size_t mtree_blockn_len(mtree_tree *tree, size_t n)

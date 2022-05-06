@@ -33,8 +33,8 @@ int main()
 	for (size_t i = 0; i < 17; i++) {
 		test_mtree_block_len(tree, i, blocksz);
 	}
-	test_mtree_block_len(tree, 18, extra);
-	test_mtree_block_len(tree, 19, 0);
+	test_mtree_block_len(tree, 17, extra);
+	test_mtree_block_len(tree, 18, 0);
 
 	test_mtree_blockn_len(tree, 0, 0);
 	test_mtree_blockn_len(tree, 30, 0);
