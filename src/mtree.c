@@ -502,6 +502,16 @@ size_t mtree_base_subtree(mtree_tree *tree, size_t n)
 	return mtree_base(tree) / (1U << mtree_node_level(n));
 }
 
+size_t mtree_blocks_subtree(mtree_tree *tree, size_t root)
+{
+	size_t base = mtree_base(tree);
+	size_t max = mtree_subtree_data_max(base, root);
+	size_t min = mtree_subtree_data_min(base, root);
+	size_t tmin = mtree_subtree_data_min(base, 0);
+	max = MIN(max, tmin + tree->nchunks - 1);
+	return max - min + 1;
+}
+
 /* perform bredth-first search of subtree, return bitmap */
 unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root, unsigned bits)
 {
