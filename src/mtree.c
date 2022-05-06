@@ -229,7 +229,7 @@ size_t mtree_blockn_len(mtree_tree *tree, size_t n)
 	size_t mod;
 	size_t min = mtree_subtree_data_min(mtree_base(tree), 0);
 	size_t max = mtree_subtree_data_max(mtree_base(tree), 0);
-	max = MIN(max, min + tree->nchunks);
+	max = MIN(max, min + tree->nchunks - 1);
 	if (n < min || n > max || n > min + tree->nchunks) return 0;
 	mod = tree->len % tree->blocksz;
 	return ((mod) && (n == max)) ? mod : tree->blocksz;

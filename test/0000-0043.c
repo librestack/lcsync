@@ -41,7 +41,7 @@ int main()
 	for (size_t i = 31; i < 31 + blocks; i++) {
 		test_mtree_blockn_len(tree, i, blocksz);
 	}
-	test_mtree_blockn_len(tree, 31 + blocks + 1, extra);
+	test_mtree_blockn_len(tree, 31 + blocks, extra);
 	test_mtree_blockn_len(tree, 63, 0);
 
 	free(srcdata);
