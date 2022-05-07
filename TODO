@@ -1,18 +1,31 @@
-NEXT ACTIONS:
+# TODO
 ----------------------------------------------------------------------
+
+* metadata, file ownership, permissions, mtime
+* directory syncing
+
 * remove unneeded DEBUG
-* net_send_subtree() / net_send_data() - return bytes or -1
 * code review, API
-* send file permissions - set in net_sync()
 * sharding
 * indexing
-* directory syncing
 * improve / extend librecast API with supporting functions
+
+* update README
 * man page - output from help
 * man pages for each function
-* net_dump() (implement --hex for network files)
+
+* encryption
 * FEC
 * flow control
+
+* merge file/net/mtree into librecast API
+* merge MLD into librecast API
+* simplified (non-SIMD) MLD from lcroute
+* SSE*/AVX/AVX2 dispatcher, function pointers etc.
+* improved test harness
+
+* net_send_subtree() / net_send_data() - return bytes or -1
+* net_dump() (implement --hex for network files)
 * (Linux) eBPF
 * channel interleaving
 * verify tree when received, update map and continue receiving if tree invalid
@@ -23,11 +36,5 @@ NEXT ACTIONS:
 * gettext - international msgs
 * peer to peer - reshare files - de-duping of multiple sends
 * atomic replication via temporary file and mv - COW?
-* encryption, obviously
 * document all our headers etc in RFC format with header structures mapped out in ASCII
 * resizing of merkle tree for changing data
-* merge file/net/mtree into librecast API
-* merge MLD into librecast API
-* simplified (non-SIMD) MLD from lcroute
-* SSE*/AVX/AVX2 dispatcher, function pointers etc.
-* improved test harness
