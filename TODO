@@ -24,6 +24,7 @@
 * SSE*/AVX/AVX2 dispatcher, function pointers etc.
 * improved test harness
 
+* pretty ncurses interface?
 * net_send_subtree() / net_send_data() - return bytes or -1
 * net_dump() (implement --hex for network files)
 * (Linux) eBPF

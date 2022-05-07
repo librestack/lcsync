@@ -14,6 +14,8 @@ extern int DELAY;
 extern int dryrun;
 extern int hex;
 extern int mld_enabled;
+extern int g_archive;
+extern int g_perms;
 extern int quiet;
 extern int verbose;
 extern char *progname;

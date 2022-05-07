@@ -17,6 +17,7 @@
 #include "valgrind.h"
 
 static off_t filesize = 328183;
+static mode_t mode = S_IRWXU | S_IRGRP | S_IWOTH;
 const int waits = 8;
 const int waits_valgrind = 25; // high for valgrind
 
@@ -55,6 +56,9 @@ static void verify_test_files(char *src, char *dst)
 	if (ssb.st_size != dsb.st_size) return;
 	test_assert(!memcmp(smap, dmap, ssb.st_size), "source and destination match");
 
+	/* check file mode is set */
+	test_assert((dsb.st_mode & 0777) == mode, "verify file mode");
+
 	/* clean up */
 	munmap(dmap, dsb.st_size);
 	munmap(smap, ssb.st_size);
@@ -86,6 +90,7 @@ static void *do_recv(void *arg)
 	sleep(1);
 	test_log("requesting '%s'\n", src);
 	test_log("writing to '%s'\n", dst);
+	g_perms = 1; /* sync file mode */
 	net_sync(&argc, argv);
 	test_log("receive job exiting\n");
 	return NULL;
@@ -156,7 +161,11 @@ static int generate_test_files(char *src, char *dst)
 			return -1;
 		}
 	}
+	/* set mode */
+	DEBUG("setting src mode to %07o", mode);
+	fchmod(fds, mode);
 	close(fdr);
+	close(fds);
 
 	/* set dst filename */
 	off = strlen(src) - 6;

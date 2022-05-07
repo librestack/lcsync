@@ -28,7 +28,9 @@ int arg_parse(int *argc, char **argv[])
 	opt_t omld = { .var = &mld_enabled, .olong = "mld", .type = OTYPE_BOOL };
 	opt_t oquiet = { .oshort = 'q', .olong = "quiet", .var = &quiet, .type = OTYPE_BOOL };
 	opt_t overbose = { .oshort = 'v', .olong = "verbose", .var = &verbose, .type = OTYPE_BOOL };
-	opt_parser_t *parser = opt_init(10);
+	opt_t oarchive = { .oshort = 'a', .olong = "archive", .var = &g_archive, .type = OTYPE_BOOL };
+	opt_t operms = { .oshort = 'p', .olong = "perms", .var = &g_perms, .type = OTYPE_BOOL };
+	opt_parser_t *parser = opt_init(12);
 	opt_new(parser, &oblocksz);
 	opt_new(parser, &ochannels);
 	opt_new(parser, &odelay);
@@ -36,6 +38,8 @@ int arg_parse(int *argc, char **argv[])
 	opt_new(parser, &ohex);
 	opt_new(parser, &ologlevel);
 	opt_new(parser, &omld);
+	opt_new(parser, &oarchive);
+	opt_new(parser, &operms);
 	opt_new(parser, &oquiet);
 	opt_new(parser, &overbose);
 	rc = opt_parse(parser, argc, argv);
@@ -45,6 +49,9 @@ int arg_parse(int *argc, char **argv[])
 	}
 	if (quiet) {
 		loglevel = 0;
+	}
+	if (g_archive) {
+		g_perms = 1;
 	}
 	if (rc) help_usage();
 	else if (hex) {

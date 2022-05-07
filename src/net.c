@@ -85,7 +85,7 @@ void net_hup(int signo)
 	(void) signo;
 }
 
-ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
+ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz, mode_t *mode)
 {
 	TRACE("%s()", __func__);
 	struct pollfd fds = { .fd = sock, .events = POLL_IN };
@@ -143,6 +143,7 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz)
 			iov[0].iov_len = sz;
 			iov[1].iov_len = (size_t)be64toh(hdr->data);
 		}
+		*mode = be32toh(hdr->mode);
 		idx = (size_t)be32toh(hdr->idx);
 		off = be32toh(hdr->idx) * DATA_FIXED;
 		len = (size_t)be32toh(hdr->len);
@@ -167,6 +168,7 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 	int s;
 	size_t blocksz;
 	ssize_t byt = -1;
+	mode_t mode;
 	lc_ctx_t *lctx;
 	lc_socket_t *sock;
 	lc_channel_t *chan;
@@ -178,11 +180,12 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 	if (!(chan = lc_channel_nnew(lctx, hash, HASHSIZE))) goto err_2;
 	if (lc_channel_bind(sock, chan) || lc_channel_join(chan)) goto err_3;
 	s = lc_socket_raw(sock);
-	byt = net_recv_tree(s, iov, &blocksz);
+	byt = net_recv_tree(s, iov, &blocksz, &mode);
 	if (running && byt > 0) {
 		DEBUG("%s(): tree received (%zi bytes)", __func__, byt);
 		*tree = mtree_create(iov[1].iov_len, blocksz);
 		mtree_settree(*tree, iov[0].iov_base);
+		mtree_setmode(*tree, mode);
 		assert(!mtree_verify(*tree, mtree_treelen(*tree)));
 	}
 	lc_channel_part(chan);
@@ -642,12 +645,14 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 	size_t treesz = mtree_treelen(tree);
 	const int on = 1;
 	unsigned int iface = mld_idx_iface(mld, ifx);
+	uint32_t mode = mdex_file_sb(f)->st_mode & 0777;
 	net_treehead_t hdr = {
 		.data = htobe64((uint64_t)mdex_file_sb(f)->st_size),
 		.size = htobe64(treesz),
 		.blocksz = htobe32(mtree_blocksz(tree)),
 		.chan = net_send_channels,
-		.pkts = htobe32(howmany(treesz, DATA_FIXED))
+		.pkts = htobe32(howmany(treesz, DATA_FIXED)),
+		.mode = htobe32(mode)
 	};
 	mld_grp_t check = {
 		.mld = mld,
@@ -888,7 +893,7 @@ int net_sync(int *argc, char *argv[])
 	}
 	have_data = ((sbd.st_mode & S_IFMT) == S_IFREG && sbd.st_size > 0);
 
-	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // TODO - set from packet data
+	sbd.st_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 	if ((sz_d = file_map(dst, &fdd, &dmap, len, PROT_READ|PROT_WRITE, &sbd)) == -1) {
 		goto err_0;
 	}
@@ -907,6 +912,11 @@ int net_sync(int *argc, char *argv[])
 		net_sync_trees(stree, dtree, q);
 	}
 	rc = 0;
+	if (g_perms) {
+		mode_t mode = mtree_getmode(stree);
+		fchmod(fdd, mode);
+		DEBUG("setting file mode = %07o", mode);
+	}
 err_1:
 	mtree_free(dtree);
 	free(ddst);

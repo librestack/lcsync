@@ -33,6 +33,8 @@ typedef struct net_treehead_s {
 	uint32_t	pkts;
 	/* channels used to send file (as power of 2) */
 	uint8_t		chan;
+	/* file permissions */
+	uint32_t	mode;
 	/* root hash of file */
 	unsigned char hash[HASHSIZE];
 } __attribute__((__packed__)) net_treehead_t;
@@ -82,7 +84,7 @@ void net_reset();
 /* blocking receive of tree from a librecast socket
  * return bytes received or -1 on error
 If iov is NULL, allocate the receive buffer. */
-ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz);
+ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz, mode_t *mode);
 
 /* fetch tree on channel hash. Returns number of bytes received or -1 on error.
  * mtree_free(*tree) when done */

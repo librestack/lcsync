@@ -25,6 +25,7 @@ struct mtree_tree {
 	size_t len;		/* total size of base (file) data */
 	size_t lvls;		/* count of levels in tree */
 	size_t nodes;		/* count of total nodes in tree */
+	mode_t mode;		/* file mode */
 	char  *data;		/* ptr to the base data */
 	unsigned char *tree;	/* ptr to tree data == data(0) */
 };
@@ -391,6 +392,17 @@ err_nomem_0:
 	free(q.done);
 	errno = ENOMEM;
 	return -1;
+}
+
+mode_t mtree_getmode(mtree_tree *tree)
+{
+	return tree->mode;
+}
+
+mode_t mtree_setmode(mtree_tree *tree, mode_t mode)
+{
+	tree->mode = mode;
+	return tree->mode;
 }
 
 void mtree_settree(mtree_tree *tree, unsigned char *ptr)

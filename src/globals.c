@@ -11,6 +11,8 @@ int DELAY = 0;
 int dryrun = 0;
 int hex = 0;
 int mld_enabled = 1;
+int g_archive = 0;
+int g_perms = 0;
 int quiet = 0;
 int verbose = 0;
 char *progname;

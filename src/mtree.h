@@ -129,6 +129,10 @@ char *mtree_blockn(mtree_tree *tree, size_t n);
 /* build/update tree */
 int mtree_build(mtree_tree *tree, char *data, job_queue_t *jobq);
 
+/* get/set file mode */
+mode_t mtree_getmode(mtree_tree *tree);
+mode_t mtree_setmode(mtree_tree *tree, mode_t mode);
+
 /* set pointer to tree */
 void mtree_settree(mtree_tree *tree, unsigned char *ptr);
 
