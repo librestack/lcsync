@@ -41,6 +41,7 @@ int main(void)
 	}
 
 	/* timer ticks down */
+	usleep(1000);
 	t = mld_filter_timer_get(mld, iface, addr[0]);
 	test_assert(t > MLD_TIMEOUT - 1, "timer set %i", t);
 	usleep(1500000);
