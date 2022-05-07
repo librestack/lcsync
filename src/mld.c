@@ -1,5 +1,6 @@
-/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only */
 /* Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net> */
+
 #define _GNU_SOURCE /* required for struct in6_pktinfo */
 #include "mld_pvt.h"
 #include "log.h"

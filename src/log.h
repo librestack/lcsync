@@ -1,10 +1,10 @@
-/* SPDX-License-Identifier: GPL-3.0-or-later
+/* SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only
  *
  * log.h
  *
  * this file is part of LIBRESTACK
  *
- * Copyright (c) 2012-2021 Brett Sheffield <bacs@librecast.net>
+ * Copyright (c) 2012-2022 Brett Sheffield <bacs@librecast.net>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
