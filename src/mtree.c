@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Copyright (c) 2020-2021 Brett Sheffield <bacs@librecast.net> */
+/* Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net> */
 
 #include <assert.h>
 #include <errno.h>
@@ -512,54 +512,57 @@ size_t mtree_blocks_subtree(mtree_tree *tree, size_t root)
 	return max - min + 1;
 }
 
+/* set map bits for leaf node */
+static unsigned char *leafnode(unsigned char *map, mtree_tree *t1,
+		size_t root, size_t node, unsigned bits, int set_node)
+{
+	size_t blen = mtree_blockn_len(t1, node);
+	unsigned bitcount = howmany(blen, t1->blocksz / bits);
+	if (set_node) node = mtree_node_offset_subtree(node, root);
+	for (unsigned i = 0; i < bitcount; i++) {
+		setbit(map, node * bits + i);
+	}
+	return map;
+}
+
 /* perform bredth-first search of subtree, return bitmap */
 unsigned char *mtree_diff_subtree(mtree_tree *t1, mtree_tree *t2, size_t root, unsigned bits)
 {
-	size_t base, child, n;
 	job_queue_t *q;
 	job_t *job;
+	size_t base, child, node;
 	unsigned char *map = NULL;
+
 	if (!memcmp(mtree_nnode(t1, root), mtree_nnode(t2, root), HASHSIZE))
 		return NULL; /* subtree root matches, stop now */
 	base = mtree_blocks_subtree(t1, root);
-	n = (base + (CHAR_BIT - 1)) / CHAR_BIT;
+	node = (base + (CHAR_BIT - 1)) / CHAR_BIT;
 	map = calloc(bits, base);
 	child = mtree_child(t1, root);
-	if (!child) { /* leaf node */
-		n = mtree_node_offset_subtree(n, root);
-		size_t blen = mtree_block_len(t1, n);
-		unsigned j = howmany(blen, t1->blocksz / bits);
-		for (unsigned i = 0; i < j; i++) {
-			setbit(map, n * bits + i);
-		}
-		return map;
+	if (!child) {
+		node = mtree_node_offset_subtree(node, root);
+		return leafnode(map, t1, root, node, bits, 0);
 	}
 	q = job_queue_create(0);
 	job_push_new(q, NULL, &child, sizeof child, NULL, JOB_COPY);
 	child++;
 	job_push_new(q, NULL, &child, sizeof child, NULL, JOB_COPY);
 	while ((job = job_shift(q))) {
-		n = *(size_t *)job->arg;
-		if (memcmp(mtree_nnode(t1, n), mtree_nnode(t2, n), HASHSIZE)) {
-			child = mtree_child(t1, n);
+		node = *(size_t *)job->arg;
+		if (memcmp(mtree_nnode(t1, node), mtree_nnode(t2, node), HASHSIZE)) {
+			child = mtree_child(t1, node);
 			if (child) {
 				job_push_new(q, NULL, &child, sizeof child, NULL, JOB_COPY);
 				child++;
 				job_push_new(q, NULL, &child, sizeof child, NULL, JOB_COPY);
 			}
-			else { /* leaf node, update bitmap */
-				size_t blen = mtree_blockn_len(t1, n);
-				n = mtree_node_offset_subtree(n, root);
-				unsigned j = howmany(blen, t1->blocksz / bits);
-				for (unsigned i = 0; i < j; i++) {
-					setbit(map, n * bits + i);
-				}
-			}
+			else leafnode(map, t1, root, node, bits, 1);
 		}
 		free(job->arg);
 		free(job);
 	}
 	job_queue_destroy(q);
+
 	return map;
 }
 
