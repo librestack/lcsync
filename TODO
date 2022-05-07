@@ -1,7 +1,6 @@
 NEXT ACTIONS:
 ----------------------------------------------------------------------
 * remove unneeded DEBUG
-* cleanup obsolete tests
 * net_send_subtree() / net_send_data() - return bytes or -1
 * code review, API
 * send file permissions - set in net_sync()
@@ -31,3 +30,4 @@ NEXT ACTIONS:
 * merge MLD into librecast API
 * simplified (non-SIMD) MLD from lcroute
 * SSE*/AVX/AVX2 dispatcher, function pointers etc.
+* improved test harness

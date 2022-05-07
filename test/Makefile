@@ -45,14 +45,11 @@ build:
 0000-0047.%: CAPS = cap_net_raw=eip
 0000-0051.%: CAPS = cap_net_raw=eip
 0000-0058.%: CAPS = cap_net_raw=eip
-0000-0060.%: CAPS = cap_net_raw=eip
-0000-0061.%: CAPS = cap_net_raw=eip
 0000-0062.%: CAPS = cap_net_raw=eip
 0000-0064.%: CAPS = cap_net_raw=eip
 0000-0065.%: CAPS = cap_net_raw=eip
 0000-0066.%: CAPS = cap_net_raw=eip
 0000-0067.%: CAPS = cap_net_raw=eip
-0000-0069.%: CAPS = cap_net_raw=eip
 0000-0070.%: CAPS = cap_net_raw=eip
 0000-0071.%: CAPS = cap_net_raw=eip
 
