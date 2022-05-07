@@ -1,53 +1,33 @@
 NEXT ACTIONS:
-
-* socket interface list
-* socket channel list
-* send/recv all listed interfaces ALL/list/default
-* fix bugs in net sync
-
-* MLD trigger - > index lookup & send (check subscription each loop)
-* net_job_send_tree() - handle multiple interfaces (send all or mld requested)
-* file indexing -> lmdb
-* fix 0035 bug
-* run tests in separate namespace
-
 ----------------------------------------------------------------------
-* check we're only using one lctx, not re-creating it (send/recv)
-* net_sync_trees() - get channel # to use from sender
-* SSE*/AVX/AVX2 dispatcher, function pointers etc.
-* bredth-first search.
-* # channels should be set by sender - receiver gets channel info with tree
-* reduce verbosity of sender/receiver modes
+* remove unneeded DEBUG
+* cleanup obsolete tests
+* net_send_subtree() / net_send_data() - return bytes or -1
+* code review, API
+* send file permissions - set in net_sync()
 * sharding
 * indexing
-* improve / extend librecast API with supporting functions
-* MLD triggering - don't send when noone listening (add MLD functions to librecast API)
 * directory syncing
-* net_dump() (implement --hex for network files)
-* build without bsd/md5.h on Ubuntu
-* send file permissions - set in net_sync()
+* improve / extend librecast API with supporting functions
 * man page - output from help
-* resizing of merkle tree for changing data
-* handle -- in options
-* handle - to input from stdin
+* man pages for each function
+* net_dump() (implement --hex for network files)
 * FEC
 * flow control
 * (Linux) eBPF
 * channel interleaving
 * verify tree when received, update map and continue receiving if tree invalid
-* remove unneeded DEBUG
 * ratelimit kbps
 * work out network saturation %
 * stats - calculate transfer speed bps etc.
-* net_send_subtree() / net_send_data() - return bytes or -1
 * detect hotplug interfaces
 * gettext - international msgs
 * peer to peer - reshare files - de-duping of multiple sends
 * atomic replication via temporary file and mv - COW?
 * encryption, obviously
-* chroot
-* container API (cgroups, namespaces)
 * document all our headers etc in RFC format with header structures mapped out in ASCII
-* man pages for each function
+* resizing of merkle tree for changing data
 * merge file/net/mtree into librecast API
 * merge MLD into librecast API
+* simplified (non-SIMD) MLD from lcroute
+* SSE*/AVX/AVX2 dispatcher, function pointers etc.
