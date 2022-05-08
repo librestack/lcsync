@@ -251,8 +251,6 @@ static int mdex_file(const char *fpath, const struct stat *sb, int typeflag, str
 
 		// TODO check if mtree exists - compare mtime of file and mtree
 
-		// TODO index blocks
-
 		sem_wait(&g_mdex->lock);
 		g_mdex->files++;
 		g_mdex->bytes += sb->st_size;
@@ -290,8 +288,6 @@ int mdex_files(mdex_t *mdex, int argc, char *argv[])
 		argc++;
 		argv = cwd;
 	}
-
-	// TODO TODO TODO
 
 	sigaction(SIGINT, &sa_int, NULL);
 
