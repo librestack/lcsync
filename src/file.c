@@ -30,10 +30,8 @@ ssize_t file_map(char *filename, int *fd, char **map, off_t sz, int prot, struct
 		oflag = O_RDWR;
 		flags = MAP_SHARED;
 	}
-	if (sz) {
-		oflag |= O_CREAT;
-		mode = sb->st_mode;
-	}
+	oflag |= O_CREAT;
+	mode = sb->st_mode;
 	if ((*fd = open(filename, oflag, mode)) == -1) {
 		if (errno != EISDIR) perror("open");
 		return -1;

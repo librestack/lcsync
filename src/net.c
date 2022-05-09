@@ -115,6 +115,10 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz, mode_t *mode
 		}
 		FTRACE("%s(): recv %zi bytes", __func__, msglen);
 		hdr = (net_treehead_t *)buf;
+		sz = (size_t)be64toh(hdr->size);
+		*blocksz = be32toh(hdr->blocksz);
+		*mode = be32toh(hdr->mode);
+		if (!sz) return 0;
 		if (!bitmap) {
 			pkts = be32toh(hdr->pkts);
 			if (!pkts) {
@@ -132,8 +136,6 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz, mode_t *mode
 			if (mod) bitmap[maplen - 1] = (1U << (mod)) - 1;
 			printmap(bitmap, pkts);
 		}
-		sz = (size_t)be64toh(hdr->size);
-		*blocksz = be32toh(hdr->blocksz);
 		if (!iov->iov_base) {
 			if (!(iov->iov_base = calloc(1, sz))) {
 				perror("malloc()");
@@ -143,7 +145,6 @@ ssize_t net_recv_tree(int sock, struct iovec *iov, size_t *blocksz, mode_t *mode
 			iov[0].iov_len = sz;
 			iov[1].iov_len = (size_t)be64toh(hdr->data);
 		}
-		*mode = be32toh(hdr->mode);
 		idx = (size_t)be32toh(hdr->idx);
 		off = be32toh(hdr->idx) * DATA_FIXED;
 		len = (size_t)be32toh(hdr->len);
@@ -181,7 +182,7 @@ ssize_t net_fetch_tree(unsigned char *hash, mtree_tree **tree)
 	if (lc_channel_bind(sock, chan) || lc_channel_join(chan)) goto err_3;
 	s = lc_socket_raw(sock);
 	byt = net_recv_tree(s, iov, &blocksz, &mode);
-	if (running && byt > 0) {
+	if (running && byt >= 0) {
 		DEBUG("%s(): tree received (%zi bytes)", __func__, byt);
 		*tree = mtree_create(iov[1].iov_len, blocksz);
 		mtree_settree(*tree, iov[0].iov_base);
@@ -216,15 +217,16 @@ ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov,
 	size_t idx = 0;
 	net_treehead_t *hdr = iov[0].iov_base;
 	struct msghdr msgh = {0};
-	hdr->pkts = htobe32(howmany(iov[1].iov_len, DATA_FIXED));
+	if (len)
+		hdr->pkts = htobe32(howmany(iov[1].iov_len, DATA_FIXED));
 	char *data = calloc(1, len);
 	if (!data) {
 		perror("calloc");
 		return -1;
 	}
 	memcpy(data, iov[1].iov_base, len);
-	while (running && len && net_check_mld_filter(check)) {
-		sz = (len > DATA_FIXED) ? DATA_FIXED : len;
+	while (running && net_check_mld_filter(check)) {
+		sz = (len && len > DATA_FIXED) ? DATA_FIXED : len;
 		iov[1].iov_len = sz;
 		iov[1].iov_base = data + off;
 		msgh.msg_iov = iov;
@@ -666,7 +668,7 @@ static void net_send_file_tree(mdex_file_t *f, mld_t *mld, unsigned int ifx, str
 	lc_socket_setopt(sock, IPV6_MULTICAST_LOOP, &on, sizeof on);
 	lc_channel_bind(sock, chan);
 
-	memcpy(&hdr.hash, mtree_root(tree), HASHSIZE);
+	if (mtree_len(tree)) memcpy(&hdr.hash, mtree_root(tree), HASHSIZE);
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 
@@ -912,15 +914,17 @@ int net_sync(int *argc, char *argv[])
 	len = mtree_len(stree);
 	dtree = mtree_create(len, blocksz);
 
-	if (have_data) {
-		mtree_build(dtree, dmap, NULL);
-		if (mtree_verify(dtree, mtree_treelen(dtree))) goto err_1;
-	}
-	else {
-		mtree_setdata(dtree, dmap);
-	}
-	if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
-		net_sync_trees(stree, dtree, q);
+	if (len) {
+		if (have_data) {
+			mtree_build(dtree, dmap, NULL);
+			if (mtree_verify(dtree, mtree_treelen(dtree))) goto err_1;
+		}
+		else {
+			mtree_setdata(dtree, dmap);
+		}
+		if (memcmp(mtree_root(stree), mtree_root(dtree), HASHSIZE)) {
+			net_sync_trees(stree, dtree, q);
+		}
 	}
 	rc = 0;
 	if (g_perms) {

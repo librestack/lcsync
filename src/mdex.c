@@ -221,10 +221,11 @@ static int mdex_file_mtree(mdex_t *mdex, mdex_file_t *file)
 		return -1;
 
 	file->tree = mtree_create(sz_s, blocksize);
-	mtree_build(file->tree, smap, mdex->q);
-
-	file_unmap(smap, sz_s, fds);
-	mtree_setdata(file->tree, NULL);
+	if (sz_s) {
+		mtree_build(file->tree, smap, mdex->q);
+		file_unmap(smap, sz_s, fds);
+		mtree_setdata(file->tree, NULL);
+	}
 
 	return 0;
 }

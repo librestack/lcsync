@@ -425,13 +425,15 @@ mtree_tree *mtree_create(size_t len, size_t blocksz)
 	}
 	tree->blocksz = blocksz;
 	tree->len = len;
-	tree->nchunks = len / blocksz + !!(len % blocksz);
-	tree->base = next_pow2(tree->nchunks);
-	tree->lvls = mtree_levels(tree->base);
-	tree->nodes = mtree_size(tree->base);
-	if (len && mtree_resize(tree)) {
-		mtree_free(tree);
-		tree = NULL;
+	if (len) {
+		tree->nchunks = len / blocksz + !!(len % blocksz);
+		tree->base = next_pow2(tree->nchunks);
+		tree->lvls = mtree_levels(tree->base);
+		tree->nodes = mtree_size(tree->base);
+		if (mtree_resize(tree)) {
+			mtree_free(tree);
+			tree = NULL;
+		}
 	}
 	return tree;
 }
@@ -448,8 +450,9 @@ int mtree_verify(mtree_tree *tree, size_t len)
 	unsigned char hash[HASHSIZE];
 	unsigned char *parent;
 	hash_state state;
-	if (tree == NULL || !len) return -1;
-	if (tree->tree == NULL || !len) return -1;
+	if (tree == NULL) return -1;
+	if (!len) return 0; /* zero-length tree */
+	if (tree->tree == NULL) return -1;
 	if (len % HASHSIZE) return -1;
 	parent = mtree_node(tree, 1, 0);
 	for (size_t i = 0; i < tree->nodes - 1; i += 2) {
