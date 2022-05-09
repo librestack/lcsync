@@ -754,7 +754,18 @@ static void net_join(mld_watch_t *event, mld_watch_t *watch)
 		net_queue_job(mdex, event, (mdex_file_t *)data, node, &net_job_mdex_send_tree);
 	}
 	else if (type == MDEX_SUBTREE || type == MDEX_BLOCK) {
-		net_queue_job(mdex, event, (mdex_file_t *)data, node, &net_job_mdex_send_subtree);
+		mdex_file_t *file = (mdex_file_t *)data;
+		char *smap;
+		char *fpath = mdex_file_fpath(file);
+		struct stat *sb = mdex_file_sb(file);
+		ssize_t sz_s;
+		int fds;
+		if ((sz_s = file_map(fpath, &fds, &smap, 0, PROT_READ, sb)) == -1) {
+			ERROR("unable to map file '%s'", fpath);
+			return;
+		}
+		mtree_setdata(mdex_file_tree(file), smap);
+		net_queue_job(mdex, event, file, node, &net_job_mdex_send_subtree);
 	}
 	else return;
 }

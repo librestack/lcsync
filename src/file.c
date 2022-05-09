@@ -51,7 +51,9 @@ ssize_t file_map(char *filename, int *fd, char **map, off_t sz, int prot, struct
 	}
 	*map = mmap(NULL, st_size, prot, flags, *fd, 0);
 	if (*map == MAP_FAILED) {
+		if (errno == EINVAL) return 0;
 		perror("mmap");
+		ERROR("unable to mmap '%s'", filename);
 		return -1;
 	}
 	return st_size;
