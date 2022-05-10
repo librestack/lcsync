@@ -242,6 +242,7 @@ ssize_t net_send_tree(lc_channel_t *chan, size_t vlen, struct iovec *iov,
 		FTRACE("%zi bytes sent (mtree)", rc);
 		byt += rc;
 		if (DELAY) usleep(DELAY);
+		if (!len) break;
 	}
 	free(data);
 	return byt;
