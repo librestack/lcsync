@@ -209,7 +209,9 @@ size_t mtree_nodes(mtree_tree *tree)
 
 unsigned char *mtree_root(mtree_tree *tree)
 {
-	return mtree_node(tree, mtree_lvl(tree) - 1, 0);
+	size_t lvl = mtree_lvl(tree);
+	if (!lvl) return NULL;
+	return mtree_node(tree, lvl - 1, 0);
 }
 
 unsigned char *mtree_data(mtree_tree *tree, size_t n)

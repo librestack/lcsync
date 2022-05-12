@@ -276,7 +276,7 @@ static void *net_job_send_tree(void *arg)
 		.chan = net_send_channels,
 		.pkts = htobe32(howmany(data->iov[0].iov_len, DATA_FIXED))
 	};
-	memcpy(&hdr.hash, data->hash, HASHSIZE);
+	if (mtree_len(tree)) memcpy(&hdr.hash, data->hash, HASHSIZE);
 	iov[0].iov_base = &hdr;
 	iov[0].iov_len = sizeof hdr;
 	while (running) {
