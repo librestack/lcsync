@@ -1,10 +1,18 @@
 # lcsync - Librecast Multicast Sync Tool
 
+<a href="https://librecast.net/lcsync.html"><img height="150" align="left" src="https://librecast.net/media/lcsync.svg" alt="lcsync logo"></a>
+
+<a href="https://opensource.org"><img height="150" align="right" src="https://opensource.org/files/OSIApprovedCropped.png" alt="Open Source Initiative Approved License logo"></a>
+
+
 Work in progress.
 
 Librecast file and data syncing tool.
 
+https://librecast.net/lcsync.html
+
 Compare data with merkle trees, sync via multicast.
+
 
 ## File Syncing
 
@@ -60,3 +68,19 @@ Now we can run `make test` and `sudo make cap` in our test namespace.
 ## License
 
 GPLv2 or (at your option) GPLv3
+
+<hr />
+
+<p class="bigbreak">
+This project was funded through the <a href="https://nlnet.nl/discovery"> NGI0 Discovery </a> Fund, a fund established by NLnet with financial support from the European
+Commission's <a href="https://ngi.eu">Next Generation Internet</a> programme, under the aegis of DG Communications Networks, Content and Technology under grant agreement No 825322. *Applications are still open, you can <a href="https://nlnet.nl/propose">apply today</a>*
+</p>
+
+<p>
+  <a href="https://nlnet.nl/project/LibrecastLive/">
+      <img width="250" src="https://nlnet.nl/logo/banner.png" alt="Logo NLnet: abstract logo of four people seen from above" class="logocenter" />
+  </a>
+  <a href="https://ngi.eu/">
+      <img width="250" align="right" src="https://nlnet.nl/image/logos/NGI0_tag.png" alt="Logo NGI Zero: letterlogo shaped like a tag" class="logocenter" />
+  </a>
+</p>
