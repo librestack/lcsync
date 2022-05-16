@@ -59,4 +59,4 @@ Now we can run `make test` and `sudo make cap` in our test namespace.
 
 ## License
 
-GPLv3+
+GPLv2 or (at your option) GPLv3
