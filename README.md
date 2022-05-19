@@ -21,15 +21,38 @@ Data is compared by generating a merkle tree using blake2s hashes.
 For local file syncing we walk the trees and compare the hashes to find which
 data blocks are different.
 
-When sending across a network, the source (sender) chooses how many multicast
-groups (channels) to use as a power of 2 and divides the data chunks to send
-according to the matching level of the merkle tree, sending data for that
-portion of the tree on a channel created from the appropriate node hash.
+To sync remote files, each file is split into blocks and a merkle tree is built
+by hashing the blocks using BLAKE2S. On the sending/server side, this tree is
+sent on Librecast Channel (IPv6 multicast group) that is formed from the hash of
+the filename.  The receiver/client joins this channel, and receives the tree.
+If the client already has some data to compare, it builds a merkle tree of the
+destination file and uses this to quickly compare which blocks differ. It builds
+a bitmap with this information, and then joins the Channel(s) for the block(s)
+required which are sent by the server.
 
-The merkle tree data is also sent on a loop on the channel which matches the
-root hash of the file.  NB: if only one data channel is in use, this is going to
-conflict, so we hash in an extra flag to mark it as tree data when forming the
-channel hash.
+There is no unicast communication with the server. There are no requests sent,
+and the server can sit behind a firewall which is completely closed to inbound
+TCP and UDP traffic.  Instead, the server listens on a raw socket for Multicast
+Listener Discovery (MLD2) reports. It compares any MLD multicast group JOINs
+against the index it built on startup and finds matches for file (tree) and
+blocks. In this way, the server only sends data when at least one client is
+subscribed.  If further clients want to download the data, the server need take
+no further action.  Thus, the load on the server does not change at all,
+regardless of whether there is one client or a billion.
+
+*lcsync* uses an experimental form of MLD triggering.  Instead of using
+linked-lists for tracking multicast groups, as the Linux kernel does, I wanted
+to test something more scalable. There can potentially be 2^112 multicast groups
+in IPv6, so beyond a certain point the O(n) search on a linked-list does not
+scale. lcsync uses SIMD (CPU vector operations) to implement counted bloom
+filters, as well as what I'm calling a "bloom timer", which lets us track active
+multicast groups in O(1) constant time.  This works, but has the drawback that
+even for 0 active groups, CPU usage is constant. The size of the bloom filters
+can be tuned depending on the expected number of simultaneous groups.  It really
+only makes sense to use this approach for a large number or groups. For smaller
+numbers of groups, a binary tree or even a linked-list such as the Linux kernel
+uses is more appropriate.  The option to use a simpler structure will be added
+in a future release.
 
 ## Usage
 
@@ -45,17 +68,57 @@ Fetch remote file, save as localfile in current directory:
 
 `lcsync remote ./localfile`
 
+or
+
+`lcsync share/dir/file ./localfile`
+
+The following command fetches share/dir/file from the network and saves it as `/tmp/oot/file`:
+
+`lcsync share/dir/file /tmp/oot/`
+
 Serve local file:
 
 `lcsync /path/to/localfile`
 
-Serve local file "./somefile" as alias "easy2type":
+Serve local directory files. lcsync will index and serve all files under the
+source directory:
 
-`lcsync ./somefile easy2type`
+`lcsync /path/to/files/`
 
-and fetch that file:
+## Options
 
-`lcsync easy2type`
+--blocksz integer
+: hash file in /integer/ sized chunks
+
+-c / --channels integer
+: maximum number of channels (multicast groups) to use when syncing
+
+--delay integer
+: delay between packeets in microseconds
+
+-n / --dry-run
+: don't copy any data
+
+--hex
+: dump file hashes in hex
+
+--loglevel integer
+: set loglevel
+
+--mld
+: use MLD triggering
+
+-q / --quiet
+: shhh - we're hunting wabbits
+
+-v / --verbose
+: increase verbosity
+
+-a / --archive
+: set archive options [presently only -p]
+
+-p / --perms
+: set file permissions on destination
 
 ## Testing
 
