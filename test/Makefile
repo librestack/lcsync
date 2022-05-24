@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only
 # Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net>
 
-SHELL := /bin/bash
+SHELL := bash
 CAPS = ""
 CFLAGS += -O2 -Wall -Wextra -Wpedantic -g -fno-builtin-malloc -fno-builtin-calloc
 NOTOBJS := ../src/$(PROGRAM).o ../src/mdextest.o
 OBJS := test.o falloc.o $(filter-out $(NOTOBJS), $(wildcard ../src/*.o))
-LDFLAGS := -lm -ldl -pthread -llibrecast -llmdb
+LDFLAGS := -lm -ldl -pthread -llibrecast
 BOLD := "\\e[0m\\e[2m"
 RESET := "\\e[0m"
 PASS = "\\e[0m\\e[32mOK\\e[0m" # end bold, green text
@@ -38,9 +38,6 @@ build:
 	@echo -e "$(TIMESTAMP) - starting tests" >> $(LOGFILE)
 	@echo -e "\nRunning tests"
 
-0000-0027.%: LDFLAGS += -lbsd
-
-#0000-0046.%: SHELL = capsh --is-uid=0 --caps=cap_net_raw+eip -- -c
 0000-0046.%: CAPS = cap_net_raw=eip
 0000-0047.%: CAPS = cap_net_raw=eip
 0000-0051.%: CAPS = cap_net_raw=eip
