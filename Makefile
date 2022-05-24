@@ -2,7 +2,7 @@
 # Copyright (c) 2020-2022 Brett Sheffield <bacs@librecast.net>
 
 SHELL := bash
-CFLAGS := -Wall -Wextra -Wpedantic -g
+CFLAGS := -Wall -Wextra -Wpedantic -g -ffile-prefix-map=$(CURDIR)=.
 CFLAGS-CLANG := -Wno-gnu-zero-variadic-macro-arguments
 export CFLAGS
 INSTALLDIR := /usr/local/bin
