@@ -12,6 +12,7 @@ exec_prefix := $(prefix)
 bindir := $(exec_prefix)/bin
 LDFLAGS += -lm -pthread -llibrecast
 OBJS = $(PROGRAM).o arg.o file.o globals.o help.o job.o log.o mdex.o misc.o mld.o mtree.o net.o opt.o vec.o
+SETCAP_PROGRAM ?= setcap
 
 all:		$(PROGRAM)
 
@@ -23,7 +24,7 @@ misc.o:		misc.h
 install:        all
 		$(INSTALL) -d $(DESTDIR)$(bindir)
 		$(INSTALL_PROGRAM) $(PROGRAM) $(DESTDIR)$(bindir)/$(PROGRAM)
-		setcap cap_net_raw=eip $(DESTDIR)$(bindir)/$(PROGRAM)
+		$(SETCAP_PROGRAM) cap_net_raw=eip $(DESTDIR)$(bindir)/$(PROGRAM)
 
 .PHONY: clean realclean setcap
 
